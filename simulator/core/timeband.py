@@ -1,0 +1,111 @@
+# -----------------------------------------------------------------------------
+# 파일명 : simulator/core/timeband.py
+# 목적   : 시간대 가중치(time_weights) 적용 유틸
+# 사용   : runner에서 현재 시간(Asia/Seoul) 기준 multiplier를 선택해 RPS에 곱함
+# 설명   : profiles/*.yaml 의 time_weights 스펙:
+#   - [{ range: "0-7", weight: [0.2, 0.4] }, ...]
+#   - weight_mode: uniform | mid | low | high
+# -----------------------------------------------------------------------------
+
+from __future__ import annotations
+from typing import List, Dict, Tuple
+from dataclasses import dataclass
+from zoneinfo import ZoneInfo
+from datetime import datetime
+import random
+
+
+KST = ZoneInfo("Asia/Seoul")
+
+
+@dataclass
+class Band:
+    """시간대 범위와 [min,max] 가중치."""
+    start: int
+    end: int
+    w_min: float
+    w_max: float
+
+    def contains(self, hour: int) -> bool:
+        """해당 band가 hour(KST)를 포함하는지 확인."""
+        return self.start <= hour <= self.end
+
+
+def _parse_range(r: str) -> Tuple[int, int]:
+    """
+    "8-11" 같은 범위를 (8, 11)로 파싱.
+
+    Args:
+        r: "start-end" 형태 문자열(0~23 범위)
+
+    Returns:
+        (start, end)
+    """
+    s, e = r.split("-")
+    return int(s), int(e)
+
+
+def load_bands(raw_bands: List[Dict]) -> List[Band]:
+    """
+    프로파일의 time_weights 배열을 Band 리스트로 변환한다.
+
+    Args:
+        raw_bands: [{range:"0-7", weight:[0.2,0.4]}, ...]
+
+    Returns:
+        List[Band]: 사용 가능한 band 목록
+    """
+    bands: List[Band] = []
+    for item in raw_bands or []:
+        start, end = _parse_range(str(item.get("range", "0-23")))
+        w = item.get("weight", [0.1, 0.3])
+        w_min = float(w[0])
+        w_max = float(w[1]) if len(w) > 1 else w_min
+        bands.append(Band(start, end, w_min, w_max))
+    return bands
+
+
+def current_hour_kst(now: datetime | None = None) -> int:
+    """
+    현재 KST(Asia/Seoul) 시간의 시(hour)를 반환.
+
+    Args:
+        now: 테스트/주입용 시각(UTC 또는 naive). None이면 현재 시각 사용.
+
+    Returns:
+        int: 0 ~ 23
+    """
+    if now is None:
+        now = datetime.now(tz=KST)
+    else:
+        # naive거나 TZ가 없으면 KST로 가정
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=KST)
+        else:
+            now = now.astimezone(KST)
+    return now.hour
+
+
+def pick_multiplier(bands: List[Band], hour_kst: int, mode: str = "uniform") -> float:
+    """
+    현재 시각(KST)에 해당하는 band에서 multiplier를 선택한다.
+
+    Args:
+        bands: Band 리스트(load_bands 결과)
+        hour_kst: 0~23
+        mode: "uniform" | "mid" | "low" | "high"
+
+    Returns:
+        float: multiplier (기본 1.0)
+    """
+    for b in bands:
+        if b.contains(hour_kst):
+            if mode == "mid":
+                return (b.w_min + b.w_max) / 2.0
+            if mode == "low":
+                return b.w_min
+            if mode == "high":
+                return b.w_max
+            # uniform
+            return random.uniform(b.w_min, b.w_max)
+    return 1.0  # 매칭되는 band가 없으면 1.0

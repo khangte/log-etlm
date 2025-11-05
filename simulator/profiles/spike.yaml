@@ -1,0 +1,48 @@
+# -----------------------------------------------------------------------------
+# 파일명: spike.yaml
+# 목적 : log-fore 시뮬레이터의 "스파이크/고부하" 프로파일 설정
+# 사용 : python -m simulator.main --profile simulator/profiles/spike.yaml
+# 오버라이드:
+#   - --rps, --duration 으로 이 파일의 rps/duration_sec 값을 일시 변경 가능
+#
+# 차이점(대비 baseline):
+#   - 더 짧은 duration, 더 높은 기본 rps
+#   - bursts가 더 공격적(짧은 구간에 큰 변동)
+#   - error_rate를 조금 더 높게 설정(실패/에러 관측 강화 목적)
+#
+# 필드 설명은 baseline.yaml과 동일:
+#   duration_sec, rps, mix, error_rate, bursts, time_weights, weight_mode, env
+#
+# 동작 우선순위(러너 구현 기준):
+#   base rps --(time_weights 곱)--> rps_now --(bursts 적용 시 교체)--> 최종 rps
+# -----------------------------------------------------------------------------
+
+duration_sec: 180          # 3분
+rps: 1200                  # 기본 RPS를 높게
+
+mix:
+  auth: 0.15
+  order: 0.45
+  payment: 0.30
+  notify: 0.10
+
+error_rate:
+  auth: 0.02
+  order: 0.03
+  payment: 0.05
+  notify: 0.01
+
+bursts:
+  - { at_sec: 30,  rps: 2200 }
+  - { at_sec: 90,  rps: 800 }
+  - { at_sec: 150, rps: 1500 }
+
+time_weights:
+  - { range: "0-7",   weight: [0.30, 0.50] }
+  - { range: "8-11",  weight: [0.20, 0.40] }
+  - { range: "12-13", weight: [0.10, 0.20] }
+  - { range: "14-18", weight: [0.20, 0.40] }
+  - { range: "19-23", weight: [0.25, 0.45] }
+
+weight_mode: "uniform"
+env: "dev"

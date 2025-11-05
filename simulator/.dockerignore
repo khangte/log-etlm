@@ -1,0 +1,37 @@
+# -----------------------------------------------------------------------------
+# 파일명 : simulator/.dockerignore
+# 목적   : Docker build context에서 불필요한 파일 제외(빌드 시간/이미지 크기 최적화)
+# -----------------------------------------------------------------------------
+
+# VCS/메타
+.git
+.gitignore
+.gitattributes
+README.md
+
+# 가상환경/패키지 캐시
+.venv
+venv
+env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info
+pip-wheel-metadata
+.dist
+
+# OS/IDE 잡파일
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+
+# 로컬 실행 아티팩트/로그
+*.log
+*.out
+*.tmp
+
+# 테스트/샘플 데이터 (필요 시 주석 처리)
+tests/
+tmp/
