@@ -1,2 +1,0 @@
-1. simulator.py 코드 리뷰
-2. generator.py 코드 리뷰
