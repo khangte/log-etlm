@@ -11,17 +11,50 @@
 
 from __future__ import annotations
 from typing import Any, Optional
+import sys
 
-# ✅ SSOT에서 Producer만 가져와 사용 (직접 confluent-kafka 감지/폴백 제거)
-from simulator.core.kafka import Producer
+# 가용하면 confluent-kafka 사용, 아니면 폴백
+try:
+    from confluent_kafka import Producer as _CKProducer  # type: ignore
+    _USE_CK = True
+except Exception:
+    _CKProducer = None
+    _USE_CK = False
+
+
+class _DummyProducer:
+    """
+    Kafka 라이브러리가 없을 때를 위한 아주 간단한 폴백 구현.
+    - produce() 호출 시 표준출력에 한 줄 로그만 남긴다.
+    - flush()는 no-op.
+    """
+    def __init__(self, *_args, **_kwargs) -> None:
+        print("[producer] confluent-kafka not found → using DummyProducer (stdout only).", file=sys.stderr)
+
+    def produce(self, topic: str, key: Optional[bytes], value: bytes, on_delivery=None) -> None:
+        # 너무 시끄럽지 않게, 토픽/키 길이/바이트 수만 출력
+        klen = len(key) if key else 0
+        print(f"[produce:dummy] topic={topic} key_len={klen} value_len={len(value)}")
+
+    def flush(self, timeout: float | None = None) -> None:
+        return None
+
 
 def build_producer(config: dict[str, Any]):
     """
-    simulator.core.kafka의 Producer를 사용해 프로듀서를 생성한다.
-    - SIM_SINK=stdout: _StdoutProducer
-    - SIM_SINK=kafka : confluent_kafka.Producer (설치 시)
+    Kafka 프로듀서를 생성한다.
+    - confluent-kafka가 설치되어 있으면 실제 Producer를,
+      없으면 DummyProducer를 반환한다.
+
+    Args:
+        config: core.kafka.get_producer_config() 결과
+
+    Returns:
+        object: confluent_kafka.Producer 또는 _DummyProducer
     """
-    return Producer(config)  # type: ignore[call-arg]
+    if _USE_CK:
+        return _CKProducer(config)
+    return _DummyProducer()
 
 
 def produce(prod, *, topic: str, key: str | bytes | None, value: str | bytes) -> None:
