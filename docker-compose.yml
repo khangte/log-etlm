@@ -1,13 +1,13 @@
 # -----------------------------------------------------------------------------
 # 파일명 : docker-compose.yml
-# 목적   : 로컬 POC용 zookeeper + Kafka + Kafka UI + Fluent Bit + simulator 실행
+# 목적   : 로컬 POC용 Kafka + Kafka UI + Fluent Bit + simulator 실행
 # 사용법 :
 #   # 1) 브로커 + UI만 띄우기
-#   docker compose up -d zookeeper kafka kafka-ui fluent-bit
+#   docker compose up -d kafka kafka-ui fluent-bit
 #
 #   # 2) 시뮬레이터까지 함께
 #   #    (기본은 stdout로 내보내도록 SIM_SINK=stdout 설정. kafka로 바꾸려면 kafka)
-#   docker compose up -d zookeeper kafka kafka-ui fluent-bit simulator
+#   docker compose up -d kafka kafka-ui fluent-bit simulator
 #   docker compose exec simulator \
 #     python -m simulator.main --profile simulator/profiles/baseline.yaml --duration 60
 #
@@ -17,19 +17,6 @@
 #   - Kafka UI: http://localhost:8080
 # -----------------------------------------------------------------------------
 services:
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.6.1
-    container_name: zookeeper
-    restart: unless-stopped
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports: ["2181:2181"]
-    networks: [logforge-net]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
-
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
@@ -104,9 +91,10 @@ services:
     # 호스트의 Docker 컨테이너 로그를 읽어 tail (Linux 표준 경로)
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./dev/fluent-bit/storage:/fluent-bit/storage
-      - ./dev/fluent-bit/state:/fluent-bit/state
-      - ./dev/fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+      - ./fluent-bit/storage:/fluent-bit/storage
+      - ./fluent-bit/state:/fluent-bit/state
+      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+
     environment:
       TZ: Asia/Seoul
     networks: [logforge-net]
