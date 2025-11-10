@@ -59,6 +59,8 @@ class _StdoutProducer:
         on_delivery=None,
         **kwargs: Any,
     ) -> None:
+        # value를 문자열이면 그대로, JSON문자열이면 json.loads로 객체 변환 (value가 '객체'가 됨)
+
         # value 직렬화 (dict -> JSON, str -> 그대로, bytes -> UTF-8 가정)
         # if isinstance(value, dict):
         #     payload_str = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
