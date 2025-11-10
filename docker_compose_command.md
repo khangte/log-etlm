@@ -1,5 +1,5 @@
 # ================================
-# Docker Compose 명령어 치트시트 (V2)
+# Docker Compose 명령어 치트시트
 # ================================
 # 전제: Docker Compose V2 (`docker compose …`)
 # 참고: <>는 사용자 값으로 교체
