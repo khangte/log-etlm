@@ -34,29 +34,38 @@ services:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
     restart: unless-stopped
-    depends_on: [zookeeper]
-    ports: ["29092:29092"] # 호스트에서 접속할 외부 포트
+    ports: ["29092:29092"]
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # 리스너 정의(내부용/외부용)
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092
-      # 컨테이너 내부에서는 kafka:9092, 호스트(또는 다른 기기)에서는 <VM_IP>:29092 로 안내
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
-      # VM 외부에서 접속할 거면 위의 localhost를 VM_IP로 바꾸세요 (예: 192.168.0.10:29092)
-      # KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://192.168.0.10:29092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      # 로컬 단일 브로커 기본값들
+      # KRaft 필수
+      CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"
+
+      # KRaft 역할/노드/리스너
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093"
+      # 외부 접속 필요 시 localhost → <VM_IP> 로 교체
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      # 단일 브로커 기본값
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      # 데이터 경로 명시
-      KAFKA_LOG_DIRS: /var/lib/kafka/data
+
+      # ★ 로그/메타데이터 경로(메타데이터 경로를 명시적으로 지정)
+      KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
+      KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
+
+      # ★ JVM 힙(정수 단위로) — 이전의 -Xmx1.5g 오류 방지
+      KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
     volumes:
-      - /data/kafka:/var/lib/kafka/data
+      - /data/kafka-logs:/var/lib/kafka/logs
+      - /data/kafka-meta:/var/lib/kafka/metadata
     ulimits:
       nofile: { soft: 100000, hard: 100000 }
     networks: [logforge-net]
@@ -65,9 +74,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
