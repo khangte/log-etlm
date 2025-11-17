@@ -11,6 +11,7 @@
 from __future__ import annotations
 from typing import Dict, Any, List, Tuple
 import copy # copy 모듈 추가
+import json # json 모듈 추가
 import math
 import time
 
@@ -158,15 +159,16 @@ def run(
                         # producer.produce(prod, topic=topics["dlq"], key=..., value=...errs...)
 
                     key = ev.get("rid", "")
-                    # val = json.dumps(ev, ensure_ascii=False) # producer가 직접 직렬화
-                    producer.produce(prod, topic=topics.get(svc, f"logs.{svc}"), key=key, value=ev)
+                    val = json.dumps(ev, ensure_ascii=False) # producer가 직접 직렬화
+                    producer.produce(prod, topic=topics.get(svc, f"logs.{svc}"), key=key, value=val)
 
                     # 에러 복제 발행 옵션
                     if replicate_error_to_topic and ev.get("lvl") == "E":
                         # 에러 복제본 생성: svc 필드를 "error"로 교체
                         err_ev = copy.deepcopy(ev)
                         err_ev["svc"] = "error"
-                        producer.produce(prod, topic=topics["error"], key=key, value=err_ev)
+                        val_err = json.dumps(err_ev, ensure_ascii=False)
+                        producer.produce(prod, topic=topics["error"], key=key, value=val_err)
 
             stats.add_sent(svc, len(batch))
 
