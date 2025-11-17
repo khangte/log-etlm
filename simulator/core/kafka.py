@@ -1,14 +1,7 @@
-# -----------------------------------------------------------------------------
-# 파일명 : simulator/core/kafka.py
-# 목적   : Kafka 관련 설정/유틸만 별도 모듈로 분리
-# 사용   : runner/producer 등에서 import하여 토픽/프로듀서 설정 접근
-# 주의   : .env 사용 금지. 이 파일이 Kafka 설정의 단일 진실 소스(SSOT)
-# -----------------------------------------------------------------------------
-
 from __future__ import annotations
 from typing import Dict, Any, Optional
 import os, sys, json
-from datetime import datetime, timezone
+# from datetime import datetime, timezone # _ts 함수 제거로 불필요
 
 # ===== 브로커/클라이언트/토픽 =====
 # 컨테이너 간 통신 기본값은 kafka:9092 (호스트에서 쓸 땐 localhost:29092 등으로 교체)
@@ -38,8 +31,7 @@ SECURITY: Dict[str, Any] | None = None
 # ===== 전송 스위치 =====
 SINK: str = os.environ.get("SIM_SINK", "kafka").lower()  # stdout | kafka
 
-def _ts() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+# _ts 함수 제거 (envelope 생성 로직 제거로 불필요)
 
 # ----- stdout 전송용 더미 Producer (confluent_kafka.Producer와 인터페이스 유사) -----
 class _StdoutProducer:
@@ -52,54 +44,21 @@ class _StdoutProducer:
 
     def produce(
         self,
-        topic: str,
+        topic: str, # 실제 사용되지는 않지만 인터페이스 유지를 위해 남겨둠
         value: Optional[bytes | str | dict] = None,
-        key: Optional[bytes | str] = None,
+        key: Optional[bytes | str] = None, # 실제 사용되지는 않지만 인터페이스 유지를 위해 남겨둠
         on_delivery=None,
         **kwargs: Any,
     ) -> None:
-        # value를 문자열이면 그대로, JSON문자열이면 json.loads로 객체 변환 (value가 '객체'가 됨)
-
-        # value 직렬화 (dict -> JSON, str -> 그대로, bytes -> UTF-8 가정)
-        # if isinstance(value, dict):
-        #     payload_str = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-        # elif isinstance(value, bytes):
-        #     payload_str = value.decode("utf-8", errors="replace")
-        # elif value is None:
-        #     payload_str = ""
-        # else:
-        #     payload_str = str(value)
-
-        # 주의: 최소 침습을 위해 envelope 추가 없이 "원본 payload"만 출력
-        # line = payload_str
-
-        # 필요 시 토픽/키/타임스탬프를 함께 남기고 싶다면 아래 주석 해제
-        # value 직렬화 준비
+        # value를 JSON 문자열로 변환
         if isinstance(value, dict):
-            payload = value                       # dict는 그대로 담음
+            line = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
         elif isinstance(value, bytes):
-            payload = value.decode("utf-8", errors="replace")
+            line = value.decode("utf-8", errors="replace")
         elif value is None:
-            payload = ""
+            line = ""
         else:
-            payload = str(value)
-
-        try:
-            payload = json.loads(payload)  # 문자열이면 객체로 변환
-        except Exception:
-            pass  # JSON 아니면 그대로 문자열 유지
-            
-        # ✅ envelope 켜기: ts/topic/key/value 를 하나의 JSON 라인으로 출력
-        line = json.dumps(
-            {
-                "ts": _ts(),
-                "topic": topic,
-                "key": (key.decode() if isinstance(key, (bytes, bytearray)) else key),
-                "value": payload,
-            },
-            ensure_ascii=False,
-            separators=(",", ":"),
-        )
+            line = str(value)
 
         sys.stdout.write(line + "\n")
         sys.stdout.flush()
@@ -107,6 +66,7 @@ class _StdoutProducer:
         # on_delivery 콜백이 넘어오면 성공 콜백 호출 모사
         if callable(on_delivery):
             try:
+                # topic 인자를 사용하지 않으므로, 임의의 topic을 전달
                 on_delivery(None, type("Msg", (), {"topic": lambda: topic})())  # err, msg
             except Exception:
                 pass

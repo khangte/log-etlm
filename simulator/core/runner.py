@@ -10,7 +10,7 @@
 
 from __future__ import annotations
 from typing import Dict, Any, List, Tuple
-import json
+import copy # copy 모듈 추가
 import math
 import time
 
@@ -149,7 +149,6 @@ def run(
                 # 너무 시끄러우니 샘플 몇 개만 출력
                 print(f"[dry-run] {svc} n={len(batch)} example={batch[0] if batch else None}")
             else:
-                topic = topics.get(svc, f"logs.{svc}")
                 for ev in batch:
                     ok, errs = schema.validate(ev)
                     if not ok:
@@ -159,12 +158,15 @@ def run(
                         # producer.produce(prod, topic=topics["dlq"], key=..., value=...errs...)
 
                     key = ev.get("rid", "")
-                    val = json.dumps(ev, ensure_ascii=False)
-                    producer.produce(prod, topic=topic, key=key, value=val)
+                    # val = json.dumps(ev, ensure_ascii=False) # producer가 직접 직렬화
+                    producer.produce(prod, topic=topics.get(svc, f"logs.{svc}"), key=key, value=ev)
 
                     # 에러 복제 발행 옵션
                     if replicate_error_to_topic and ev.get("lvl") == "E":
-                        producer.produce(prod, topic=topics["error"], key=key, value=val)
+                        # 에러 복제본 생성: svc 필드를 "error"로 교체
+                        err_ev = copy.deepcopy(ev)
+                        err_ev["svc"] = "error"
+                        producer.produce(prod, topic=topics["error"], key=key, value=err_ev)
 
             stats.add_sent(svc, len(batch))
 

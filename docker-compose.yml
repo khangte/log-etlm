@@ -97,7 +97,7 @@ services:
       # 여기서는 이미지 빌드 전에 코드에서 kafka:9092로 수정하는 걸 권장.
       - PYTHONUNBUFFERED=1
       # 기본값: stdout 로깅 → Fluent Bit가 tail해서 Kafka로 보냄
-      - SIM_SINK=stdout         # stdout | kafka
+      - SIM_SINK=kafka         # stdout | kafka
       # kafka 사용 시 내부 부트스트랩 주소
       - KAFKA_BOOTSTRAP=kafka:9092
       - TZ=Asia/Seoul
