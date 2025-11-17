@@ -81,27 +81,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  fluent-bit:
-    image: fluent/fluent-bit:4.0.13
-    container_name: fluent-bit
-    restart: unless-stopped
-    depends_on:
-      kafka:
-        condition: service_healthy
-    # 호스트의 Docker 컨테이너 로그를 읽어 tail (Linux 표준 경로)
-    volumes:
-      - /var/lib/docker/containers:/var/lib/docker/containers:ro
-      - ./fluent-bit/storage:/fluent-bit/storage
-      - ./fluent-bit/state:/fluent-bit/state
-      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-
-    environment:
-      TZ: Asia/Seoul
-    networks: [logforge-net]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
-
   simulator:
     # 시뮬레이터 컨테이너(옵션). 기본 CMD는 dry-run 10초.
     build:
@@ -136,3 +115,25 @@ services:
 networks:
   logforge-net:
     driver: bridge
+
+# ====== fluent-bit ======
+  # fluent-bit:
+  #   image: fluent/fluent-bit:4.0.13
+  #   container_name: fluent-bit
+  #   restart: unless-stopped
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   # 호스트의 Docker 컨테이너 로그를 읽어 tail (Linux 표준 경로)
+  #   volumes:
+  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
+  #     - ./fluent-bit/storage:/fluent-bit/storage
+  #     - ./fluent-bit/state:/fluent-bit/state
+  #     - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
+
+  #   environment:
+  #     TZ: Asia/Seoul
+  #   networks: [logforge-net]
+  #   logging:
+  #     driver: json-file
+  #     options: { max-size: "10m", max-file: "5" }
