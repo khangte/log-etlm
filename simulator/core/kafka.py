@@ -36,8 +36,7 @@ SECURITY: Dict[str, Any] | None = None
 # }
 
 # ===== 전송 스위치 =====
-# 기본: stdout → Fluent Bit가 수집해서 Kafka로 보냄
-SINK: str = os.environ.get("SIM_SINK", "stdout").lower()  # stdout | kafka
+SINK: str = os.environ.get("SIM_SINK", "kafka").lower()  # stdout | kafka
 
 def _ts() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
