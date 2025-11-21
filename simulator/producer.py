@@ -47,8 +47,19 @@ def produce(prod, *, topic: str, key: str | bytes | None, value: str | bytes) ->
     else:
         vbytes = value
 
-    # confluent-kafka의 경우 콜백을 넣을 수 있지만, 여기선 생략(단순화)
-    prod.produce(topic=topic, key=kbytes, value=vbytes)  # type: ignore[attr-defined]
+    # --- BufferError 대비: flush 후 한 번 재시도 ---
+    try:
+        prod.produce(topic=topic, key=kbytes, value=vbytes)  # type: ignore[attr-defined]
+        prod.poll(0)  # 내부 콜백 처리용
+    except BufferError:
+        # 내부 큐가 가득 찬 경우 → 잠깐 비우고 한 번 더 시도
+        try:
+            prod.flush(1.0)  # 최대 1초 동안 큐 비우기
+        except Exception:
+            # StdoutProducer일 수도 있으니 조용히 무시
+            pass
+        # 한 번 더 시도 (여기서 또 실패하면 그대로 예외 올라가게 둠)
+        prod.produce(topic=topic, key=kbytes, value=vbytes)  # type: ignore[attr-defined
 
 
 def flush_safely(prod) -> None:
