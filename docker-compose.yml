@@ -1,13 +1,12 @@
 # -----------------------------------------------------------------------------
 # 파일명 : docker-compose.yml
-# 목적   : 로컬 POC용 Kafka + Kafka UI + Fluent Bit + simulator 실행
+# 목적   : 로컬 POC용 Kafka + Kafka UI + simulator 실행
 # 사용법 :
 #   # 1) 브로커 + UI만 띄우기
-#   docker compose up -d kafka kafka-ui fluent-bit
+#   docker compose up -d kafka kafka-ui
 #
 #   # 2) 시뮬레이터까지 함께
-#   #    (기본은 stdout로 내보내도록 SIM_SINK=stdout 설정. kafka로 바꾸려면 kafka)
-#   docker compose up -d kafka kafka-ui fluent-bit simulator
+#   docker compose up -d kafka kafka-ui simulator
 #   docker compose exec simulator \
 #     python -m simulator.main --profile simulator/profiles/baseline.yaml --duration 60
 #
@@ -85,11 +84,13 @@ services:
     # 시뮬레이터 컨테이너(옵션). 기본 CMD는 dry-run 10초.
     build:
       context: .
-      dockerfile: simulator/Dockerfile
+      dockerfile: log_gateway/Dockerfile
     container_name: simulator
     depends_on:
       kafka:
         condition: service_healthy
+    ports: ["8000:8000"]
+    restart: unless-stopped
     environment:
       # 현재 코드는 상수로 localhost:9092를 쓰지만,
       # 컨테이너 간 통신 시 kafka:9092가 맞다.
@@ -102,12 +103,13 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       - TZ=Asia/Seoul
     networks: [logforge-net]
-    # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/simulator 덮어쓰기)
+    # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/log_gateway 덮어쓰기)
     volumes:
-      - ./simulator:/app/simulator:ro
+      - ./log_gateway:/app/log_gateway:ro
     # 커맨드 오버라이드는 실행 시점에 하세요.
     # command: ["python", "-m", "simulator.main", "--profile", "simulator/profiles/baseline.yaml", "--duration", "60"]
-    command: ["python", "-m", "simulator.main", "--profile", "simulator/profiles/baseline.yaml"]
+    # command: ["python", "-m", "simulator.main", "--profile", "simulator/profiles/baseline.yaml"]
+    command: ["uvicorn", "log_gateway.main:app", "--log-config", "--host", "0.0.0.0", "--port", "8000"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
