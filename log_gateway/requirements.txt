@@ -1,9 +1,9 @@
 # -----------------------------------------------------------------------------
-# 파일명 : simulator/requirements.txt
-# 목적   : 시뮬레이터가 필요로 하는 파이썬 패키지 목록
+# 파일명 : log_gateway/requirements.txt
+# 목적   : FastAPI 앱 + 시뮬레이터가 필요로 하는 파이썬 패키지 목록
 # 비고   :
 #   - PyYAML: profiles/routes 로딩
-#   - confluent-kafka: Kafka 프로듀서(있으면 사용, 없으면 DummyProducer로 폴백)
+#   - confluent-kafka: Kafka 프로듀서
 #   - (선택) typing-extensions 등은 최신 파이썬에선 불필요
 #   - 버전은 안정 버전 권장. 특정 조직 규정에 맞춰 핀(PIN) 가능.
 # -----------------------------------------------------------------------------

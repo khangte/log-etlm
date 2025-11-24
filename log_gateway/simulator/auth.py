@@ -1,7 +1,13 @@
+# -----------------------------------------------------------------------------
+# 파일명 : log_gateway/simulator/auth.py
+# 목적   : 인증 도메인 요청 패턴을 흉내 내는 시뮬레이터 구현
+# 설명   : routes.yml 기반으로 경로/메서드를 선택하고 profile.error_rate 에 맞춰 성공/실패 로그 생성
+# -----------------------------------------------------------------------------
+
 from __future__ import annotations
 import random
 from typing import Any, Dict, List
-from .common import BaseServiceSimulator
+from .base import BaseServiceSimulator
 
 class AuthSimulator(BaseServiceSimulator):
     """
@@ -22,7 +28,7 @@ class AuthSimulator(BaseServiceSimulator):
         """
         super().__init__(routes, profile)
 
-    def generate_one(self) -> Dict[str, Any]:
+    def generate_log_one(self) -> Dict[str, Any]:
         """
         auth 로그 1건 생성.
 
@@ -39,7 +45,7 @@ class AuthSimulator(BaseServiceSimulator):
         event = "LoginFailed" if is_err else "LoginSucceeded"
 
         return {
-            "ts":  self.now_utc_iso(),
+            "ts":  self.now_kst_iso(),
             "svc": self.service_name,
             "lvl": "E" if is_err else "I",
             "rid": self.new_request_id(),

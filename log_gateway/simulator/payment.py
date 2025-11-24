@@ -1,7 +1,13 @@
+# -----------------------------------------------------------------------------
+# 파일명 : log_gateway/simulator/payment.py
+# 목적   : 결제 도메인 트랜잭션 로그를 모사하는 시뮬레이터 클래스
+# 설명   : profile.error_rate에 따른 실패 분포와 routes.yml에 따른 경로/메서드 조합으로 이벤트 생성
+# -----------------------------------------------------------------------------
+
 from __future__ import annotations
 import random
 from typing import Any, Dict, List
-from .common import BaseServiceSimulator
+from .base import BaseServiceSimulator
 
 class PaymentSimulator(BaseServiceSimulator):
     """
@@ -21,7 +27,7 @@ class PaymentSimulator(BaseServiceSimulator):
         """
         super().__init__(routes, profile)
 
-    def generate_one(self) -> Dict[str, Any]:
+    def generate_log_one(self) -> Dict[str, Any]:
         """
         payment 로그 1건 생성.
 
@@ -37,7 +43,7 @@ class PaymentSimulator(BaseServiceSimulator):
         event = "PaymentFailed" if is_err else "PaymentAuthorized"
 
         return {
-            "ts":  self.now_utc_iso(),
+            "ts":  self.now_kst_iso(),
             "svc": self.service_name,
             "lvl": "E" if is_err else "I",
             "rid": self.new_request_id(),

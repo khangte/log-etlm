@@ -1,7 +1,13 @@
+# -----------------------------------------------------------------------------
+# 파일명 : log_gateway/simulator/notify.py
+# 목적   : 알림 서비스(notify)의 로그 패턴을 생성하는 시뮬레이터 구현
+# 설명   : routes.yml 라우트를 기반으로 NotificationSent/Failed 이벤트를 만들어 Kafka 발행용 payload 생성
+# -----------------------------------------------------------------------------
+
 from __future__ import annotations
 import random
 from typing import Any, Dict, List
-from .common import BaseServiceSimulator
+from .base import BaseServiceSimulator
 
 class NotifySimulator(BaseServiceSimulator):
     """
@@ -21,7 +27,7 @@ class NotifySimulator(BaseServiceSimulator):
         """
         super().__init__(routes, profile)
 
-    def generate_one(self) -> Dict[str, Any]:
+    def generate_log_one(self) -> Dict[str, Any]:
         """
         notify 로그 1건 생성.
 
@@ -37,7 +43,7 @@ class NotifySimulator(BaseServiceSimulator):
         event = "NotificationFailed" if is_err else "NotificationSent"
 
         return {
-            "ts":  self.now_utc_iso(),
+            "ts":  self.now_kst_iso(),
             "svc": self.service_name,
             "lvl": "E" if is_err else "I",
             "rid": self.new_request_id(),

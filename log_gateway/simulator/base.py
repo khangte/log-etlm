@@ -1,9 +1,16 @@
-# simulator/services/common.py
+# -----------------------------------------------------------------------------
+# 파일명 : log_gateway/simulator/base.py
+# 목적   : 서비스별 시뮬레이터가 공통으로 사용하는 베이스 클래스/유틸 정의
+# 설명   : 라우트/메서드 선택, 에러율 처리, request_id/UTC 시각 생성, 렌더링 등을 제공
+# -----------------------------------------------------------------------------
 from __future__ import annotations
 import random, uuid
 from typing import Any, Dict, List
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+import json
 
+KST = ZoneInfo("Asia/Seoul")
 
 class BaseServiceSimulator:
     """
@@ -11,13 +18,13 @@ class BaseServiceSimulator:
 
     역할
     - 라우트/HTTP 메서드 선택 로직 제공
-    - 공통 유틸(UTC ISO 시각, request_id 생성) 제공
+    - 공통 유틸(KST ISO 시각, UTC ISO 시각, request_id 생성) 제공
     - 배치 생성 템플릿(generate_batch) 제공
     - 에러율(error_rate) 기본 처리: profile.error_rate가 dict면 서비스명 키를 우선 사용,
       아니면 숫자 공통값을 사용
 
     사용 패턴
-    - 서브클래스에서 service_name을 설정하고, generate_one()만 구현하면 됨.
+    - 서브클래스에서 service_name을 설정하고, generate_log_one()만 구현하면 됨.
       예) class AuthSimulator(BaseServiceSimulator): service_name = "auth"
     """
 
@@ -27,7 +34,6 @@ class BaseServiceSimulator:
         """
         Args:
             routes: templates/routes.yml에서 서비스별로 로드한 라우트 리스트
-                예) [{"path": "/v1/login", "methods": ["POST"], "weight": 4}, ...]
             profile: profiles/*.yaml에서 로드한 시뮬레이션 프로파일(dict)
 
         Raises:
@@ -81,6 +87,13 @@ class BaseServiceSimulator:
         return random.choice(methods)
 
     @staticmethod
+    def now_kst_iso() -> str:
+        """
+        현재 KST 시각을 ISO8601 문자열로 반환한다. (초 단위, +09:00)
+        """
+        return datetime.now(KST).isoformat(timespec="seconds")
+
+    @staticmethod
     def now_utc_iso() -> str:
         """
         현재 UTC 시각을 ISO8601 문자열로 반환한다. (밀리초 없음, 접미사 Z)
@@ -102,7 +115,7 @@ class BaseServiceSimulator:
 
     # ---------- 생성 템플릿 ----------
 
-    def generate_one(self) -> Dict[str, Any]:
+    def generate_log_one(self) -> Dict[str, Any]:
         """
         단일 로그 이벤트를 생성한다.
         서브클래스에서 서비스 특화 로직으로 구현해야 한다.
@@ -113,7 +126,7 @@ class BaseServiceSimulator:
         """
         raise NotImplementedError
 
-    def generate_batch(self, count: int) -> List[Dict[str, Any]]:
+    def generate_logs_with_count(self, count: int) -> List[Dict[str, Any]]:
         """
         지정된 개수만큼 단일 이벤트를 생성해 리스트로 반환한다.
 
@@ -123,4 +136,10 @@ class BaseServiceSimulator:
         Returns:
             List[Dict[str, Any]]: 이벤트 목록
         """
-        return [self.generate_one() for _ in range(count)]
+        return [self.generate_log_one() for _ in range(count)]
+
+    def render(self, log: Dict[str, Any]) -> str:
+        """
+        시뮬레이터가 만든 dict 로그를 전송용 문자열(JSON)로 직렬화.
+        """
+        return json.dumps(log, ensure_ascii=False)

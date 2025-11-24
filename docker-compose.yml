@@ -1,14 +1,13 @@
 # -----------------------------------------------------------------------------
 # 파일명 : docker-compose.yml
-# 목적   : 로컬 POC용 Kafka + Kafka UI + simulator 실행
+# 목적   : Kafka(단일 KRaft) + Kafka UI + log_gateway FastAPI 시뮬레이터를 통합 기동
 # 사용법 :
 #   # 1) 브로커 + UI만 띄우기
 #   docker compose up -d kafka kafka-ui
 #
-#   # 2) 시뮬레이터까지 함께
+#   # 2) 시뮬레이터(API + 로그 제너레이터)가 Kafka로 이벤트를 쏘도록 함께 실행
 #   docker compose up -d kafka kafka-ui simulator
-#   docker compose exec simulator \
-#     python -m simulator.main --profile simulator/profiles/baseline.yaml --duration 60
+#   # simulator 컨테이너 내 API 핸들러/백그라운드 제너레이터는 uvicorn + run_generator 로 구동
 #
 # 포트 :
 #   - Kafka 외부접속(호스트): 29092
@@ -49,6 +48,8 @@ services:
 
       # ★ JVM 힙(정수 단위로) — 이전의 -Xmx1.5g 오류 방지
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
+      TZ: Asia/Seoul
+      KAFKA_OPTS: "-Duser.timezone=Asia/Seoul"
     volumes:
       - /data/kafka-logs:/var/lib/kafka/logs
       - /data/kafka-meta:/var/lib/kafka/metadata
@@ -81,7 +82,8 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
   simulator:
-    # 시뮬레이터 컨테이너(옵션). 기본 CMD는 dry-run 10초.
+    # 시뮬레이터 컨테이너(옵션). log_gateway FastAPI 앱을 uvicorn으로 실행하면서
+    # 백그라운드 로그 제너레이터가 Kafka로 이벤트를 전송한다.
     build:
       context: .
       dockerfile: log_gateway/Dockerfile
@@ -92,13 +94,9 @@ services:
     ports: ["8000:8000"]
     restart: unless-stopped
     environment:
-      # 현재 코드는 상수로 localhost:9092를 쓰지만,
-      # 컨테이너 간 통신 시 kafka:9092가 맞다.
-      # → 필요하면 simulator/core/kafka.py의 BROKERS를 'kafka:9092'로 바꿔 빌드.
-      # 여기서는 이미지 빌드 전에 코드에서 kafka:9092로 수정하는 걸 권장.
+      # log_gateway/producer.py 기본 BROKERS 값이 이미 kafka:9092로 잡혀있으므로
+      # 컨테이너 간 통신 시 그대로 사용하면 된다.
       - PYTHONUNBUFFERED=1
-      # 기본값: stdout 로깅 → Fluent Bit가 tail해서 Kafka로 보냄
-      - SIM_SINK=kafka         # stdout | kafka
       # kafka 사용 시 내부 부트스트랩 주소
       - KAFKA_BOOTSTRAP=kafka:9092
       - TZ=Asia/Seoul
@@ -106,10 +104,7 @@ services:
     # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/log_gateway 덮어쓰기)
     volumes:
       - ./log_gateway:/app/log_gateway:ro
-    # 커맨드 오버라이드는 실행 시점에 하세요.
-    # command: ["python", "-m", "simulator.main", "--profile", "simulator/profiles/baseline.yaml", "--duration", "60"]
-    # command: ["python", "-m", "simulator.main", "--profile", "simulator/profiles/baseline.yaml"]
-    command: ["uvicorn", "log_gateway.main:app", "--log-config", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }

@@ -1,10 +1,8 @@
 # -----------------------------------------------------------------------------
-# 파일명 : simulator/core/timeband.py
-# 목적   : 시간대 가중치(time_weights) 적용 유틸
-# 사용   : runner에서 현재 시간(Asia/Seoul) 기준 multiplier를 선택해 RPS에 곱함
-# 설명   : profiles/*.yaml 의 time_weights 스펙:
-#   - [{ range: "0-7", weight: [0.2, 0.4] }, ...]
-#   - weight_mode: uniform | mid | low | high
+# 파일명 : log_gateway/core/timeband.py
+# 목적   : profiles/*.yaml의 time_weights 설정을 Band 객체로 변환하고 multiplier 계산
+# 사용   : generator가 현재 시각(Asia/Seoul)에 맞는 배수를 선택해 RPS 조절
+# 설명   : range "0-7" + weight [min,max], weight_mode(uniform/mid/low/high) 지원
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations

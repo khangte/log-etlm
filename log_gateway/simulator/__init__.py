@@ -1,10 +1,8 @@
-"""
-services 패키지 초기화 및 클래스 레지스트리.
-
-- 각 도메인 시뮬레이터(Auth/Order/Payment/Notify)를 가져와 REGISTRY로 노출한다.
-- generator.py는 REGISTRY에서 클래스를 찾아 인스턴스를 생성하고,
-  generate_batch()를 호출해 배치를 만든다.
-"""
+# -----------------------------------------------------------------------------
+# 패키지 : log_gateway/simulator
+# 목적   : 도메인별 시뮬레이터(Auth/Order/Payment/Notify)와 REGISTRY 매핑 제공
+# 설명   : generator/api 가 REGISTRY를 참조해 각 서비스를 즉시 인스턴스화할 수 있도록 함
+# -----------------------------------------------------------------------------
 
 from .auth import AuthSimulator
 from .order import OrderSimulator

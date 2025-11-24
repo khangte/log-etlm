@@ -1,7 +1,13 @@
+# -----------------------------------------------------------------------------
+# 파일명 : log_gateway/simulator/order.py
+# 목적   : 주문 도메인의 주요 API 패턴을 기반으로 로그를 생성하는 시뮬레이터
+# 설명   : routes.yml 라우트와 profile.error_rate 를 이용해 성공/실패 분기, 이벤트명 추상화
+# -----------------------------------------------------------------------------
+
 from __future__ import annotations
 import random
 from typing import Any, Dict, List
-from .common import BaseServiceSimulator
+from .base import BaseServiceSimulator
 
 class OrderSimulator(BaseServiceSimulator):
     """
@@ -21,7 +27,7 @@ class OrderSimulator(BaseServiceSimulator):
         """
         super().__init__(routes, profile)
 
-    def generate_one(self) -> Dict[str, Any]:
+    def generate_log_one(self) -> Dict[str, Any]:
         """
         order 로그 1건 생성.
 
@@ -39,7 +45,7 @@ class OrderSimulator(BaseServiceSimulator):
         latency = round(random.uniform(80, 320) if is_err else random.uniform(30, 180), 2)
 
         return {
-            "ts":  self.now_utc_iso(),
+            "ts":  self.now_kst_iso(),
             "svc": self.service_name,
             "lvl": "E" if is_err else "I",
             "rid": self.new_request_id(),

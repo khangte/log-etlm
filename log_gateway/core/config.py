@@ -1,8 +1,7 @@
 # -----------------------------------------------------------------------------
-# 파일명 : simulator/core/config.py
-# 목적   : 시뮬레이터의 정적 리소스 경로와 로더 (프로파일/라우트)
-# 사용   : runner 등에서 load_profile(), load_routes() 호출
-# 주의   : Kafka 설정은 simulator/core/kafka.py로 분리됨
+# 파일명 : log_gateway/core/config.py
+# 목적   : log_gateway 앱의 정적 리소스 경로(templates/profiles) 및 YAML 로더 제공
+# 사용   : generator/API가 load_profile(), load_routes()로 시뮬레이션 설정을 읽어옴
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -11,9 +10,12 @@ from pathlib import Path
 import yaml
 
 # ===== 리소스 파일 경로 =====
-ROOT_DIR = Path(__file__).resolve().parents[2]   # repo 루트
-TEMPLATES_DIR = ROOT_DIR / "simulator" / "templates"
-PROFILES_DIR  = ROOT_DIR / "simulator" / "profiles"
+# config.py 위치 기준
+THIS_FILE = Path(__file__).resolve()
+ROOT_DIR = THIS_FILE.parents[2] # repo 루트
+APP_DIR = THIS_FILE.parents[1] # 앱 루트: log_gateway/
+TEMPLATES_DIR = ROOT_DIR / APP_DIR / "templates"
+PROFILES_DIR  = ROOT_DIR / APP_DIR / "profiles"
 
 ROUTES_FILE = TEMPLATES_DIR / "routes.yml"
 
