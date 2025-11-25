@@ -110,28 +110,19 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
+  spark:
+    build:
+      context: .
+      dockerfile: spark_job/Dockerfile
+    container_name: spark
+    restart: unless-stopped
+    depends_on:
+      - kafka
+    networks: [logforge-net]
+    volumes:
+      - ./spark_job:/app/spark_job:ro
+      - /data/spark_checkpoints:/data/spark_checkpoints
+
 networks:
   logforge-net:
     driver: bridge
-
-# ====== fluent-bit ======
-  # fluent-bit:
-  #   image: fluent/fluent-bit:4.0.13
-  #   container_name: fluent-bit
-  #   restart: unless-stopped
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   # 호스트의 Docker 컨테이너 로그를 읽어 tail (Linux 표준 경로)
-  #   volumes:
-  #     - /var/lib/docker/containers:/var/lib/docker/containers:ro
-  #     - ./fluent-bit/storage:/fluent-bit/storage
-  #     - ./fluent-bit/state:/fluent-bit/state
-  #     - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-
-  #   environment:
-  #     TZ: Asia/Seoul
-  #   networks: [logforge-net]
-  #   logging:
-  #     driver: json-file
-  #     options: { max-size: "10m", max-file: "5" }

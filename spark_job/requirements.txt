@@ -1,0 +1,3 @@
+# spark_job/requirements.txt
+
+pyspark==4.0.1
