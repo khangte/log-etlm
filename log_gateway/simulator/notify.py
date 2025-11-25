@@ -17,7 +17,7 @@ class NotifySimulator(BaseServiceSimulator):
     - 알림은 외부 연동 특성상 429/500 등으로 실패 분포를 약간 포함.
     """
 
-    service_name = "notify"
+    service = "notify"
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
         """
@@ -30,26 +30,24 @@ class NotifySimulator(BaseServiceSimulator):
     def generate_log_one(self) -> Dict[str, Any]:
         """
         notify 로그 1건 생성.
-
-        Returns:
-            Dict[str, Any]: {"ts","svc","lvl","rid","met","path","st","lat","evt"}
         """
-        r = self.pick_route(self.routes)
-        m = self.pick_method(r)
         is_err = (random.random() < self.error_rate)
+        route = self.pick_route(self.routes)
+        method = self.pick_method(route)
 
-        status = random.choice([500, 429, 400]) if is_err else random.choice([200, 202, 204])
-        latency = round(random.uniform(60, 300) if is_err else random.uniform(20, 120), 2)
-        event = "NotificationFailed" if is_err else "NotificationSent"
+        log = {
+            "timestamp":  self.now_kst_iso(),
+            "service": self.service,
+            "level": "ERROR" if is_err else "INFO",
+            "request_id": self.generate_request_id(),
+            "method": method,
+            "path": route["path"],
+            "status_code":  random.choice([500, 429, 400]) if is_err else random.choice([200, 202, 204]),
+            "latency": round(random.uniform(60, 300) if is_err else random.uniform(20, 120), 2),
+            "event": "NotificationFailed" if is_err else "NotificationSent",
 
-        return {
-            "ts":  self.now_kst_iso(),
-            "svc": self.service_name,
-            "lvl": "E" if is_err else "I",
-            "rid": self.new_request_id(),
-            "met": m,
-            "path": r["path"],
-            "st":  status,
-            "lat": latency,
-            "evt": event,
+            "user_id": self.generate_user_id(),
+            "notification_type": random.choice(["EMAIL", "SMS", "PUSH"]),
         }
+
+        return log

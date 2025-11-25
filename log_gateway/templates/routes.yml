@@ -33,10 +33,10 @@ routes:
   # 주문 도메인 (order)
   # --------------------------
   order:
-    - { path: "/orders",           methods: ["POST","GET"], weight: 6 }
-    - { path: "/orders/{id}",      methods: ["GET"],        weight: 3 }
-    - { path: "/orders/{id}/pay",  methods: ["POST"],       weight: 2 }
-    - { path: "/orders/{id}/cancel", methods: ["POST"],     weight: 1 }
+    - { path: "/orders",             methods: ["POST","GET"], weight: 6 }
+    - { path: "/orders/{id}",        methods: ["GET"],        weight: 3 }
+    - { path: "/orders/{id}/pay",    methods: ["POST"],       weight: 2 }
+    - { path: "/orders/{id}/cancel", methods: ["POST"],       weight: 1 }
 
   # --------------------------
   # 결제 도메인 (payment)

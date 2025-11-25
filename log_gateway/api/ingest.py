@@ -36,5 +36,5 @@ async def ingest_log(
     return {
         "service": service,
         "status": "queued",
-        "ts": BaseServiceSimulator.now_kst_iso(),
+        "timestamp": BaseServiceSimulator.now_kst_iso(),
     }

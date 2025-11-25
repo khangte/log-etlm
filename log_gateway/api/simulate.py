@@ -49,5 +49,5 @@ async def simulate_once(
     return {
         "service": service,
         "generated": generated,
-        "ts": BaseServiceSimulator.now_kst_iso(),
+        "timestamp": BaseServiceSimulator.now_kst_iso(),
     }

@@ -18,7 +18,7 @@ class AuthSimulator(BaseServiceSimulator):
     - 경로/메서드는 templates/routes.yml의 가중치(weight) 기반으로 선택한다.
     """
 
-    service_name = "auth"
+    service = "auth"
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
         """
@@ -31,27 +31,23 @@ class AuthSimulator(BaseServiceSimulator):
     def generate_log_one(self) -> Dict[str, Any]:
         """
         auth 로그 1건 생성.
-
-        Returns:
-            Dict[str, Any]: {"ts","svc","lvl","rid","met","path","st","lat","evt"}
         """
-        r = self.pick_route(self.routes)     # 가중치 기반 경로 선택
-        m = self.pick_method(r)              # 해당 경로의 HTTP 메서드 선택
         is_err = (random.random() < self.error_rate)
+        route = self.pick_route(self.routes)     # 가중치 기반 경로 선택
+        method = self.pick_method(route)         # 해당 경로의 HTTP 메서드 선택
 
-        # 상태/지연/이벤트 타입을 단순 분기
-        status = random.choice([401, 403, 429, 500]) if is_err else random.choice([200, 200, 204])
-        latency = round(random.uniform(60, 250) if is_err else random.uniform(20, 120), 2)
-        event = "LoginFailed" if is_err else "LoginSucceeded"
+        log = {
+            "timestamp":  self.now_kst_iso(),
+            "service": self.service,
+            "level": "ERROR" if is_err else "INFO",
+            "request_id": self.generate_request_id(),
+            "method": method,
+            "path": route["path"],
+            "status_code":  random.choice([401, 403, 429, 500]) if is_err else random.choice([200, 200, 204]),
+            "latency": round(random.uniform(60, 250) if is_err else random.uniform(20, 120), 2),
+            "event": "LoginFailed" if is_err else "LoginSucceeded",
 
-        return {
-            "ts":  self.now_kst_iso(),
-            "svc": self.service_name,
-            "lvl": "E" if is_err else "I",
-            "rid": self.new_request_id(),
-            "met": m,
-            "path": r["path"],
-            "st":  status,
-            "lat": latency,
-            "evt": event,
+            "user_id": self.generate_user_id(),
         }
+
+        return log

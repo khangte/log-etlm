@@ -4,11 +4,11 @@
 # 설명   : 라우트/메서드 선택, 에러율 처리, request_id/UTC 시각 생성, 렌더링 등을 제공
 # -----------------------------------------------------------------------------
 from __future__ import annotations
-import random, uuid
 from typing import Any, Dict, List
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import json
+from faker import Faker
 
 KST = ZoneInfo("Asia/Seoul")
 
@@ -24,11 +24,11 @@ class BaseServiceSimulator:
       아니면 숫자 공통값을 사용
 
     사용 패턴
-    - 서브클래스에서 service_name을 설정하고, generate_log_one()만 구현하면 됨.
-      예) class AuthSimulator(BaseServiceSimulator): service_name = "auth"
+    - 서브클래스에서 service을 설정하고, generate_log_one()만 구현하면 됨.
+      예) class AuthSimulator(BaseServiceSimulator): service = "auth"
     """
 
-    service_name: str = "base"
+    service: str = "base"
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
         """
@@ -43,11 +43,12 @@ class BaseServiceSimulator:
             raise ValueError("routes must be a list")
         self.routes = routes
         self.profile = profile
+        self.fake = faker.Faker()
 
         # error_rate 설정: dict면 서비스명 키, 숫자면 공통값
         er = profile.get("error_rate", 0.01)
         if isinstance(er, dict):
-            self.error_rate = float(er.get(self.service_name, 0.01))
+            self.error_rate = float(er.get(self.service, 0.01))
         else:
             self.error_rate = float(er)
 
@@ -103,15 +104,34 @@ class BaseServiceSimulator:
         """
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    @staticmethod
-    def new_request_id() -> str:
+    def generate_request_id(self) -> str:
         """
         요청 추적용 짧은 request_id를 생성한다.
 
         Returns:
             str: 예) "req_a1b2c3d4"
         """
-        return f"req_{uuid.uuid4().hex[:8]}"
+        return f"req_{fake.uuid4()}"
+
+    def generate_user_id(self) -> str:
+        """ 유저 ID 생성 (UUID 기반) """
+        return str(self.fake.uuid4())
+
+    def generate_product_id(self) -> int:
+        """ 상품 ID 생성 """
+        return random.randint(100000, 999999)
+
+    # def generate_order_id(self) -> int:
+    #     """ 주문 ID 생성 """
+    #     return random.randint(1000, 99999)
+
+    # def generate_payment_id(self) -> int:
+    #     """ 결제 ID 생성 """
+    #     return random.randint(1000, 99999)
+
+    # def generate_notification_id() -> int:
+    #     """ 알림 ID 생성 """
+    #     return random.randint(10000, 999999)
 
     # ---------- 생성 템플릿 ----------
 
@@ -122,7 +142,6 @@ class BaseServiceSimulator:
 
         Returns:
             Dict[str, Any]: 최소 스키마(9필드)를 만족하는 이벤트 딕셔너리
-                {"ts","svc","lvl","rid","met","path","st","lat","evt"}
         """
         raise NotImplementedError
 

@@ -17,7 +17,7 @@ class OrderSimulator(BaseServiceSimulator):
     - 실패 시 상태코드/지연을 넓게 분포시켜 장애 느낌을 준다.
     """
 
-    service_name = "order"
+    service = "order"
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
         """
@@ -30,28 +30,24 @@ class OrderSimulator(BaseServiceSimulator):
     def generate_log_one(self) -> Dict[str, Any]:
         """
         order 로그 1건 생성.
-
-        Returns:
-            Dict[str, Any]: {"ts","svc","lvl","rid","met","path","st","lat","evt"}
         """
-        r = self.pick_route(self.routes)
-        m = self.pick_method(r)
         is_err = (random.random() < self.error_rate)
+        route = self.pick_route(self.routes)
+        method = self.pick_method(route)
 
-        # 메서드 기반 간단 이벤트명
-        evt = "OrderCreated" if (m == "POST" and not is_err) else ("OrderQuery" if m == "GET" else "OrderOp")
+        log = {
+            "timestamp":  self.now_kst_iso(),
+            "service": self.service,
+            "level": "ERROR" if is_err else "INFO",
+            "request_id": self.generate_request_id(),
+            "method": method,
+            "path": route["path"],
+            "status":  random.choice([500, 422, 409]) if is_err else random.choice([200, 201, 204]),
+            "latency": round(random.uniform(80, 320) if is_err else random.uniform(30, 180), 2),
+            "event": "OrderCreated" if (method == "POST" and not is_err) else ("OrderQuery" if method == "GET" else "OrderOp"),
 
-        status = random.choice([500, 422, 409]) if is_err else random.choice([200, 201, 204])
-        latency = round(random.uniform(80, 320) if is_err else random.uniform(30, 180), 2)
-
-        return {
-            "ts":  self.now_kst_iso(),
-            "svc": self.service_name,
-            "lvl": "E" if is_err else "I",
-            "rid": self.new_request_id(),
-            "met": m,
-            "path": r["path"],
-            "st":  status,
-            "lat": latency,
-            "evt": evt,
+            "user_id": self.generate_user_id(),
+            "product_id": self.generate_product_id(),
         }
+
+        return log
