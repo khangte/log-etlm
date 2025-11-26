@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 import json
+import random
 from faker import Faker
 
 KST = ZoneInfo("Asia/Seoul")
@@ -43,7 +44,7 @@ class BaseServiceSimulator:
             raise ValueError("routes must be a list")
         self.routes = routes
         self.profile = profile
-        self.fake = faker.Faker()
+        self.fake = Faker()
 
         # error_rate 설정: dict면 서비스명 키, 숫자면 공통값
         er = profile.get("error_rate", 0.01)
@@ -111,7 +112,7 @@ class BaseServiceSimulator:
         Returns:
             str: 예) "req_a1b2c3d4"
         """
-        return f"req_{fake.uuid4()}"
+        return f"req_{self.fake.uuid4()}"
 
     def generate_user_id(self) -> str:
         """ 유저 ID 생성 (UUID 기반) """

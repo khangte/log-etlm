@@ -42,7 +42,7 @@ class OrderSimulator(BaseServiceSimulator):
             "request_id": self.generate_request_id(),
             "method": method,
             "path": route["path"],
-            "status":  random.choice([500, 422, 409]) if is_err else random.choice([200, 201, 204]),
+            "status_code":  random.choice([500, 422, 409]) if is_err else random.choice([200, 201, 204]),
             "latency": round(random.uniform(80, 320) if is_err else random.uniform(30, 180), 2),
             "event": "OrderCreated" if (method == "POST" and not is_err) else ("OrderQuery" if method == "GET" else "OrderOp"),
 

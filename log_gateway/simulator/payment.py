@@ -42,7 +42,7 @@ class PaymentSimulator(BaseServiceSimulator):
             "request_id": self.generate_request_id(),
             "method": method,
             "path": route["path"],
-            "status":  random.choice([400, 402, 408, 500]) if is_err else random.choice([200, 201, 204]),
+            "status_code":  random.choice([400, 402, 408, 500]) if is_err else random.choice([200, 201, 204]),
             "latency": round(random.uniform(100, 400) if is_err else random.uniform(40, 200), 2),
             "event": "PaymentFailed" if is_err else "PaymentAuthorized",
 
