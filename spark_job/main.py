@@ -37,15 +37,20 @@ def main():
     # 4) JSON 스키마 정의 (시뮬레이터 로그 기준)
     log_schema = T.StructType(
         [
-            T.StructField("ts", T.StringType(), True),
-            T.StructField("svc", T.StringType(), True),
-            T.StructField("lvl", T.StringType(), True),
-            T.StructField("rid", T.StringType(), True),
-            T.StructField("met", T.StringType(), True),
-            T.StructField("path", T.StringType(), True),
-            T.StructField("st", T.IntegerType(), True),
-            T.StructField("lat", T.DoubleType(), True),
-            T.StructField("evt", T.StringType(), True),
+            T.StructField("timestamp",   T.StringType(),  True),
+            T.StructField("service",     T.StringType(),  True),
+            T.StructField("level",       T.StringType(),  True),
+            T.StructField("request_id",  T.StringType(),  True),
+            T.StructField("method",      T.StringType(),  True),
+            T.StructField("path",        T.StringType(),  True),
+            T.StructField("status_code", T.IntegerType(), True),
+            T.StructField("latency",     T.DoubleType(),  True),
+            T.StructField("event",       T.StringType(),  True),
+
+            T.StructField("user_id",           T.StringType(),  True),
+            T.StructField("notification_type", T.StringType(),  True),
+            T.StructField("product_id",        T.IntegerType(), True),
+            T.StructField("amount",            T.IntegerType(), True),
         ]
     )
 
@@ -58,15 +63,19 @@ def main():
             "offset",
             "timestamp",
             "key",
-            F.col("json.ts").alias("ts"),
-            F.col("json.svc").alias("svc"),
-            F.col("json.lvl").alias("lvl"),
-            F.col("json.rid").alias("rid"),
-            F.col("json.met").alias("met"),
+            F.col("json.timestamp").alias("timestamp"),
+            F.col("json.service").alias("service"),
+            F.col("json.level").alias("level"),
+            F.col("json.request_id").alias("request_id"),
+            F.col("json.method").alias("method"),
             F.col("json.path").alias("path"),
-            F.col("json.st").alias("st"),
-            F.col("json.lat").alias("lat"),
-            F.col("json.evt").alias("evt"),
+            F.col("json.status_code").alias("status_code"),
+            F.col("json.latency").alias("latency"),
+            F.col("json.event").alias("event"),
+            F.col("json.user_id").alias("user_id"),
+            F.col("json.notification_type").alias("notification_type"),
+            F.col("json.product_id").alias("product_id"),
+            F.col("json.amount").alias("amount"),
         )
 
     # 6) 콘솔로 출력하는 스트리밍 쿼리
