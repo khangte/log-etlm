@@ -15,7 +15,6 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
 
     - 입력 DF: event_ts (TimestampType) 컬럼 포함
     - 출력 DF: 시간 단위 차원 테이블용 DF
-        - time_key   : HHMM (예: 9:30 -> 930)
         - hour       : 0~23
         - minute     : 0~59
         - second     : 0~59
@@ -31,11 +30,6 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
         .withColumn("second", F.second("event_ts").cast("int"))
     )
 
-    with_key = base.withColumn(
-        "time_key",
-        (F.col("hour") * F.lit(100) + F.col("minute")).cast("int"),
-    )
-
     with_bucket = with_key.withColumn(
         "time_of_day",
         F.when(F.col("hour").between(0, 5), F.lit("dawn"))
@@ -46,7 +40,7 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
 
     distinct_df = (
         with_bucket
-        .select("time_key", "hour", "minute", "second", "time_of_day")
+        .select("hour", "minute", "second", "time_of_day")
         .distinct()
     )
 
