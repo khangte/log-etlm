@@ -34,6 +34,3 @@ COPY log_gateway ./log_gateway
 # 비루트 권장 (선택)
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
-
-# 기본 실행(드라이런 10초): 실제 사용 시 "커맨드 오버라이드" 권장
-CMD ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]

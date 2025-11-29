@@ -36,5 +36,3 @@ ENV PYTHONPATH="/app"
 # 4) 비루트 유저
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
-
-CMD ["python3", "-m", "spark_job.main"]
