@@ -1,0 +1,13 @@
+# Grafana 시작 시 ClickHouse 대시보드 폴더를 자동으로 로드/관리하기 위한 설정
+apiVersion: 1
+
+providers:
+  - name: ClickHouse Analytics
+    uid: clickhouse-default-dashboards
+    folder: Analytics
+    type: file
+    disableDeletion: false
+    editable: true
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/dashboards
