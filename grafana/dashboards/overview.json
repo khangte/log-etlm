@@ -85,12 +85,7 @@
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 0
-      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
       "id": 1,
       "options": {
         "legend": {
@@ -121,67 +116,36 @@
       "type": "timeseries"
     },
     {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "서비스별 처리량/평균 지연/에러율",
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+      "description": "서비스별 요청량 추이를 확인합니다.",
       "fieldConfig": {
         "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto"
-          },
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "lineWidth": 2, "showPoints": "never", "spanNulls": true },
           "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 90
-              }
-            ]
-          }
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "req/min"
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 10,
-        "w": 24,
-        "x": 0,
-        "y": 10
-      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
       "id": 2,
       "options": {
-        "footer": {
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "frameIndex": 0,
-        "showHeader": true
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
       },
       "pluginVersion": "10.4.2",
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  count() AS total,\n  round(avg(latency), 2) AS avg_latency_ms,\n  round(countIf(status_code >= 500) * 100.0 / count(), 2) AS error_rate_pct\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY service\nORDER BY total DESC\nLIMIT 10",
+          "rawSql": "SELECT\n  toDateTime(\n    intDiv(\n      toUInt32(toUnixTimestamp(event_ts)),\n      greatest(intDiv($__interval_ms, 1000), 1)\n    ) * greatest(intDiv($__interval_ms, 1000), 1)\n  ) AS bucket,\n  service,\n  count() AS total\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY bucket, service\nORDER BY bucket, service",
           "refId": "A"
         }
       ],
-      "title": "서비스별 처리 현황",
-      "type": "table"
+      "title": "서비스별 요청량 추이",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -205,12 +169,7 @@
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 20
-      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
       "id": 3,
       "options": {
         "legend": {
@@ -244,68 +203,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "서비스별 최근 오류 통계 상위 10개",
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 5
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 29
-      },
-      "id": 4,
-      "options": {
-        "footer": {
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  countIf(status_code >= 500) AS errors,\n  round(countIf(status_code >= 500) * 100.0 / count(), 2) AS error_rate_pct\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY service\nHAVING errors > 0\nORDER BY errors DESC\nLIMIT 10",
-          "refId": "A"
-        }
-      ],
-      "title": "서비스별 5xx 상위 10개",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "시간대별 평균 지연(ms)",
       "fieldConfig": {
         "defaults": {
@@ -323,12 +220,7 @@
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 38
-      },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
       "id": 5,
       "options": {
         "legend": {
@@ -390,38 +282,35 @@
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 47
-      },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
       "id": 6,
       "options": {
-        "footer": {
-          "fields": "",
-          "reducer": [
-            "mean"
-          ],
-          "show": false
+        "legend": {
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true,
+          "values": [ "percent", "value" ]
         },
-        "showHeader": true
+        "pieType": "pie",
+        "reduceOptions": {
+          "calcs": [ "lastNotNull" ],
+          "fields": "",
+          "values": false
+        },
+        "tooltip": { "mode": "single", "sort": "none" }
       },
       "pluginVersion": "10.4.2",
       "targets": [
         {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  round(avg(latency), 2) AS avg_latency_ms,\n  round(quantile(0.95)(latency), 2) AS p95_latency_ms,\n  count() AS total\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY service\nHAVING total > 0\nORDER BY p95_latency_ms DESC\nLIMIT 10",
+          "rawSql": "SELECT\n  toDateTime(0) AS time,\n  service,\n  count() AS value\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY service\nORDER BY value DESC",
           "refId": "A"
         }
       ],
-      "title": "서비스별 지연 TOP 10",
-      "type": "table"
+      "title": "서비스별 비중",
+      "type": "piechart"
     }
   ],
   "refresh": "10s",
