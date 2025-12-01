@@ -123,6 +123,9 @@ async def run_generator() -> None:
 
         # 3-4) Kafka 비동기 발행 (실제로는 thread pool에서 publish_sync 실행)
         await producer.publish(service, payload)
+        if event.get("level") == "ERROR":
+            # ERROR 레벨 이벤트는 공통 error 토픽으로도 복제
+            await producer.publish("error", payload)
 
         # 통계 업데이트
         total += 1
