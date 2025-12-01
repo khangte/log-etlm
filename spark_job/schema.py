@@ -35,8 +35,8 @@ log_value_schema: T.StructType = T.StructType(
 fact_log_schema: T.StructType = T.StructType(
     [
         # 시간 관련
-        T.StructField("event_ts",  T.TimestampType(), False),  # timestamp -> 변환
-        T.StructField("ingest_ts", T.TimestampType(), False),  # Spark 적재 시각
+        T.StructField("event_ts",  T.TimestampType(), False),  # UTC timestamp
+        T.StructField("ingest_ts", T.TimestampType(), False),  # Spark 적재 시각(UTC)
 
         # 공통 메타 정보
         T.StructField("service",     T.StringType(), False),
