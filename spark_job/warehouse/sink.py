@@ -4,7 +4,7 @@ import traceback
 def write_to_clickhouse(df, table_name):
     try:
         print(f"[📥 ClickHouse] Writing to {table_name}")
-        df.show(1, truncate=False)
+        # df.show(1, truncate=False)
 
         df.write \
             .format("jdbc") \
