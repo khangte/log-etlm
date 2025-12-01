@@ -211,3 +211,5 @@ fluent-bit/state/*
 fluent-bit/storage/*
 
 *.db
+data/*
+logs/*
