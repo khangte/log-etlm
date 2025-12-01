@@ -36,7 +36,7 @@ class PaymentSimulator(BaseServiceSimulator):
         method = self.pick_method(route)
 
         log = {
-            "timestamp":  self.now_kst_iso(),
+            "timestamp": self.now_utc_iso(),
             "service": self.service,
             "level": "ERROR" if is_err else "INFO",
             "request_id": self.generate_request_id(),

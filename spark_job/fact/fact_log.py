@@ -49,7 +49,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         )
         .withColumn(
             "event_ts",
-            F.to_timestamp("event_ts_str"),
+            F.to_timestamp("event_ts_str").cast("timestamp"),
         )
         .withColumn(
             "ingest_ts",
