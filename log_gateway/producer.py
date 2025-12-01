@@ -34,7 +34,7 @@ TOPICS: Dict[str, str] = {
     "payment": "logs.payment",
     "notify":  "logs.notify",
     "error":   "logs.error",   # 에러 복제 발행용
-    "dlq":     "dlq.logs",     # 파싱 실패 등 사후 처리용(선택)
+    # "dlq":     "dlq.logs",     # 파싱 실패 등 사후 처리용(선택)
 }
 
 # (선택) 보안 설정. 기본은 None(로컬)
