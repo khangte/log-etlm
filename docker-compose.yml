@@ -138,6 +138,24 @@ services:
       - ./data/clickhouse/logs:/var/log/clickhouse-server
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
 
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_started
+    ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./data/grafana:/var/lib/grafana
+    networks: [logforge-net]
 
 networks:
   logforge-net:
