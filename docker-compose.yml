@@ -49,8 +49,6 @@ services:
       # ★ JVM 힙(정수 단위로)
       # 초기 크기 1GB, 최대 크기 1.5GB
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
-      TZ: Asia/Seoul
-      KAFKA_OPTS: "-Duser.timezone=Asia/Seoul"
     volumes:
       - /data/kafka-logs:/var/lib/kafka/logs
       - /data/kafka-meta:/var/lib/kafka/metadata
@@ -89,18 +87,17 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator
+    restart: unless-stopped
     depends_on:
       kafka:
         condition: service_healthy
     ports: ["8000:8000"]
-    restart: unless-stopped
     environment:
       # log_gateway/producer.py 기본 BROKERS 값이 이미 kafka:9092로 잡혀있으므로
       # 컨테이너 간 통신 시 그대로 사용하면 된다.
       - PYTHONUNBUFFERED=1
       # kafka 사용 시 내부 부트스트랩 주소
       - KAFKA_BOOTSTRAP=kafka:9092
-      - TZ=Asia/Seoul
     networks: [logforge-net]
     # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/log_gateway 덮어쓰기)
     volumes:
@@ -118,10 +115,29 @@ services:
     restart: unless-stopped
     depends_on:
       - kafka
+      - clickhouse
     networks: [logforge-net]
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/spark_checkpoints:/data/spark_checkpoints
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: clickhouse
+    restart: unless-stopped
+    environment:
+      - CLICKHOUSE_USER=log_user
+      - CLICKHOUSE_PASSWORD=log_pwd
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks: [logforge-net]
+    volumes:
+      - ./data/clickhouse/data:/var/lib/clickhouse
+      - ./data/clickhouse/logs:/var/log/clickhouse-server
+      - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+
 
 networks:
   logforge-net:
