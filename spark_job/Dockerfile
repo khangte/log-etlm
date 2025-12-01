@@ -21,6 +21,8 @@ WORKDIR /app
 
 # 필요하면 curl, ping 같은 유틸만 남겨도 됨 (옵션)
 RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-pip \
+    && ln -sf /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
 # 2) 파이썬 의존성 설치 (pyspark는 이미 이미지에 있으니 굳이 안 넣어도 됨)
@@ -36,3 +38,5 @@ ENV PYTHONPATH="/app"
 # 4) 비루트 유저
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
+
+CMD ["python", "-m", "spark_job.main"]
