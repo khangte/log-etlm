@@ -130,8 +130,8 @@ async def run_generator() -> None:
 
         # 일정 주기마다 [stats] 로그 출력
         if now - last_report >= report_interval:
-            elapsed = (now - last_report).total_seconds()
-            avg_rps = total / elapsed if elapsed > 0 else 0.0
+            elapsed = (now - last_report).total_seconds() # 경과시간
+            avg_rps = total / elapsed if elapsed > 0 else 0.0 # 초당처리량
             logger.info(
                 "[stats] total=%d avg_rps=%.1f by_svc=(%s)",
                 total,
