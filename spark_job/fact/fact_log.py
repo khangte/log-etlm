@@ -23,12 +23,12 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         .selectExpr(
             "CAST(value AS STRING) AS raw_json",
             "topic",
-            "timestamp AS kafka_timestamp",
         )
         .withColumn(
             "json",
             F.from_json(F.col("raw_json"), log_value_schema),
         )
+        .where(F.col("json").isNotNull())
         .select(
             F.col("json.timestamp").alias("event_ts_str"),
             F.col("json.service").alias("service"),
@@ -45,15 +45,14 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
             F.col("json.amount").alias("amount"),
             F.col("topic"),
             F.col("raw_json"),
-            F.col("kafka_timestamp"),
-        )
-        .withColumn(
-            "event_ts",
-            F.to_timestamp("event_ts_str").cast("timestamp"),
         )
         .withColumn(
             "ingest_ts",
             F.current_timestamp(),
+        )
+        .withColumn(
+            "event_ts",
+            F.to_timestamp("event_ts_str", "yyyy-MM-dd'T'HH:mm:ssXXX"),
         )
     )
 
