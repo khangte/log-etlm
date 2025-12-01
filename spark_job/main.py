@@ -8,6 +8,7 @@ from pyspark.sql.functions import from_json, col
 from .fact.fact_log import parse_fact_log
 from .warehouse.writer import write_fact_log_stream
 
+
 def main() -> None:
     # 1) Spark 세션 생성
     spark = SparkSession \
