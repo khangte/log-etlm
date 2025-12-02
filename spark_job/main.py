@@ -4,6 +4,7 @@
 
 from pyspark.sql import SparkSession, types as T, functions as F
 from pyspark.sql.functions import from_json, col
+from pyspark.sql.streaming import StreamingQueryException
 
 from .fact.fact_log import parse_fact_log
 from .warehouse.writer import write_fact_log_stream
@@ -42,7 +43,12 @@ def main() -> None:
     # 4) ClickHouse analytics.fact_log로 스트리밍 적재
     query = write_fact_log_stream(fact_df)
 
-    query.awaitTermination()
+    try:
+        query.awaitTermination()
+    except StreamingQueryException as exc:
+        # 드라이버 종료 원인 파악을 위해 전체 예외 메시지 출력
+        print(f"[❌ StreamingQueryException] {exc}")
+        raise
 
     # 어느 하나라도 죽으면 리턴
     # spark.streams.awaitAnyTermination()
