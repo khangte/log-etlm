@@ -7,31 +7,31 @@
 #   - base rps × time_weights multiplier → bursts 적용 순서로 최종 RPS를 결정
 # -----------------------------------------------------------------------------
 
-# duration_sec: 300          # 5분
-rps: 600                  # 초당 600건(시간대 가중치/버스트로 변동)
+# duration_sec: 300         # 5분
+rps: 1000                  # 기본 초당 1000건(시간대 가중치/버스트로 변동)
 
-mix:
-  auth: 0.20
-  order: 0.40
-  payment: 0.30
-  notify: 0.10
+mix:                      # 서비스별 트래픽 비중(합계 1.0)
+  auth: 0.20              # 인증 20%
+  order: 0.40             # 주문 40%
+  payment: 0.30           # 결제 30%
+  notify: 0.10            # 알림 10%
 
-error_rate:
-  auth: 0.01
-  order: 0.02
-  payment: 0.03
-  notify: 0.005
+error_rate:               # 서비스별 오류율
+  auth: 0.01              # 인증 오류율 1%
+  order: 0.02             # 주문 오류율 2%
+  payment: 0.03           # 결제 오류율 3%
+  notify: 0.005           # 알림 오류율 0.5%
 
-bursts:
+bursts:                         # 특정 시점에 RPS를 강제 변경
   - { at_sec: 60,  rps: 900 }   # 1분 시점부터 900 rps
   - { at_sec: 180, rps: 500 }   # 3분 시점부터 500 rps
 
-time_weights:
-  - { range: "0-7",   weight: [0.20, 0.40] }
-  - { range: "8-11",  weight: [0.10, 0.30] }
-  - { range: "12-13", weight: [0.05, 0.15] }
-  - { range: "14-18", weight: [0.10, 0.30] }
-  - { range: "19-23", weight: [0.15, 0.35] }
+time_weights:   # 시간대별 가중치 범위(베이스 RPS × weight 중 임의 선택)
+  - { range: "0-7",   weight: [0.20, 0.40] }  # 새벽 : 저부하
+  - { range: "8-11",  weight: [0.10, 0.30] }  # 오전 : 점진 하락
+  - { range: "12-13", weight: [0.05, 0.15] }  # 점심 : 최소 부하
+  - { range: "14-18", weight: [0.10, 0.30] }  # 오후 : 정상 범위
+  - { range: "19-23", weight: [0.15, 0.35] }  # 야간 : 다시 증가
 
-weight_mode: "uniform"
-env: "dev"
+weight_mode: "uniform"    # 가중치 배열에서 균등 확률로 선택
+env: "dev"                # 적용 대상 환경
