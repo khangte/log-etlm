@@ -21,6 +21,9 @@ def main() -> None:
                 "com.clickhouse:clickhouse-jdbc:0.4.6",
             ]),
         ) \
+        .config("spark.driver.bindAddress", "0.0.0.0") \
+        .config("spark.ui.enabled", "true") \
+        .config("spark.ui.port", "4040") \
         .getOrCreate()
 
     # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기

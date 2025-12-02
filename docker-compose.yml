@@ -112,6 +112,8 @@ services:
     depends_on:
       - kafka
       - clickhouse
+    ports:
+      - "4040:4040"   # Spark UI
     networks: [logforge-net]
     volumes:
       - ./spark_job:/app/spark_job:ro
