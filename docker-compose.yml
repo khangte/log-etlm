@@ -61,9 +61,6 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     restart: unless-stopped
-    depends_on:
-      kafka:
-        condition: service_healthy
     ports: ["8080:8080"]
     environment:
       # 클러스터 설정: 내부 브로커 주소 사용
@@ -71,6 +68,9 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
       # (선택) 토픽 생성 허용
       - KAFKA_CLUSTERS_0_READONLY=false
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks: [logforge-net]
     logging:
       driver: json-file
@@ -84,20 +84,17 @@ services:
       dockerfile: log_gateway/Dockerfile
     container_name: simulator
     restart: unless-stopped
+    ports: ["8000:8000"]
+    environment:
+      - KAFKA_CLIENT_ID=log-forge-sim
+      - KAFKA_BOOTSTRAP=kafka:9092
     depends_on:
       kafka:
         condition: service_healthy
-    ports: ["8000:8000"]
-    environment:
-      # log_gateway/producer.py 기본 BROKERS 값이 이미 kafka:9092로 잡혀있으므로
-      # 컨테이너 간 통신 시 그대로 사용하면 된다.
-      - PYTHONUNBUFFERED=1
-      # kafka 사용 시 내부 부트스트랩 주소
-      - KAFKA_BOOTSTRAP=kafka:9092
-    networks: [logforge-net]
     # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/log_gateway 덮어쓰기)
     volumes:
       - ./log_gateway:/app/log_gateway:ro
+    networks: [logforge-net]
     command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
     logging:
       driver: json-file
@@ -109,15 +106,16 @@ services:
       dockerfile: spark_job/Dockerfile
     container_name: spark
     restart: unless-stopped
-    depends_on:
-      - kafka
-      - clickhouse
-    ports:
-      - "4040:4040"   # Spark UI
-    networks: [logforge-net]
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+    ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/spark_checkpoints:/data/spark_checkpoints
+    depends_on:
+      - kafka
+      - clickhouse
+    networks: [logforge-net]
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -130,19 +128,16 @@ services:
     ports:
       - "8123:8123"
       - "9000:9000"
-    networks: [logforge-net]
     volumes:
       - ./data/clickhouse/data:/var/lib/clickhouse
       - ./data/clickhouse/logs:/var/log/clickhouse-server
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+    networks: [logforge-net]
 
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
     restart: unless-stopped
-    depends_on:
-      clickhouse:
-        condition: service_started
     ports: ["3000:3000"]
     environment:
       - GF_SECURITY_ADMIN_USER=admin
@@ -153,6 +148,9 @@ services:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
       - ./data/grafana:/var/lib/grafana
+    depends_on:
+      clickhouse:
+        condition: service_started
     networks: [logforge-net]
 
 networks:
