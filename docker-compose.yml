@@ -50,7 +50,7 @@ services:
       - /data/kafka-meta:/var/lib/kafka/metadata
     ulimits:
       nofile: { soft: 100000, hard: 100000 }
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
       interval: 10s
@@ -71,7 +71,7 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -86,7 +86,7 @@ services:
     restart: unless-stopped
     ports: ["8000:8000"]
     environment:
-      - KAFKA_CLIENT_ID=log-forge-sim
+      - KAFKA_CLIENT_ID=log-monitoring-sim
       - KAFKA_BOOTSTRAP=kafka:9092
     depends_on:
       kafka:
@@ -94,7 +94,7 @@ services:
     # 개발 시 로컬 수정 반영이 필요하면 아래 볼륨을 해제해 사용(이미지의 /app/log_gateway 덮어쓰기)
     volumes:
       - ./log_gateway:/app/log_gateway:ro
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
     command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
     logging:
       driver: json-file
@@ -115,7 +115,7 @@ services:
     depends_on:
       - kafka
       - clickhouse
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
       interval: 15s
@@ -137,13 +137,13 @@ services:
       - ./data/clickhouse/data:/var/lib/clickhouse
       - ./data/clickhouse/logs:/var/log/clickhouse-server
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8123/ping | grep -qx 'Ok'"]
       interval: 15s
       timeout: 5s
       retries: 5
-      
+
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
@@ -161,8 +161,8 @@ services:
     depends_on:
       clickhouse:
         condition: service_started
-    networks: [logforge-net]
+    networks: [logmonitoring-net]
 
 networks:
-  logforge-net:
+  logmonitoring-net:
     driver: bridge
