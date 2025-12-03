@@ -25,7 +25,7 @@ if not logger.handlers:
 
 # ===== 브로커/클라이언트/토픽 =====
 # 컨테이너 간 통신 기본값은 kafka:9092 (호스트에서 쓸 땐 localhost:29092 등으로 교체)
-CLIENT_ID: str = os.getenv("KAFKA_CLIENT_ID")   # 프로젝트명에 맞춤
+CLIENT_ID: str = os.getenv("KAFKA_CLIENT_ID")
 BROKERS: str = os.getenv("KAFKA_BOOTSTRAP", "kafka:9092")
 
 # 서비스별 토픽 맵 + error/DLQ (DLQ는 선택)
