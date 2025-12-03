@@ -2,6 +2,7 @@
 # spark-submit 진입점
 # Kafka logs.* 토픽에서 데이터를 읽고 콘솔로 출력한다.
 
+import os
 from pyspark.sql import SparkSession, types as T, functions as F
 from pyspark.sql.functions import from_json, col
 from pyspark.sql.streaming import StreamingQueryException
@@ -33,7 +34,7 @@ def main() -> None:
         kafka_df = spark \
             .readStream \
             .format("kafka") \
-            .option("kafka.bootstrap.servers", "kafka:9092") \
+            .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP")) \
             .option("subscribePattern", "logs.*") \
             .option("startingOffsets", "latest")  \
             .option("maxOffsetsPerTrigger", "1000") \
