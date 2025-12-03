@@ -9,13 +9,9 @@ from __future__ import annotations
 import asyncio
 from fastapi import FastAPI
 
-from .api import ingest, simulate
 from .generator import run_generator
 
 app = FastAPI()
-
-app.include_router(ingest.router)
-app.include_router(simulate.router)
 
 
 @app.get("/ping")
