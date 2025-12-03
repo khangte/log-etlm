@@ -64,7 +64,9 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisLabel": "요청 건수",
             "axisPlacement": "auto",
+            "axisSoftMin": 0,
             "drawStyle": "line",
             "fillOpacity": 12,
             "lineWidth": 2,
@@ -81,7 +83,7 @@
               }
             ]
           },
-          "unit": "req/min"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -121,10 +123,18 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
-          "custom": { "drawStyle": "line", "lineWidth": 2, "showPoints": "never", "spanNulls": true },
+          "custom": {
+            "axisLabel": "서비스별 요청 건수",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": true
+          },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "req/min"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -159,13 +169,16 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisLabel": "5xx 오류 건수",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
             "drawStyle": "line",
             "lineWidth": 2,
             "showPoints": "never",
             "spanNulls": true
           },
           "mappings": [],
-          "unit": "ops"
+          "unit": "short"
         },
         "overrides": []
       },
@@ -210,6 +223,9 @@
             "mode": "continuous-GrYlRd"
           },
           "custom": {
+            "axisLabel": "평균 지연 시간",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
             "drawStyle": "line",
             "lineWidth": 2,
             "showPoints": "never",
