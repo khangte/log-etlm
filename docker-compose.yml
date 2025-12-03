@@ -139,11 +139,11 @@ services:
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
     networks: [logmonitoring-net]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8123/ping | grep -qx 'Ok'"]
+      test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 45s
 
   grafana:
     image: grafana/grafana:10.4.2
