@@ -11,8 +11,6 @@ FROM spark:4.0.1-python3
 
 USER root
 
-WORKDIR /app
-
 ENV SPARK_VERSION=4.0.1
 ENV SCALA_VERSION=2.13
 ENV SPARK_HOME=/opt/spark
