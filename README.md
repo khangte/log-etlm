@@ -4,15 +4,22 @@
 마이크로서비스에서 발생하는 HTTP 액세스 로그를 실시간으로 수집‧가공‧시각화하는 파이프라인 PoC입니다. FastAPI 기반 시뮬레이터가 Kafka 로그 토픽에 다양한 서비스 패턴을 발행하면, Spark Structured Streaming 잡이 이를 ClickHouse 분석 테이블로 적재하고 Grafana 대시보드로 노출합니다. 각 컴포넌트는 Docker Compose로 손쉽게 기동할 수 있으며, ClickHouse 초기 스키마와 Grafana 프로비저닝도 자동화되어 있어 부팅 직후부터 엔드투엔드 흐름을 검증할 수 있습니다.
 
 ## 기술 스택
-- <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white">  FastAPI: `log_gateway` 시뮬레이터 및 API 엔드포인트
-- <img src="https://img.shields.io/badge/ApacheKafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white"> Apache Kafka + Kafka UI: 로그 수집 버퍼와 모니터링 UI
-- <img src="https://img.shields.io/badge/ApacheSpark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white"> Apache Spark 4.0 Structured Streaming: Kafka → ClickHouse 실시간 적재
-- <img src="https://img.shields.io/badge/ClickHouse-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=white"> ClickHouse: OLAP 테이블에 로그 저장
-- <img src="https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white"> Grafana: ClickHouse 데이터 소스로 대시보드 시각화
+- <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white">  
+    FastAPI: `log_gateway` 시뮬레이터 및 API 엔드포인트
+- <img src="https://img.shields.io/badge/ApacheKafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white"> 
+    Apache Kafka + Kafka UI: 로그 수집 버퍼와 모니터링 UI
+- <img src="https://img.shields.io/badge/ApacheSpark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white"> 
+    Apache Spark 4.0 Structured Streaming: Kafka → ClickHouse 실시간 적재
+- <img src="https://img.shields.io/badge/ClickHouse-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=white"> 
+    ClickHouse: OLAP 테이블에 로그 저장
+- <img src="https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white"> 
+    Grafana: ClickHouse 데이터 소스로 대시보드 시각화
 - <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white">
- Docker / Docker Compose: 전체 개발 환경 오케스트레이션
+    Docker / Docker Compose: 전체 개발 환경 오케스트레이션
 - <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white">
- Python 3.10: 시뮬레이터, Watchdog 스크립트 등 보조 유틸
+    Python 3.10: 시뮬레이터, Watchdog 스크립트 등 보조 유틸
+- <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white">
+    Linux (Ubuntu 기반): VM 환경 및 파일 시스템 레이아웃
 
 ## 시스템 아키텍처
 
