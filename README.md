@@ -22,6 +22,7 @@
 | <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white"> | Docker / Docker Compose: 전체 개발 환경 오케스트레이션 |
 | <img src="https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white"> | Python 3.10: 시뮬레이터, Watchdog 스크립트 등 보조 유틸 |
 | <img src="https://img.shields.io/badge/Ubuntu-E95420?style=for-the-badge&logo=ubuntu&logoColor=white"> | Linux (Ubuntu 기반): VM 환경 및 파일 시스템 레이아웃 |
+| <img src="https://img.shields.io/badge/Slack-4A154B?style=for-the-badge&logo=slack&logoColor=white"> | Slack Webhook: Watchdog 알림 채널 연동 |
 
 
 ## 시스템 아키텍처
@@ -42,7 +43,7 @@
    - 초기 스키마는 `spark_job/warehouse/create_tables.sql` 로 자동 생성되며, `data/clickhouse` 볼륨에 영속화됩니다.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 RPS, 오류율, 상태 코드 분포 등을 시각화합니다.
-   - `monitor/docker_watchdog.py` 는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화를 Webhook/CLI로 통지합니다.
+   - `monitor/docker_watchdog.py` 는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화를 Slack Webhook/CLI로 통지합니다.
 
 
 ## 실행 방법
@@ -82,9 +83,10 @@ python monitor/docker_watchdog.py
 
 ## 목표
 
-- 서비스 로그 데이터 파이프라인의 종단 간 지연·신뢰성을 검증하고, 트래픽 시뮬레이터를 통해 다양한 부하 시나리오를 재현합니다.
-- Spark → ClickHouse 적재 경로를 표준화하여 추후 실시간 탐지/알림 요건에 활용할 수 있는 분석 레이어를 정립합니다.
-- Grafana를 기반으로 기본 운영 대시보드와 경량 Watchdog 스크립트를 활용한 장애 탐지 루틴을 수립합니다.
+- 대규모 로그 스트림을 실시간 제약 하에서도 안정적으로 처리할 수 있는지 검증
+- FastAPI → Kafka → Spark → ClickHouse → Grafana로 이어지는 엔드투엔드 파이프라인이 요구 성능과 지연 목표를 충족하는지 확인
+- 각 단계 별 병목 지점을 식별하고 개선 방안 도출
+- Slack 연동 Watchdog과 Grafana 대시보드로 최소 운영 감시 체계를 구성하고, 실시간 알림/가시성 확보 가능성을 검증
 
 
 ## 향후 계획
