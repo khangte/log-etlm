@@ -4,7 +4,7 @@
 
 ## 실행 방법
 ```bash
-cd /home/kang/log-monitoring
+cd /home/kang/log-etlm
 chmod 774 ./monitor/.env
 set -a && source monitor/.env && set +a
 python3 monitor/docker_watchdog.py
@@ -20,15 +20,15 @@ python3 monitor/docker_watchdog.py
 - **Spark REST**: `http://localhost:4040/api/v1/applications` 를 주기적으로 호출하여 UI 가 응답하지 않으면 알림을 전송합니다.
 
 ## 서비스로 상시 실행하기 (예시)
-`systemd` 를 사용하는 경우 `/etc/systemd/system/logmonitoring-watchdog.service` 파일을 만들어 항상 자동 재시작되도록 할 수 있습니다.
+`systemd` 를 사용하는 경우 `/etc/systemd/system/logetlm-watchdog.service` 파일을 만들어 항상 자동 재시작되도록 할 수 있습니다.
 
 ```
 [Unit]
-Description=LogMonitoring Docker Watchdog
+Description=LogETLM Docker Watchdog
 After=docker.service
 
 [Service]
-WorkingDirectory=/home/kang/log-monitoring
+WorkingDirectory=/home/kang/log-etlm
 Environment=ALERT_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
 ExecStart=/usr/bin/python3 monitor/docker_watchdog.py
 Restart=always
@@ -37,4 +37,4 @@ Restart=always
 WantedBy=multi-user.target
 ```
 
-파일을 추가한 뒤 `sudo systemctl daemon-reload && sudo systemctl enable --now logmonitoring-watchdog` 으로 활성화하면 시스템 부팅 시 자동으로 실행됩니다.
+파일을 추가한 뒤 `sudo systemctl daemon-reload && sudo systemctl enable --now logetlm-watchdog` 으로 활성화하면 시스템 부팅 시 자동으로 실행됩니다.
