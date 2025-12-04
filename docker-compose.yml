@@ -118,7 +118,7 @@ services:
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
-      interval: 15s
+      interval: 45s
       timeout: 5s
       retries: 5
 
@@ -140,7 +140,7 @@ services:
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
-      interval: 15s
+      interval: 45s
       timeout: 5s
       retries: 5
       start_period: 45s
