@@ -3,8 +3,10 @@ CREATE DATABASE IF NOT EXISTS analytics;
 CREATE TABLE IF NOT EXISTS analytics.fact_log
 (
     -- 시간
-    event_ts   DateTime64(3, 'UTC')    ,  -- 애플리케이션 이벤트 UTC 시각
-    ingest_ts  DateTime64(3, 'UTC')    ,  -- Spark → ClickHouse 적재 시각(UTC)
+    -- ClickHouse JDBC 0.4.x가 DateTime64(precision, 'TZ')를 TIMESTAMP_WITH_TIMEZONE으로 반환하면서
+    -- Spark 4.0이 타입을 파싱하지 못하므로 타임존 표기를 생략하고 UTC 기준으로 저장한다.
+    event_ts   DateTime64(3)           ,  -- UTC 보장 (Spark에서 변환)
+    ingest_ts  DateTime64(3)           ,  -- UTC 보장 (Spark에서 변환)
 
     -- 공통 메타 정보
     service        LowCardinality(String),
