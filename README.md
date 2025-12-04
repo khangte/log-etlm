@@ -1,4 +1,4 @@
-# Log Monitoring PoC Project
+# Log ETL & Monitoring PoC Project
 
 ## 개요
 
