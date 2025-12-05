@@ -16,6 +16,8 @@ import shlex
 import sys
 from typing import Dict, Iterable, List
 from urllib import request
+from pathlib import Path
+
 
 TARGET_CONTAINERS: List[str] = ["kafka", "spark", "clickhouse", "grafana"]
 LOG_PATTERNS: Dict[str, List[re.Pattern[str]]] = {
@@ -39,8 +41,18 @@ LOG_PATTERNS: Dict[str, List[re.Pattern[str]]] = {
     ],
 }
 
+ENV_PATH = Path(__file__).with_suffix(".env")
+if not os.getenv("ALERT_WEBHOOK_URL") and ENV_PATH.exists():
+    for line in ENV_PATH.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("ALERT_WEBHOOK_URL="):
+            value = line.split("=", 1)[1].strip().strip('"').strip("'")
+            os.environ["ALERT_WEBHOOK_URL"] = value
+            break
+            
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL")  # Slack 등 Webhook URL
 HEALTH_INTERVAL_SEC = 30
+
 
 async def send_alert(message: str) -> None:
     """Webhook 또는 표준출력으로 경보 전송."""
