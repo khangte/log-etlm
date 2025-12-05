@@ -5,9 +5,12 @@
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Dict, Any
+from dataclasses import dataclass
+from typing import Dict, Any, List
 from pathlib import Path
 import yaml
+
+from .timeband import load_bands, Band
 
 # ===== 리소스 파일 경로 =====
 # config.py 위치 기준
@@ -44,3 +47,47 @@ def load_routes() -> Dict[str, Any]:
     with ROUTES_FILE.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data.get("routes", {})
+
+
+def compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[str]) -> Dict[str, float]:
+    """mix 비중을 기반으로 서비스별 목표 RPS 계산."""
+    if not services:
+        return {}
+
+    weights = {svc: float(mix.get(svc, 1.0)) for svc in services}
+    weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        weight_sum = float(len(services))
+        weights = {svc: 1.0 for svc in services}
+
+    return {svc: base_rps * (weights[svc] / weight_sum) for svc in services}
+
+
+@dataclass(frozen=True)
+class ProfileContext:
+    profile: Dict[str, Any]
+    base_rps: float
+    mix: Dict[str, Any]
+    weight_mode: str
+    bands: List[Band]
+
+
+def load_profile_context(profile_name: str) -> ProfileContext:
+    """
+    프로파일 파일명을 기준으로 실행에 필요한 기본 컨텍스트를 로드한다.
+    """
+    profile_path = PROFILES_DIR / f"{profile_name}.yaml"
+    profile = load_profile(profile_path)
+    base_rps = float(profile.get("rps", 10.0))
+    mix = profile.get("mix", {})
+    weight_mode = profile.get("weight_mode", "uniform")
+    raw_time_weights = profile.get("time_weights", [])
+    bands = load_bands(raw_time_weights)
+    
+    return ProfileContext(
+        profile=profile,
+        base_rps=base_rps,
+        mix=mix,
+        weight_mode=weight_mode,
+        bands=bands,
+    )
