@@ -7,27 +7,12 @@
 from __future__ import annotations
 from typing import Any, Dict, List
 import asyncio
-import random
-from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from .core.config import PROFILES_DIR, load_profile, load_routes
-from .core.timeband import load_bands, current_hour_kst, pick_multiplier
+from .core.timeband import load_bands
+from .core.stats import stats_reporter
 from .simulator import REGISTRY
-from . import producer
-
-import logging
-logger = logging.getLogger("log_gateway.generator")
-logger.setLevel(logging.INFO)
-
-if not logger.handlers:
-    _handler = logging.StreamHandler()
-    _handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    logger.addHandler(_handler)
-
-KST = ZoneInfo("Asia/Seoul")
+from .runtime_pipeline import start_pipeline
 
 PROFILE_NAME = "baseline"
 
@@ -54,20 +39,18 @@ def _build_simulators(profile: Dict[str, Any]) -> Dict[str, Any]:
     return simulators
 
 
-def _pick_service(mix: Dict[str, Any], available_services: List[str]) -> str:
-    """
-    프로파일의 mix 비율을 기반으로 서비스 하나를 랜덤 선택.
-    mix에 없는 서비스는 weight=1 로 취급.
-    """
-    services: List[str] = []
-    weights: List[float] = []
+def _compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[str]) -> Dict[str, float]:
+    """mix 비중을 기반으로 서비스별 목표 RPS를 계산."""
+    if not services:
+        return {}
 
-    for svc in available_services:
-        w = mix.get(svc, 1)
-        services.append(svc)
-        weights.append(float(w))
+    weights = {svc: float(mix.get(svc, 1.0)) for svc in services}
+    weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        weight_sum = float(len(services))
+        weights = {svc: 1.0 for svc in services}
 
-    return random.choices(services, weights=weights, k=1)[0]
+    return {svc: base_rps * (weights[svc] / weight_sum) for svc in services}
 
 
 async def run_generator() -> None:
@@ -98,63 +81,30 @@ async def run_generator() -> None:
     # 2) 서비스별 시뮬레이터 인스턴스 생성
     simulators = _build_simulators(profile)
     available_services = list(simulators.keys())
+    service_rps = _compute_service_rps(base_rps, mix, available_services)
 
-     # --- 통계용 변수 ---
-    total = 0
-    by_svc: Dict[str, int] = {svc: 0 for svc in available_services}
-    last_report = datetime.now(KST)
-    report_interval = timedelta(seconds=1)  # 매초 throughput 로그
+    (
+        publish_queue, stats_queue, service_tasks, publisher_tasks,
+    ) = start_pipeline(
+        simulators=simulators,
+        service_rps=service_rps,
+        base_rps=base_rps,
+        bands=bands,
+        weight_mode=weight_mode,
+        profile=profile,
+    )
 
-    # 3) 무한 루프: 앱이 살아있는 동안 계속 생성
-    while True:
-        now = datetime.now(KST)
+    stats_task = asyncio.create_task(
+        stats_reporter(stats_queue=stats_queue, services=available_services),
+        name="stats-reporter",
+    )
 
-        # 3-1) 어떤 서비스 로그를 만들지 선택
-        service = _pick_service(mix, available_services)
-        simulator = simulators[service]
-
-        # 3-2) 로그 1건 생성 (dict)
-        event: Dict[str, Any] = simulator.generate_log_one()
-
-        # 3-3) JSON 직렬화 (simulator.render() 가 있다면 그걸 써도 무방)
-        payload = simulator.render(event)
-
-        # logger.info("[debug] generating and publishing service=%s", service)
-
-        # 3-4) Kafka 비동기 발행 (실제로는 thread pool에서 publish_sync 실행)
-        await producer.publish(service, payload)
-        
-        if event.get("level") == "ERROR":
-            # ERROR 레벨 이벤트는 공통 error 토픽으로도 복제
-            await producer.publish("error", payload)
-
-        # 통계 업데이트
-        total += 1
-        by_svc[service] += 1
-
-        # 일정 주기마다 [stats] 로그 출력
-        if now - last_report >= report_interval:
-            elapsed = (now - last_report).total_seconds() # 경과시간
-            avg_rps = total / elapsed if elapsed > 0 else 0.0 # 초당처리량
-            logger.info(
-                "[stats] rps=%.1f window=%.2fs total=%d by_svc=(%s)",
-                avg_rps,
-                elapsed,
-                total,
-                ", ".join(f"{svc}:{cnt}" for svc, cnt in by_svc.items()),
-            )
-            # 리셋
-            total = 0
-            by_svc = {svc: 0 for svc in available_services}
-            last_report = now
-
-        # 3-5) 시간대별 multiplier 를 적용해 interval 계산
-        hour = current_hour_kst(now)
-        multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
-        effective_rps = max(base_rps * multiplier, 0.01)  # 보호용 최소값
-        interval_sec = 1.0 / effective_rps
-
-        await asyncio.sleep(interval_sec)
+    tasks = service_tasks + publisher_tasks + [stats_task]
+    try:
+        await asyncio.gather(*tasks)
+    finally:
+        for task in tasks:
+            task.cancel()
 
 
 # -----------------------------------------------------------------------------
@@ -170,16 +120,13 @@ async def run_generator() -> None:
 #     """
 #     서비스명으로 등록된 시뮬레이터 클래스를 찾아 인스턴스를 만들고,
 #     지정된 개수만큼 이벤트를 생성한다.
-
 #     Args:
 #         service: "auth" | "order" | "payment" | "notify"
 #         count: 생성할 이벤트 개수
 #         routes: 해당 서비스의 라우트 리스트 (templates/routes.yml)
 #         profile: 실행 프로파일(dict). error_rate 등 포함.
-
 #     Returns:
 #         List[Dict[str, Any]]: 최소 9-키 스키마의 이벤트 리스트
-
 #     Raises:
 #         ValueError: 알 수 없는 서비스명일 때
 #     """
@@ -187,5 +134,5 @@ async def run_generator() -> None:
 #     if cls is None:
 #         raise ValueError(f"unknown service: {service}")
 #     simulator = cls(routes=routes, profile=profile)
-#     return simulator.generate_logs_with_count(count)
+#     return simulator.generate_logs(count)
 # -----------------------------------------------------------------------------
