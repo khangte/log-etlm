@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_gateway/publisher.py
+# 파일명 : log_gateway/pipeline.py
 # 목적   : 서비스별 배치 생성 루프 및 Kafka 퍼블리셔 태스크 구성
 # 설명   : generator가 전달한 프로파일/시뮬레이터 기반으로 큐+워커 흐름을 실행
 # -----------------------------------------------------------------------------
@@ -12,8 +12,7 @@ from typing import Any, Dict, List, Tuple
 from .core.timeband import current_hour_kst, pick_multiplier
 from . import producer
 
-
-# 하드코딩된 파이프라인 파라미터
+# 파이프라인 파라미터
 BATCH_MIN = 50
 BATCH_MAX = 200
 QUEUE_SIZE = 10_000
@@ -64,13 +63,12 @@ async def _publisher_worker(
             publish_queue.task_done()
 
 
-def start_publisher(
+def start_pipeline(
     simulators: Dict[str, Any],
     service_rps: Dict[str, float],
     base_rps: float,
     bands: List[Any],
     weight_mode: str,
-    profile: Dict[str, Any],
 ) -> Tuple[
     "asyncio.Queue[Tuple[str, str, bool]]",
     "asyncio.Queue[Tuple[str, int]]",
