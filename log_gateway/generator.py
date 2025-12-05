@@ -88,7 +88,7 @@ async def run_generator() -> None:
 
     # 기본 RPS, 서비스 믹스, 시간대 가중치 등 읽기
     base_rps: float = float(profile.get("rps", 10.0))
-    mix: Dict[str, Any] = profile.get("mix", {})  # 예: {"auth":1, "order":3, ...}
+    mix: Dict[str, Any] = profile.get("mix", {})
     raw_time_weights = profile.get("time_weights", [])
     weight_mode: str = profile.get("weight_mode", "uniform")
 
@@ -103,7 +103,7 @@ async def run_generator() -> None:
     total = 0
     by_svc: Dict[str, int] = {svc: 0 for svc in available_services}
     last_report = datetime.now(KST)
-    report_interval = timedelta(seconds=5)
+    report_interval = timedelta(seconds=1)  # 매초 throughput 로그
 
     # 3) 무한 루프: 앱이 살아있는 동안 계속 생성
     while True:
@@ -123,6 +123,7 @@ async def run_generator() -> None:
 
         # 3-4) Kafka 비동기 발행 (실제로는 thread pool에서 publish_sync 실행)
         await producer.publish(service, payload)
+        
         if event.get("level") == "ERROR":
             # ERROR 레벨 이벤트는 공통 error 토픽으로도 복제
             await producer.publish("error", payload)
@@ -136,9 +137,10 @@ async def run_generator() -> None:
             elapsed = (now - last_report).total_seconds() # 경과시간
             avg_rps = total / elapsed if elapsed > 0 else 0.0 # 초당처리량
             logger.info(
-                "[stats] total=%d avg_rps=%.1f by_svc=(%s)",
-                total,
+                "[stats] rps=%.1f window=%.2fs total=%d by_svc=(%s)",
                 avg_rps,
+                elapsed,
+                total,
                 ", ".join(f"{svc}:{cnt}" for svc, cnt in by_svc.items()),
             )
             # 리셋
