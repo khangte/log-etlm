@@ -13,6 +13,8 @@ from typing import Any, Dict, Optional
 
 from confluent_kafka import Producer
 
+from .kafka_settings import ProducerSettings
+
 import logging
 logger = logging.getLogger("log_gateway.producer")
 logger.setLevel(logging.INFO)
@@ -27,25 +29,6 @@ def _ensure_logger_handler() -> None:
     logger.addHandler(handler)
 
 _ensure_logger_handler()
-
-
-# -----------------------------------------------------------------------------
-# 설정 데이터 클래스 및 빌더
-# -----------------------------------------------------------------------------
-@dataclass
-class ProducerSettings:
-    """Kafka Producer 관련 설정 보관용 데이터 클래스."""
-    client_id: str = field(default_factory=lambda: os.getenv("KAFKA_CLIENT_ID", "log-gateway"))
-    brokers: str = field(default_factory=lambda: os.getenv("KAFKA_BOOTSTRAP", "kafka:9092"))
-    topics: Dict[str, str] = field(default_factory=lambda: {
-        "auth":    "logs.auth",
-        "order":   "logs.order",
-        "payment": "logs.payment",
-        "notify":  "logs.notify",
-        "error":   "logs.error",   # 에러 복제 발행용
-        # "dlq":     "dlq.logs",     # 파싱 실패 등 사후 처리용(선택)
-    })
-    security: Optional[Dict[str, Any]] = None  # 보안 설정(선택)
 
 SETTINGS = ProducerSettings()
 
