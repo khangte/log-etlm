@@ -49,20 +49,6 @@ def load_routes() -> Dict[str, Any]:
     return data.get("routes", {})
 
 
-def compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[str]) -> Dict[str, float]:
-    """mix 비중을 기반으로 서비스별 목표 RPS 계산."""
-    if not services:
-        return {}
-
-    weights = {svc: float(mix.get(svc, 1.0)) for svc in services}
-    weight_sum = sum(weights.values())
-    if weight_sum <= 0:
-        weight_sum = float(len(services))
-        weights = {svc: 1.0 for svc in services}
-
-    return {svc: base_rps * (weights[svc] / weight_sum) for svc in services}
-
-
 @dataclass(frozen=True)
 class ProfileContext:
     profile: Dict[str, Any]

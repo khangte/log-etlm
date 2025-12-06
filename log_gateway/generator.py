@@ -8,12 +8,27 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import asyncio
 
-from .core.config import load_profile_context, compute_service_rps
+from .core.config import load_profile_context
 from .core.stats import stats_reporter
 from .simulator.base import build_simulators
 from .pipeline import start_pipeline
 
 PROFILE_NAME = "baseline"
+
+
+def _compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[str]) -> Dict[str, float]:
+    """mix 비중을 기반으로 서비스별 목표 RPS 계산."""
+    if not services:
+        return {}
+
+    weights = {svc: float(mix.get(svc, 1.0)) for svc in services}
+    weight_sum = sum(weights.values())
+    if weight_sum <= 0:
+        weight_sum = float(len(services))
+        weights = {svc: 1.0 for svc in services}
+
+    return {svc: base_rps * (weights[svc] / weight_sum) for svc in services}
+
 
 # -----------------------------------------------------------------------------
 # 비동기 제너레이터: 앱 살아있는 동안 계속 로그 생성
@@ -42,7 +57,7 @@ async def run_generator() -> None:
     # 2) 서비스별 시뮬레이터 인스턴스 생성
     simulators = build_simulators(profile)
     available_services = list(simulators.keys())
-    service_rps = compute_service_rps(base_rps, mix, available_services)
+    service_rps = _compute_service_rps(base_rps, mix, available_services)
 
     (
         publish_queue, stats_queue, service_tasks, publisher_tasks,
