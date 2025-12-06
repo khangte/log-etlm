@@ -8,8 +8,8 @@ from __future__ import annotations
 from typing import Any, Dict, List
 import asyncio
 
-from .core.config import load_profile_context
-from .core.stats import stats_reporter
+from .config.profile_route_settings import load_profile_context
+from .config.stats import stats_reporter
 from .simulator.base import build_simulators
 from .pipeline import start_pipeline
 

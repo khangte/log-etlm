@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_gateway/core/config.py
+# 파일명 : log_gateway/config/profile_route_settings.py
 # 목적   : log_gateway 앱의 정적 리소스 경로(templates/profiles) 및 YAML 로더 제공
 # 사용   : generator/API가 load_profile(), load_routes()로 시뮬레이션 설정을 읽어옴
 # -----------------------------------------------------------------------------
@@ -13,7 +13,7 @@ import yaml
 from .timeband import load_bands, Band
 
 # ===== 리소스 파일 경로 =====
-# config.py 위치 기준
+# 본 파일 위치 기준
 THIS_FILE = Path(__file__).resolve()
 ROOT_DIR = THIS_FILE.parents[2] # repo 루트
 APP_DIR = THIS_FILE.parents[1] # 앱 루트: log_gateway/

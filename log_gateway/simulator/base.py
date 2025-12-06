@@ -11,6 +11,10 @@ import json
 import random
 from faker import Faker
 
+from ..config.profile_route_settings import load_routes
+from . import REGISTRY
+
+
 KST = ZoneInfo("Asia/Seoul")
 
 class BaseServiceSimulator:
@@ -166,9 +170,6 @@ class BaseServiceSimulator:
 
 def build_simulators(profile: Dict[str, Any]) -> Dict[str, Any]:
     """프로파일과 routes.yml을 기반으로 서비스별 시뮬레이터 인스턴스 생성."""
-    from ..core.config import load_routes
-    from . import REGISTRY
-
     routes_cfg = load_routes()
     simulators: Dict[str, Any] = {}
 
