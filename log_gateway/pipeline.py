@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple
 from .core.timeband import current_hour_kst, pick_multiplier
 from . import producer
 
-# 파이프라인 파라미터
+# 파이프라인 파라미터 (배치 크기/큐 사이즈/워커 수)
 BATCH_MIN = 50
 BATCH_MAX = 200
 QUEUE_SIZE = 10_000
@@ -29,21 +29,24 @@ async def _service_loop(
     batch_range: Tuple[int, int],
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
-    batch_min, batch_max = batch_range
+    batch_min, batch_max = batch_range  # 프로파일과 무관하게 고정된 배치 범위
     batch_min = max(1, batch_min)
     batch_max = max(batch_min, batch_max)
 
     while True:
-        hour = current_hour_kst()
-        multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
-        effective_rps = max(target_rps * multiplier, 0.01)
-        batch_size = random.randint(batch_min, batch_max)
-        logs = simulator.generate_logs(batch_size)
+        hour = current_hour_kst()  # 현재 시간대(KST) 결정
+        multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0  # 시간대 가중치 적용
+        effective_rps = max(target_rps * multiplier, 0.01)  # 목표 RPS × multiplier
+        batch_size = random.randint(batch_min, batch_max)  # 배치 크기를 랜덤 선택
+
+        logs = simulator.generate_logs(batch_size)  # 시뮬레이터에서 로그 배치 생성
+
         for event in logs:
             payload = simulator.render(event)
             is_error = event.get("level") == "ERROR"
-            await publish_queue.put((service, payload, is_error))
-        sleep_time = batch_size / effective_rps
+            await publish_queue.put((service, payload, is_error))  # 큐에 (서비스, 페이로드, 에러여부) push
+            
+        sleep_time = batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
 
@@ -57,8 +60,8 @@ async def _publisher_worker(
     while True:
         service, payload, is_error = await publish_queue.get()
         try:
-            await producer.publish(service, payload, replicate_error=is_error)
-            stats_queue.put_nowait((service, 1))
+            await producer.publish(service, payload, replicate_error=is_error)  # Kafka publish (에러 토픽 복제 포함)
+            stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
         finally:
             publish_queue.task_done()
 
@@ -77,12 +80,12 @@ def start_pipeline(
 ]:
     """큐/워커 태스크를 초기화하고 반환."""
     batch_range = (BATCH_MIN, BATCH_MAX)
-    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]" = asyncio.Queue(maxsize=QUEUE_SIZE)
-    stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()
+    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]" = asyncio.Queue(maxsize=QUEUE_SIZE)  # Kafka 전송 대기 큐
+    stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()  # RPS 계산용 큐
 
     available_services = list(simulators.keys())
     svc_count = max(len(available_services), 1)
-    fallback_rps = base_rps / svc_count
+    fallback_rps = base_rps / svc_count  # mix에 없는 서비스 대비 기본 RPS
 
     service_tasks = [
         asyncio.create_task(
