@@ -10,7 +10,7 @@ import asyncio
 
 from .config.profile_route_settings import load_profile_context
 from .config.stats import stats_reporter
-from .simulator.base import build_simulators
+from .simulator.build_simulators import build_simulators
 from .pipeline import start_pipeline
 
 PROFILE_NAME = "baseline"
@@ -63,9 +63,9 @@ async def run_generator() -> None:
         publish_queue, stats_queue, service_tasks, publisher_tasks,
     ) = start_pipeline(
         simulators=simulators,
-        service_rps=service_rps,
         base_rps=base_rps,
         bands=bands,
+        service_rps=service_rps,
         weight_mode=weight_mode,
     )
 

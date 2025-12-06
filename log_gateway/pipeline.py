@@ -9,14 +9,14 @@ import asyncio
 import random
 from typing import Any, Dict, List, Tuple
 
-from .core.timeband import current_hour_kst, pick_multiplier
+from .config.timeband import current_hour_kst, pick_multiplier
 from . import producer
-
-# 파이프라인 파라미터 (배치 크기/큐 사이즈/워커 수)
-BATCH_MIN = 50
-BATCH_MAX = 200
-QUEUE_SIZE = 10_000
-PUBLISHER_WORKERS = 4
+from .kafka_settings import (
+    BATCH_MIN,
+    BATCH_MAX,
+    QUEUE_SIZE,
+    PUBLISHER_WORKERS,
+)
 
 
 async def _service_loop(
@@ -68,9 +68,9 @@ async def _publisher_worker(
 
 def start_pipeline(
     simulators: Dict[str, Any],
-    service_rps: Dict[str, float],
     base_rps: float,
     bands: List[Any],
+    service_rps: Dict[str, float],
     weight_mode: str,
 ) -> Tuple[
     "asyncio.Queue[Tuple[str, str, bool]]",
