@@ -66,3 +66,24 @@ async def stats_reporter(
             total += count
         except asyncio.TimeoutError:
             continue
+
+
+import time
+from collections import defaultdict
+
+_tps_counter = defaultdict(int)
+_last_ts = time.time()
+
+def record_tps(service: str):
+    global _last_ts
+    _tps_counter[service] += 1
+    now = time.time()
+
+    if now - _last_ts >= 1:
+        total = sum(_tps_counter.values())
+        per_service = ", ".join([f"{svc}={_tps_counter[svc]}" for svc in _tps_counter])
+
+        print(f"[TPS] total={total} | {per_service}")
+
+        _tps_counter.clear()
+        _last_ts = now
