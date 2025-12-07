@@ -84,11 +84,15 @@ def get_topic(service: str) -> str:
 # 동기 발행 함수 (실제 Kafka I/O)
 # ---------------------------------------------------------------------------
 
+POLL_INTERVAL = 200
+_msg_count = 0
+
 def publish_sync(service: str, value: str, key: str | None = None, replicate_error: bool = False) -> None:
     """
     실제 Kafka로 보내는 동기 함수.
     asyncio 환경에서는 직접 호출하지 말고 publish() 를 await 할 것.
     """
+    global _msg_count
     producer = get_producer()
     topic = get_topic(service)
 
@@ -119,8 +123,15 @@ def publish_sync(service: str, value: str, key: str | None = None, replicate_err
             value=encoded_value,
             callback=_delivery_report,
         )
-    producer.poll(0)
+    
+    # 병목 발생 : 메시지를  보낼 때마다 호출 == 과도함.
+    # producer.poll(0)
 
+    _msg_count += 1
+    # N개마다 poll 1회만 실행
+    if _msg_count % POLL_INTERVAL == 0:
+        producer.poll(0)
+        
 
 # ---------------------------------------------------------------------------
 # 비동기 래퍼 (async/await 로 사용)
