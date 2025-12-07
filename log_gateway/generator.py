@@ -21,13 +21,13 @@ def _compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[st
     if not services:
         return {}
 
-    weights = {svc: float(mix.get(svc, 1.0)) for svc in services}
+    weights = {service: float(mix.get(service, 1.0)) for service in services}
     weight_sum = sum(weights.values())
     if weight_sum <= 0:
         weight_sum = float(len(services))
-        weights = {svc: 1.0 for svc in services}
+        weights = {service: 1.0 for service in services}
 
-    return {svc: base_rps * (weights[svc] / weight_sum) for svc in services}
+    return {service: base_rps * (weights[service] / weight_sum) for service in services}
 
 
 # -----------------------------------------------------------------------------
