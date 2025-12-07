@@ -34,11 +34,15 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       # 단일 브로커 기본값
+      # RF=1 (복제 없음. 장애 시 데이터 유실 위험 큼)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      # min_isr=1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      # 파티션 수
+      KAFKA_NUM_PARTITIONS: 6
       # ★ 로그/메타데이터 경로(메타데이터 경로를 명시적으로 지정)
       KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
