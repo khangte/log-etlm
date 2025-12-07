@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import random
+import time
 from typing import Any, Dict, List, Tuple
 
 from .config.stats import record_tps
@@ -48,14 +49,33 @@ async def _service_loop(
         batch_size = random.randint(batch_min, batch_max)  # 배치 크기를 랜덤 선택
 
         logs = simulator.generate_logs(batch_size)  # 시뮬레이터에서 로그 배치 생성
+        
+        # 2025-12-07 수정
+        # 배치로 만든 로그를 다시 1건 씩 render + queue.put을 하는 이슈.
+        # start = time.time()
+        # for event in logs:
+        #     payload = simulator.render(event)
+        #     is_error = event.get("level") == "ERROR"
+        #     record_tps(service)
+        #     await publish_queue.put((service, payload, is_error))  # 큐에 (서비스, 페이로드, 에러여부) push
+        # print("old_put_time", time.time() - start)
 
-        for event in logs:
-            payload = simulator.render(event)
-            is_error = event.get("level") == "ERROR"
-            record_tps(service)
-            await publish_queue.put((service, payload, is_error))  # 큐에 (서비스, 페이로드, 에러여부) push
-            
+        # 배치 단위로 처리
+        # start = time.time()
+
+        payloads = [simulator.render(log) for log in logs] # 배치 단위 렌더링
+        await asyncio.gather(*[                            # 배치 단위 큐 삽입
+            publish_queue.put((service, payload, log.get("level") == "ERROR"))
+            for payload, log in zip(payloads, logs)
+        ])
+        
+        # print("new_put_time", time.time() - start)
+        # print("queue size:", publish_queue.qsize())
+        
         sleep_time = batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
+
+        # print("target_rps:", effective_rps, "batch:", batch_size, "sleep_time:", sleep_time, "\n")
+
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
 
@@ -65,14 +85,55 @@ async def _publisher_worker(
     publish_queue: "asyncio.Queue[Tuple[str, str, bool]]",
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
 ) -> None:
-    """큐에 쌓인 로그를 Kafka에 발행하고 통계를 보고."""
+    """큐에 쌓인 로그를 Kafka에 발행"""
+    
+    # 병목 발생 : event 단위로 처리 원인
+    # while True:
+    #     service, payload, is_error = await publish_queue.get()
+    #     try:
+    #         await producer.publish(service, payload, replicate_error=is_error)  # Kafka publish (에러 토픽 복제 포함)
+    #         # record_tps(service)  # kafka 발행 tps 측정
+    #         stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
+    #     finally:
+    #         publish_queue.task_done()
+
+    BATCH = 200
+
     while True:
-        service, payload, is_error = await publish_queue.get()
-        try:
-            await producer.publish(service, payload, replicate_error=is_error)  # Kafka publish (에러 토픽 복제 포함)
-            # record_tps(service)  # kafka 발행 tps 측정
-            stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
-        finally:
+        batch = []
+
+        # 최소 1건
+        batch.append(await publish_queue.get())
+
+        # BATCH-1개 추가 drain
+        for _ in range(BATCH - 1):
+            try:
+                batch.append(publish_queue.get_nowait())
+            except asyncio.QueueEmpty:
+                break
+
+        # 병렬 publish
+        await asyncio.gather(*[
+            producer.publish(
+                service, 
+                payload, 
+                key = None,
+                replicate_error = err
+            )
+            for (service, payload, err) in batch
+        ])
+
+        # --- 🔥 서비스별 카운트 집계 ---
+        svc_counter = {}
+        for (svc, _, _) in batch:
+            svc_counter[svc] = svc_counter.get(svc, 0) + 1
+
+        # --- 🔥 stats_queue에 서비스별로 push ---
+        for svc, cnt in svc_counter.items():
+            stats_queue.put_nowait((svc, cnt))
+
+        # --- task_done 처리 ---
+        for _ in batch:
             publish_queue.task_done()
 
 
@@ -94,23 +155,23 @@ def start_pipeline(
     stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()  # RPS 계산용 큐
 
     available_services = list(simulators.keys())
-    svc_count = max(len(available_services), 1)
-    fallback_rps = base_rps / svc_count  # mix에 없는 서비스 대비 기본 RPS
+    service_count = max(len(available_services), 1)
+    fallback_rps = base_rps / service_count  # mix에 없는 서비스 대비 기본 RPS
 
     service_tasks = [
         asyncio.create_task(
             _service_loop(
-                service=svc,
-                simulator=simulators[svc],
-                target_rps=service_rps.get(svc, fallback_rps),
+                service=service,
+                simulator=simulators[service],
+                target_rps=service_rps.get(service, fallback_rps),
                 publish_queue=publish_queue,
                 bands=bands,
                 weight_mode=weight_mode,
                 batch_range=batch_range,
             ),
-            name=f"service-loop-{svc}",
+            name=f"service-loop-{service}",
         )
-        for svc in available_services
+        for service in available_services
     ]
 
     publisher_tasks = [
