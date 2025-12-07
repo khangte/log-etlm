@@ -62,7 +62,9 @@ async def stats_reporter(
         timeout = max(0.0, interval_sec - (loop.time() - last_report))
         try:
             service, count = await asyncio.wait_for(stats_queue.get(), timeout=timeout)
-            per_service[service] = per_service.get(service, 0) + count
+            # per_service[service] = per_service.get(service, 0) + count
+            if service in per_service:
+                per_service[service] += count
             total += count
         except asyncio.TimeoutError:
             continue
