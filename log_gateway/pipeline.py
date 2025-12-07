@@ -9,14 +9,22 @@ import asyncio
 import random
 from typing import Any, Dict, List, Tuple
 
+from .config.stats import record_tps
 from .config.timeband import current_hour_kst, pick_multiplier
 from . import producer
-from .kafka_settings import (
-    BATCH_MIN,
-    BATCH_MAX,
-    QUEUE_SIZE,
-    PUBLISHER_WORKERS,
-)
+
+# ===== 파이프라인(생성/전송) 파라미터 =====
+BATCH_MIN : int = 50
+BATCH_MAX : int = 200
+QUEUE_SIZE : int = 10000
+PUBLISHER_WORKERS : int = 4
+
+
+# # 퍼블리셔 튜닝(미니배치 드레인/폴링/백오프)
+# WORKER_DRAIN_COUNT: int = int(os.getenv("LG_WORKER_DRAIN_COUNT", "5000"))
+# WORKER_DRAIN_MS: int = int(os.getenv("LG_WORKER_DRAIN_MS", "5"))
+# POLL_EVERY: int = int(os.getenv("LG_POLL_EVERY", "1000"))
+# BUFFER_BACKOFF_MS: int = int(os.getenv("LG_BUFFER_BACKOFF_MS", "5"))
 
 
 async def _service_loop(
@@ -44,6 +52,7 @@ async def _service_loop(
         for event in logs:
             payload = simulator.render(event)
             is_error = event.get("level") == "ERROR"
+            record_tps(service)
             await publish_queue.put((service, payload, is_error))  # 큐에 (서비스, 페이로드, 에러여부) push
             
         sleep_time = batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
@@ -61,6 +70,7 @@ async def _publisher_worker(
         service, payload, is_error = await publish_queue.get()
         try:
             await producer.publish(service, payload, replicate_error=is_error)  # Kafka publish (에러 토픽 복제 포함)
+            # record_tps(service)  # kafka 발행 tps 측정
             stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
         finally:
             publish_queue.task_done()
