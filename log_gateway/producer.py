@@ -8,12 +8,15 @@ from __future__ import annotations
 
 import os
 import asyncio
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Sequence, Tuple
 
 from confluent_kafka import Producer
 
+from concurrent.futures import ThreadPoolExecutor
+EXECUTOR = ThreadPoolExecutor(max_workers=32)# CPU 4개 기준 추천: 32~64
+
 from .kafka_settings import ProducerSettings
+SETTINGS = ProducerSettings()
 
 import logging
 logger = logging.getLogger("log_gateway.producer")
@@ -29,8 +32,6 @@ def _ensure_logger_handler() -> None:
     logger.addHandler(handler)
 
 _ensure_logger_handler()
-
-SETTINGS = ProducerSettings()
 
 
 # -----------------------------------------------------------------------------
@@ -84,9 +85,6 @@ def get_topic(service: str) -> str:
 # 동기 발행 함수 (실제 Kafka I/O)
 # ---------------------------------------------------------------------------
 
-POLL_INTERVAL = 200
-_msg_count = 0
-
 def publish_sync(service: str, value: str, key: str | None = None, replicate_error: bool = False) -> None:
     """
     실제 Kafka로 보내는 동기 함수.
@@ -123,18 +121,7 @@ def publish_sync(service: str, value: str, key: str | None = None, replicate_err
             value=encoded_value,
             callback=_delivery_report,
         )
-    
-    # 병목 발생 : 메시지를  보낼 때마다 호출 == 과도함.
-    # producer.poll(0) 제거
 
-
-from concurrent.futures import ThreadPoolExecutor
-# CPU 4개 기준 추천: 32~64
-EXECUTOR = ThreadPoolExecutor(max_workers=64)
-
-# ---------------------------------------------------------------------------
-# 비동기 래퍼 (async/await 로 사용)
-# ---------------------------------------------------------------------------
 
 async def publish(service: str, value: str, key: str | None = None, replicate_error: bool = False) -> None:
     """
@@ -145,3 +132,16 @@ async def publish(service: str, value: str, key: str | None = None, replicate_er
     """
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(EXECUTOR, publish_sync, service, value, key, replicate_error)
+
+
+BatchMessage = Tuple[str, str, Optional[str], bool]
+
+def publish_batch_sync(batch: Sequence[BatchMessage]) -> None:
+    """동일 스레드 풀 작업 내에서 배치를 순차 처리."""
+    for service, value, key, replicate_error in batch:
+        publish_sync(service, value, key, replicate_error)
+
+async def publish_batch(batch: Sequence[BatchMessage]) -> None:
+    """배치 발행을 한 번의 executor 작업으로 실행."""
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(EXECUTOR, publish_batch_sync, batch)
