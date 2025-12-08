@@ -8,13 +8,26 @@ from __future__ import annotations
 
 import os
 import asyncio
+import atexit
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
 
 from concurrent.futures import ThreadPoolExecutor
-EXECUTOR = ThreadPoolExecutor(max_workers=32)# CPU 4개 기준 추천: 32~64
+_EXECUTOR: Optional[ThreadPoolExecutor] = None
+_EXECUTOR_SHUTDOWN_REGISTERED = False
+
+def get_executor() -> ThreadPoolExecutor:
+    """Lazy executor with shutdown hook."""
+    global _EXECUTOR, _EXECUTOR_SHUTDOWN_REGISTERED
+    if _EXECUTOR is None:
+        max_workers = int(os.getenv("LG_PRODUCER_EXECUTOR", "32"))
+        _EXECUTOR = ThreadPoolExecutor(max_workers=max_workers)
+    if not _EXECUTOR_SHUTDOWN_REGISTERED:
+        _EXECUTOR_SHUTDOWN_REGISTERED = True
+        atexit.register(lambda: _EXECUTOR.shutdown(wait=False) if _EXECUTOR else None)
+    return _EXECUTOR
 
 from .kafka_settings import ProducerSettings
 SETTINGS = ProducerSettings()
@@ -132,7 +145,8 @@ async def publish(service: str, value: str, key: str | None = None, replicate_er
     FastAPI 이벤트 루프를 막지 않는다.
     """
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(EXECUTOR, publish_sync, service, value, key, replicate_error)
+    executor = get_executor()
+    await loop.run_in_executor(executor, publish_sync, service, value, key, replicate_error)
 
 
 @dataclass(frozen=True)
@@ -150,4 +164,5 @@ def publish_batch_sync(batch: Sequence[BatchMessage]) -> None:
 async def publish_batch(batch: Sequence[BatchMessage]) -> None:
     """배치 발행을 한 번의 executor 작업으로 실행."""
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(EXECUTOR, publish_batch_sync, batch)
+    executor = get_executor()
+    await loop.run_in_executor(executor, publish_batch_sync, batch)
