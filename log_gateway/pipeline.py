@@ -15,8 +15,8 @@ from .config.timeband import current_hour_kst, pick_multiplier
 from . import producer
 
 # ===== 파이프라인(생성/전송) 파라미터 =====
-BATCH_MIN : int = 50
-BATCH_MAX : int = 200
+BATCH_MIN : int = 100
+BATCH_MAX : int = 100
 QUEUE_SIZE : int = 10000
 PUBLISHER_WORKERS : int = 4
 
@@ -61,7 +61,7 @@ async def _service_loop(
         # print("old_put_time", time.time() - start)
 
         # 배치 단위로 처리
-        start = time.time()
+        # start = time.time()
 
         payloads = [simulator.render(log) for log in logs] # 배치 단위 렌더링
         await asyncio.gather(*[                            # 배치 단위 큐 삽입
@@ -70,11 +70,11 @@ async def _service_loop(
         ])
         
         # print("new_put_time", time.time() - start)
-        print("queue size:", publish_queue.qsize())
+        # print("queue size:", publish_queue.qsize())
         
         sleep_time = batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
 
-        print("target_rps:", effective_rps, "batch:", batch_size, "sleep_time:", sleep_time)
+        # print("queue size:", publish_queue.qsize(), "target_rps:", effective_rps, "batch:", batch_size, "sleep_time:", sleep_time)
 
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
