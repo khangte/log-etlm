@@ -6,21 +6,18 @@
 from __future__ import annotations
 
 import asyncio
-import random
 import time
 from typing import Any, Dict, List, Tuple
 
-from .producer import publish, get_producer
-from .config.stats import record_tps
+from .producer import get_producer, publish_batch
 from .config.timeband import current_hour_kst, pick_multiplier
 
 # ===== 파이프라인(생성/전송) 파라미터 =====
-# BATCH_MIN : int = 300
-# BATCH_MAX : int = 600
-LOG_BATCH_SIZE : int = 300
+LOG_BATCH_SIZE : int = 200
 QUEUE_SIZE : int = 10000
 PUBLISHER_WORKERS : int = 8
 WORKER_BATCH_SIZE : int = 800
+POLL_EVERY = 50
 
 # # 퍼블리셔 튜닝(미니배치 드레인/폴링/백오프)
 # WORKER_DRAIN_COUNT: int = int(os.getenv("LG_WORKER_DRAIN_COUNT", "5000"))
@@ -40,44 +37,21 @@ async def _service_stream_loop(
     log_batch_size: int
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
-    # batch_min, batch_max = batch_range  # 프로파일과 무관하게 고정된 배치 범위
-    # batch_min = max(1, batch_min)
-    # batch_max = max(batch_min, batch_max)
-
     while True:
+        loop_start = time.perf_counter()
         hour = current_hour_kst()  # 현재 시간대(KST) 결정
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0  # 시간대 가중치 적용
         effective_rps = max(target_rps * multiplier, 0.01)  # 목표 RPS × multiplier
-        # log_batch_size = random.randint(batch_min, batch_max)  # 배치 크기를 랜덤 선택
-        log_batch_size = log_batch_size
+        batch_size = log_batch_size
 
-        logs = simulator.generate_logs(log_batch_size)  # 시뮬레이터에서 로그 배치 생성
-        
-        # 2025-12-07 수정
-        # 배치로 만든 로그를 다시 1건 씩 render + queue.put을 하는 이슈.
-        # start = time.time()
-        # for event in logs:
-        #     payload = simulator.render(event)
-        #     is_error = event.get("level") == "ERROR"
-        #     record_tps(service)
-        #     await publish_queue.put((service, payload, is_error))  # 큐에 (서비스, 페이로드, 에러여부) push
-        # print("old_put_time", time.time() - start)
+        logs = simulator.generate_logs(batch_size)  # 시뮬레이터에서 로그 배치 생성
+        payloads = [simulator.render(log) for log in logs]
+        for payload, log in zip(payloads, logs):
+            await publish_queue.put((service, payload, log.get("level") == "ERROR"))
 
-        # 배치 단위로 처리
-        # start = time.time()
-
-        payloads = [simulator.render(log) for log in logs] # 배치 단위 렌더링
-        await asyncio.gather(*[                            # 배치 단위 큐 삽입
-            publish_queue.put((service, payload, log.get("level") == "ERROR"))
-            for payload, log in zip(payloads, logs)
-        ])
-        
-        # print("new_put_time", time.time() - start)
-        print("queue size:", publish_queue.qsize())
-        
-        sleep_time = log_batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
-
-        print("target_rps:", effective_rps, "batch:", log_batch_size, "sleep_time:", sleep_time)
+        desired_period = batch_size / effective_rps
+        elapsed = time.perf_counter() - loop_start
+        sleep_time = max(0.0, desired_period - elapsed)
 
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
@@ -89,16 +63,8 @@ async def _publisher_worker(
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
 ) -> None:
     """큐에 쌓인 로그를 Kafka에 발행"""
-    
-    # 병목 발생 : event 단위로 처리 원인
-    # while True:
-    #     service, payload, is_error = await publish_queue.get()
-    #     try:
-    #         await producer.publish(service, payload, replicate_error=is_error)  # Kafka publish (에러 토픽 복제 포함)
-    #         # record_tps(service)  # kafka 발행 tps 측정
-    #         stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
-    #     finally:
-    #         publish_queue.task_done()
+    producer = get_producer()
+
     while True:
         batch = []
 
@@ -112,13 +78,19 @@ async def _publisher_worker(
             except asyncio.QueueEmpty:
                 break
 
-        # 병렬 publish
-        await asyncio.gather(*[
-            publish(service, payload, None, err)
-            for (service, payload, err) in batch
-        ])
+        # 배치를 한 번에 thread pool 로 넘겨 컨텍스트 스위치 감소
+        await publish_batch(
+            [(service, payload, None, err) for (service, payload, err) in batch]
+        )
 
-        producer = get_producer()
+        # batch 내 50개마다 poll, 그 후 마지막에 poll 1회
+        processed = 0
+        for _ in batch:
+            processed += 1
+            if processed % POLL_EVERY == 0:
+                producer.poll(0)
+
+        # 마지막에도 한 번 더 poll → 카프카 내부 큐 누적 방지
         producer.poll(0)
 
         # --- 🔥 서비스별 카운트 집계 ---
@@ -148,7 +120,6 @@ def start_pipeline(
     List[asyncio.Task],
 ]:
     """큐/워커 태스크를 초기화하고 반환."""
-    # batch_range = (BATCH_MIN, BATCH_MAX)
     log_batch_size = LOG_BATCH_SIZE
     publish_queue: "asyncio.Queue[Tuple[str, str, bool]]" = asyncio.Queue(maxsize=QUEUE_SIZE)  # Kafka 전송 대기 큐
     stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()  # RPS 계산용 큐
@@ -166,7 +137,6 @@ def start_pipeline(
                 publish_queue=publish_queue,
                 bands=bands,
                 weight_mode=weight_mode,
-                # batch_range=batch_range,
                 log_batch_size=log_batch_size,
             ),
             name=f"service-loop-{service}",
