@@ -3,9 +3,10 @@ import traceback
 
 def write_to_clickhouse(df, table_name):
     try:
-        print(f"[📥 ClickHouse] Writing to {table_name}")
-        # df.show(1, truncate=False)
-
+        batch_count = df.count()
+        min_ts = df.agg({"event_ts": "min"}).collect()[0][0] if batch_count else None
+        max_ts = df.agg({"event_ts": "max"}).collect()[0][0] if batch_count else None
+        print(f"[📥 ClickHouse] Writing to {table_name} | rows={batch_count} min_ts={min_ts} max_ts={max_ts}")
         df.write \
             .format("jdbc") \
             .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
