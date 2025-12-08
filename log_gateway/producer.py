@@ -125,13 +125,12 @@ def publish_sync(service: str, value: str, key: str | None = None, replicate_err
         )
     
     # 병목 발생 : 메시지를  보낼 때마다 호출 == 과도함.
-    # producer.poll(0)
+    # producer.poll(0) 제거
 
-    _msg_count += 1
-    # N개마다 poll 1회만 실행
-    if _msg_count % POLL_INTERVAL == 0:
-        producer.poll(0)
-        
+
+from concurrent.futures import ThreadPoolExecutor
+# CPU 4개 기준 추천: 32~64
+EXECUTOR = ThreadPoolExecutor(max_workers=64)
 
 # ---------------------------------------------------------------------------
 # 비동기 래퍼 (async/await 로 사용)
@@ -145,4 +144,4 @@ async def publish(service: str, value: str, key: str | None = None, replicate_er
     FastAPI 이벤트 루프를 막지 않는다.
     """
     loop = asyncio.get_running_loop()
-    await loop.run_in_executor(None, publish_sync, service, value, key, replicate_error)
+    await loop.run_in_executor(EXECUTOR, publish_sync, service, value, key, replicate_error)
