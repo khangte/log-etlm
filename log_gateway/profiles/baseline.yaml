@@ -10,7 +10,7 @@
 
 env: "dev"                # 적용 대상 환경
 
-duration_sec: 300         # 5분
+# duration_sec: 300         # 5분
 
 rps: 10000               # 기본 초당 10k(1만 건)
 
