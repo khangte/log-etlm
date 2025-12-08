@@ -10,16 +10,17 @@ import random
 import time
 from typing import Any, Dict, List, Tuple
 
+from .producer import publish, get_producer
 from .config.stats import record_tps
 from .config.timeband import current_hour_kst, pick_multiplier
-from . import producer
 
 # ===== 파이프라인(생성/전송) 파라미터 =====
-BATCH_MIN : int = 100
-BATCH_MAX : int = 100
+# BATCH_MIN : int = 300
+# BATCH_MAX : int = 600
+LOG_BATCH_SIZE : int = 300
 QUEUE_SIZE : int = 10000
-PUBLISHER_WORKERS : int = 4
-
+PUBLISHER_WORKERS : int = 8
+WORKER_BATCH_SIZE : int = 800
 
 # # 퍼블리셔 튜닝(미니배치 드레인/폴링/백오프)
 # WORKER_DRAIN_COUNT: int = int(os.getenv("LG_WORKER_DRAIN_COUNT", "5000"))
@@ -28,27 +29,29 @@ PUBLISHER_WORKERS : int = 4
 # BUFFER_BACKOFF_MS: int = int(os.getenv("LG_BUFFER_BACKOFF_MS", "5"))
 
 
-async def _service_loop(
+async def _service_stream_loop(
     service: str,
     simulator: Any,
     target_rps: float,
     publish_queue: "asyncio.Queue[Tuple[str, str, bool]]",
     bands: List[Any],
     weight_mode: str,
-    batch_range: Tuple[int, int],
+    # batch_range: Tuple[int, int],
+    log_batch_size: int
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
-    batch_min, batch_max = batch_range  # 프로파일과 무관하게 고정된 배치 범위
-    batch_min = max(1, batch_min)
-    batch_max = max(batch_min, batch_max)
+    # batch_min, batch_max = batch_range  # 프로파일과 무관하게 고정된 배치 범위
+    # batch_min = max(1, batch_min)
+    # batch_max = max(batch_min, batch_max)
 
     while True:
         hour = current_hour_kst()  # 현재 시간대(KST) 결정
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0  # 시간대 가중치 적용
         effective_rps = max(target_rps * multiplier, 0.01)  # 목표 RPS × multiplier
-        batch_size = random.randint(batch_min, batch_max)  # 배치 크기를 랜덤 선택
+        # log_batch_size = random.randint(batch_min, batch_max)  # 배치 크기를 랜덤 선택
+        log_batch_size = log_batch_size
 
-        logs = simulator.generate_logs(batch_size)  # 시뮬레이터에서 로그 배치 생성
+        logs = simulator.generate_logs(log_batch_size)  # 시뮬레이터에서 로그 배치 생성
         
         # 2025-12-07 수정
         # 배치로 만든 로그를 다시 1건 씩 render + queue.put을 하는 이슈.
@@ -70,11 +73,11 @@ async def _service_loop(
         ])
         
         # print("new_put_time", time.time() - start)
-        # print("queue size:", publish_queue.qsize())
+        print("queue size:", publish_queue.qsize())
         
-        sleep_time = batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
+        sleep_time = log_batch_size / effective_rps  # 배치 처리에 소비해야 하는 시간 → 목표 RPS 맞추기 위함
 
-        # print("queue size:", publish_queue.qsize(), "target_rps:", effective_rps, "batch:", batch_size, "sleep_time:", sleep_time)
+        print("target_rps:", effective_rps, "batch:", log_batch_size, "sleep_time:", sleep_time)
 
         if sleep_time > 0:
             await asyncio.sleep(sleep_time)
@@ -96,17 +99,14 @@ async def _publisher_worker(
     #         stats_queue.put_nowait((service, 1))  # 통계 큐에 처리 건수 보고
     #     finally:
     #         publish_queue.task_done()
-
-    BATCH = 200
-
     while True:
         batch = []
 
         # 최소 1건
         batch.append(await publish_queue.get())
 
-        # BATCH-1개 추가 drain
-        for _ in range(BATCH - 1):
+        # WORKER_BATCH_SIZE-1개 추가 drain
+        for _ in range(WORKER_BATCH_SIZE - 1):
             try:
                 batch.append(publish_queue.get_nowait())
             except asyncio.QueueEmpty:
@@ -114,14 +114,12 @@ async def _publisher_worker(
 
         # 병렬 publish
         await asyncio.gather(*[
-            producer.publish(
-                service, 
-                payload, 
-                key = None,
-                replicate_error = err
-            )
+            publish(service, payload, None, err)
             for (service, payload, err) in batch
         ])
+
+        producer = get_producer()
+        producer.poll(0)
 
         # --- 🔥 서비스별 카운트 집계 ---
         svc_counter = {}
@@ -150,7 +148,8 @@ def start_pipeline(
     List[asyncio.Task],
 ]:
     """큐/워커 태스크를 초기화하고 반환."""
-    batch_range = (BATCH_MIN, BATCH_MAX)
+    # batch_range = (BATCH_MIN, BATCH_MAX)
+    log_batch_size = LOG_BATCH_SIZE
     publish_queue: "asyncio.Queue[Tuple[str, str, bool]]" = asyncio.Queue(maxsize=QUEUE_SIZE)  # Kafka 전송 대기 큐
     stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()  # RPS 계산용 큐
 
@@ -160,14 +159,15 @@ def start_pipeline(
 
     service_tasks = [
         asyncio.create_task(
-            _service_loop(
+            _service_stream_loop(
                 service=service,
                 simulator=simulators[service],
                 target_rps=service_rps.get(service, fallback_rps),
                 publish_queue=publish_queue,
                 bands=bands,
                 weight_mode=weight_mode,
-                batch_range=batch_range,
+                # batch_range=batch_range,
+                log_batch_size=log_batch_size,
             ),
             name=f"service-loop-{service}",
         )
