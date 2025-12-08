@@ -22,7 +22,6 @@ POLL_EVERY = 50
 # # 퍼블리셔 튜닝(미니배치 드레인/폴링/백오프)
 # WORKER_DRAIN_COUNT: int = int(os.getenv("LG_WORKER_DRAIN_COUNT", "5000"))
 # WORKER_DRAIN_MS: int = int(os.getenv("LG_WORKER_DRAIN_MS", "5"))
-# POLL_EVERY: int = int(os.getenv("LG_POLL_EVERY", "1000"))
 # BUFFER_BACKOFF_MS: int = int(os.getenv("LG_BUFFER_BACKOFF_MS", "5"))
 
 
