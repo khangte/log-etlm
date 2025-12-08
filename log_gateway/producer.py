@@ -104,7 +104,6 @@ def publish_sync(service: str, value: str, key: str | None = None, replicate_err
     실제 Kafka로 보내는 동기 함수.
     asyncio 환경에서는 직접 호출하지 말고 publish() 를 await 할 것.
     """
-    global _msg_count
     producer = get_producer()
     topic = get_topic(service)
 
