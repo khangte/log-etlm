@@ -44,8 +44,8 @@ async def _service_stream_loop(
         batch_size = log_batch_size
 
         logs = simulator.generate_logs(batch_size)  # 시뮬레이터에서 로그 배치 생성
-        payloads = [simulator.render(log) for log in logs]
-        for payload, log in zip(payloads, logs):
+        for log in logs:
+            payload = simulator.render(log)
             await publish_queue.put((service, payload, log.get("level") == "ERROR"))
 
         desired_period = batch_size / effective_rps
