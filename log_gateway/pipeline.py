@@ -9,7 +9,9 @@ import asyncio
 import time
 from typing import Any, Dict, List, Tuple
 
-from .producer import get_producer, publish_batch
+from collections import Counter
+
+from .producer import BatchMessage, get_producer, publish_batch
 from .config.timeband import current_hour_kst, pick_multiplier
 
 # ===== 파이프라인(생성/전송) 파라미터 =====
@@ -78,9 +80,10 @@ async def _publisher_worker(
                 break
 
         # 배치를 한 번에 thread pool 로 넘겨 컨텍스트 스위치 감소
-        await publish_batch(
-            [(service, payload, None, err) for (service, payload, err) in batch]
-        )
+        messages = [
+            BatchMessage(service, payload, None, err) for (service, payload, err) in batch
+        ]
+        await publish_batch(messages)
 
         # batch 내 50개마다 poll, 그 후 마지막에 poll 1회
         processed = 0
@@ -93,9 +96,7 @@ async def _publisher_worker(
         producer.poll(0)
 
         # --- 🔥 서비스별 카운트 집계 ---
-        svc_counter = {}
-        for (svc, _, _) in batch:
-            svc_counter[svc] = svc_counter.get(svc, 0) + 1
+        svc_counter = Counter(svc for svc, _, _ in batch)
 
         # --- 🔥 stats_queue에 서비스별로 push ---
         for svc, cnt in svc_counter.items():

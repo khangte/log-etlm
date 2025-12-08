@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import os
 import asyncio
-from typing import Any, Dict, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
 
@@ -134,12 +135,17 @@ async def publish(service: str, value: str, key: str | None = None, replicate_er
     await loop.run_in_executor(EXECUTOR, publish_sync, service, value, key, replicate_error)
 
 
-BatchMessage = Tuple[str, str, Optional[str], bool]
+@dataclass(frozen=True)
+class BatchMessage:
+    service: str
+    value: str
+    key: Optional[str]
+    replicate_error: bool
 
 def publish_batch_sync(batch: Sequence[BatchMessage]) -> None:
     """동일 스레드 풀 작업 내에서 배치를 순차 처리."""
-    for service, value, key, replicate_error in batch:
-        publish_sync(service, value, key, replicate_error)
+    for message in batch:
+        publish_sync(message.service, message.value, message.key, message.replicate_error)
 
 async def publish_batch(batch: Sequence[BatchMessage]) -> None:
     """배치 발행을 한 번의 executor 작업으로 실행."""
