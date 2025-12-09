@@ -19,6 +19,7 @@ def main() -> None:
         # 1) Spark 세션 생성
         spark = SparkSession \
             .builder \
+            .master(os.getenv('SPARK_MASTER_URL')) \
             .appName("LogForge_Spark_Job") \
             .config(
                 "spark.jars.packages", 
