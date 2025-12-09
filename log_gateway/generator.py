@@ -1,17 +1,17 @@
 # -----------------------------------------------------------------------------
 # 파일명 : log_gateway/generator.py
-# 목적   : 서비스별 시뮬레이터를 인스턴스화하고 FastAPI 앱 생명주기 동안 지속적으로 로그를 생성/Kafka로 전송
-# 사용   : main.py startup 이벤트에서 run_generator()를 asyncio task로 띄워 백그라운드 발행
+# 목적   : 서비스별 시뮬레이터/파이프라인을 구성하는 헬퍼 제공
+# 사용   : run.py 등에서 build_generation_pipeline() 호출 후 실행
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import Any, Dict, List
 import asyncio
+from typing import Any, Dict, List, Tuple
 
 from .config.profile_route_settings import load_profile_context
-from .config.stats import stats_reporter
 from .simulator.build_simulators import build_simulators
-from .pipeline import start_pipeline
+from .simulator_pipeline import create_service_tasks
+from .kafka_pipeline import create_publisher_tasks
 
 PROFILE_NAME = "baseline"
 
@@ -30,24 +30,15 @@ def _compute_service_rps(base_rps: float, mix: Dict[str, Any], services: List[st
     return {service: base_rps * (weights[service] / weight_sum) for service in services}
 
 
-# -----------------------------------------------------------------------------
-# 비동기 제너레이터: 앱 살아있는 동안 계속 로그 생성
-# -----------------------------------------------------------------------------
-
-async def run_generator() -> None:
-    """
-    앱이 떠 있는 동안 계속 로그를 생성해서 Kafka로 발행하는 비동기 제너레이터.
-
-    FastAPI main.py 예시:
-
-        @app.on_event("startup")
-        async def start_generator():
-            asyncio.create_task(run_generator())
-    """
-    # logger.info("[generator] starting run_generator()")
-
-    # 1) 프로파일 컨텍스트 로딩
-    context = load_profile_context(PROFILE_NAME)
+def build_generation_pipeline(profile_name: str = PROFILE_NAME) -> Tuple[
+    List[str],
+    asyncio.Queue[Tuple[str, str, bool]],
+    asyncio.Queue[Tuple[str, int]],
+    List[asyncio.Task],
+    List[asyncio.Task],
+]:
+    """프로파일 기반으로 시뮬레이터/파이프라인을 초기화하고 태스크 목록을 반환."""
+    context = load_profile_context(profile_name)
     profile = context.profile
     base_rps = context.base_rps
     mix = context.mix
@@ -59,24 +50,18 @@ async def run_generator() -> None:
     available_services = list(simulators.keys())
     service_rps = _compute_service_rps(base_rps, mix, available_services)
 
-    (
-        publish_queue, stats_queue, service_tasks, publisher_tasks,
-    ) = start_pipeline(
+    publish_queue, service_tasks, _ = create_service_tasks(
         simulators=simulators,
         base_rps=base_rps,
-        bands=bands,
         service_rps=service_rps,
+        bands=bands,
         weight_mode=weight_mode,
     )
 
-    stats_task = asyncio.create_task(
-        stats_reporter(stats_queue=stats_queue, services=available_services),
-        name="stats-reporter",
+    stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()
+    publisher_tasks = create_publisher_tasks(
+        publish_queue=publish_queue,
+        stats_queue=stats_queue,
     )
 
-    tasks = service_tasks + publisher_tasks + [stats_task]
-    try:
-        await asyncio.gather(*tasks)
-    finally:
-        for task in tasks:
-            task.cancel()
+    return available_services, publish_queue, stats_queue, service_tasks, publisher_tasks
