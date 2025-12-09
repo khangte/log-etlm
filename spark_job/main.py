@@ -32,6 +32,8 @@ def main() -> None:
             .config("spark.ui.port", "4040") \
             .getOrCreate()
 
+        spark.sparkContext.setLogLevel("INFO")
+ 
         # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기
         kafka_df = spark \
             .readStream \
@@ -39,7 +41,7 @@ def main() -> None:
             .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP")) \
             .option("subscribePattern", "logs.*") \
             .option("startingOffsets", "latest")  \
-            .option("maxOffsetsPerTrigger", "1000") \
+            .option("maxOffsetsPerTrigger", "10000") \
             .load()
 
         # 3) Kafka raw DF → fact_log 스키마로 파싱
