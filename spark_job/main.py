@@ -8,7 +8,9 @@ from pyspark.sql.functions import from_json, col
 from pyspark.sql.streaming import StreamingQueryException
 
 from .fact.fact_log import parse_fact_log
-from .warehouse.writer import write_fact_log_stream
+from .warehouse.writer import ClickHouseStreamWriter
+
+writer = ClickHouseStreamWriter()
 
 
 def main() -> None:
@@ -44,7 +46,7 @@ def main() -> None:
         fact_df = parse_fact_log(kafka_df)
 
         # 4) ClickHouse analytics.fact_log로 스트리밍 적재
-        query = write_fact_log_stream(fact_df)
+        query = writer.write_fact_log_stream(fact_df)
 
         try:
             query.awaitTermination()
