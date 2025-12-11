@@ -16,11 +16,12 @@ from .producer import BatchMessage, get_producer, publish_batch
 
 # 퍼블리셔 기본 설정
 # 10k RPS = (워커 12개 × 워커당 833 RPS × 배치 100건)
-PUBLISHER_WORKERS: int = int(os.getenv("PUBLISHER_WORKERS", "8"))
-WORKER_BATCH_SIZE: int = int(os.getenv("WORKER_BATCH_SIZE", "80"))
-QUEUE_WARN_RATIO: float = float(os.getenv("PUBLISHER_QUEUE_WARN_RATIO", "0.7"))
-IDLE_WARN_SEC: float = float(os.getenv("PUBLISHER_IDLE_WARN_SEC", "0.2"))
-SEND_WARN_SEC: float = float(os.getenv("PUBLISHER_SEND_WARN_SEC", "0.3"))
+PUBLISHER_WORKERS = int("8")
+WORKER_BATCH_SIZE = int("80")
+QUEUE_WARN_RATIO = float("0.7")
+IDLE_WARN_SEC = float("0.2")
+SEND_WARN_SEC = float("0.3")
+
 
 _logger = logging.getLogger("log_gateway.kafka_pipeline")
 _logger.setLevel(logging.INFO)
@@ -53,7 +54,7 @@ async def _publisher_worker(
                 break
 
         messages = [
-            BatchMessage(service, payload, err) for (service, payload, err) in batch
+            BatchMessage(service, payload, None, err) for (service, payload, err) in batch
         ]
         send_start = time.perf_counter()
         await publish_batch(messages)
