@@ -9,10 +9,13 @@ from __future__ import annotations
 import os
 import asyncio
 import atexit
-from dataclasses import dataclass
+import threading
+import time
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
+from confluent_kafka.admin import AdminClient
 
 from concurrent.futures import ThreadPoolExecutor
 _EXECUTOR: Optional[ThreadPoolExecutor] = None
@@ -28,9 +31,6 @@ def get_executor() -> ThreadPoolExecutor:
         _EXECUTOR_SHUTDOWN_REGISTERED = True
         atexit.register(lambda: _EXECUTOR.shutdown(wait=False) if _EXECUTOR else None)
     return _EXECUTOR
-
-from .kafka_settings import ProducerSettings
-SETTINGS = ProducerSettings()
 
 import logging
 logger = logging.getLogger("log_gateway.producer")
@@ -48,35 +48,68 @@ def _ensure_logger_handler() -> None:
 _ensure_logger_handler()
 
 
-# -----------------------------------------------------------------------------
-# 내부 유틸리티 함수
-# -----------------------------------------------------------------------------
+@dataclass
+class ProducerSettings:
+    brokers: str = os.getenv("KAFKA_BOOTSTRAP")
+    client_id: str = os.getenv("KAFKA_CLIENT_ID")
+    topics: Dict[str, str] = field(default_factory=lambda: {
+        "auth":    "logs.auth",
+        "order":   "logs.order",
+        "payment": "logs.payment",
+        "notify":  "logs.notify",
+        "error":   "logs.error",
+        # "dlq":  "dlq.logs",
+    })
+    security: Optional[Dict[str, Any]] = None
 
-def _build_producer_config() -> Dict[str, Any]:
-    """
-    Kafka Producer 생성에 필요한 기본 설정을 반환한다.
-    - 멱등성/압축/배치/acks 등 안정성/성능 옵션 포함.
+    def _build_producer_config(self) -> Dict[str, Any]:
+        config = {
+            "bootstrap.servers": SETTINGS.brokers,
+            "client.id": SETTINGS.client_id,
 
-    Returns:
-        Dict[str, Any]: confluent-kafka/python-kafka 등에서 사용할 설정 맵
-    """
-    config = {
-        "bootstrap.servers": SETTINGS.brokers,
-        "client.id": SETTINGS.client_id,
-        # 안정성/성능 옵션(라이브러리에 따라 키가 다를 수 있음)
-        "enable.idempotence": True,
-        "compression.type": "zstd",
-        "acks": "all",
-        # 배치/지연
-        "linger.ms": 5,
-        "batch.num.messages": 10000,
-    }
-    if SETTINGS.security:
-        config.update(SETTINGS.security)
-    return config
+            # 안정성: 멱등성 유지
+            "enable.idempotence": True,
+            "acks": "all",
+            "max.in.flight.requests.per.connection": 5,  # 약간 여유를 주되 at-least-once 보장
 
+            # 압축 → 기본 snappy, 필요 시 env로 조정
+            "compression.type": "snappy",
+
+            # 배치/지연 → 너무 작지 않게 균형값
+            "linger.ms": "0",      # 즉시 전송 대신 2ms 정도 모음
+            "batch.num.messages": "200",
+
+            # 내부 큐: 극단적 버스트만 흡수 (64MB / 100k)
+            "queue.buffering.max.kbytes": int(64 * 1024),
+            "queue.buffering.max.messages": "100000",
+
+            # 파티션 분배 방식
+            "partitioner": "murmur2_random",
+        }
+        if self.security:
+            config.update(self.security)
+        return config
+
+SETTINGS = ProducerSettings()
+
+
+POLL_THREAD_SLEEP_SEC = 0.00
+_PRODUCER_POLL_THREAD: Optional[threading.Thread] = None
+_PRODUCER_POLL_SHUTDOWN = threading.Event()
 
 _producer: Optional[Producer] = None
+_partition_counters: Dict[str, int] = {}
+_topic_partitions: Dict[str, int] = {}
+
+
+def _load_topic_partitions() -> None:
+    global _topic_partitions
+    admin = AdminClient({"bootstrap.servers": SETTINGS.brokers})
+    md = admin.list_topics(timeout=5)
+
+    for topic, desc in md.topics.items():
+        if desc.error is None:
+            _topic_partitions[topic] = len(desc.partitions)
 
 def get_producer() -> Producer:
     """
@@ -84,8 +117,40 @@ def get_producer() -> Producer:
     """
     global _producer
     if _producer is None:
-        _producer = Producer(_build_producer_config())
+        _producer = Producer(SETTINGS._build_producer_config())
+        _load_topic_partitions()
+        _start_poll_thread()
     return _producer
+
+def _select_partition(topic: str) -> int:
+    count = _topic_partitions.get(topic, 1)
+    if count <= 1:
+        return 0
+
+    idx = _partition_counters.get(topic, 0)
+    next_idx = (idx + 1) % count
+    _partition_counters[topic] = next_idx
+    return next_idx
+
+def _start_poll_thread() -> None:
+    global _PRODUCER_POLL_THREAD
+    if _PRODUCER_POLL_THREAD is not None:
+        return
+
+    def _poll_loop() -> None:
+        while not _PRODUCER_POLL_SHUTDOWN.is_set():
+            producer = _producer
+            if producer is not None:
+                producer.poll(0)
+            time.sleep(POLL_THREAD_SLEEP_SEC)
+
+    _PRODUCER_POLL_THREAD = threading.Thread(target=_poll_loop, name="lg-producer-poll", daemon=True)
+    _PRODUCER_POLL_THREAD.start()
+
+    def _stop_poll_thread() -> None:
+        _PRODUCER_POLL_SHUTDOWN.set()
+
+    atexit.register(_stop_poll_thread)
 
 def get_topic(service: str) -> str:
     """
@@ -99,15 +164,14 @@ def get_topic(service: str) -> str:
 # 동기 발행 함수 (실제 Kafka I/O)
 # ---------------------------------------------------------------------------
 
-def publish_sync(service: str, value: str, key: str | None = None, replicate_error: bool = False) -> None:
-    """
-    실제 Kafka로 보내는 동기 함수.
-    asyncio 환경에서는 직접 호출하지 말고 publish() 를 await 할 것.
-    """
-    producer = get_producer()
+def _deliver(
+    producer: Producer,
+    service: str,
+    value: str,
+    key: Optional[str] = None,
+    replicate_error: bool = False,
+) -> None:
     topic = get_topic(service)
-
-    # logger.info("Publishing to Kafka topic=%s service=%s", topic, service)
 
     def _delivery_report(err, msg):
         if err is not None:
@@ -118,25 +182,40 @@ def publish_sync(service: str, value: str, key: str | None = None, replicate_err
                 err,
             )
 
-    encoded_key = key.encode("utf-8") if key else None
     encoded_value = value.encode("utf-8")
+    encoded_key = None
+
+    partition = _select_partition(topic)
 
     producer.produce(
         topic=topic,
-        key=encoded_key,
         value=encoded_value,
+        key=encoded_key,
+        partition=partition,
         callback=_delivery_report,
     )
     if replicate_error and service != "error":
+        err_topic = get_topic("error")
+        err_partition = _select_partition(err_topic)
         producer.produce(
-            topic=get_topic("error"),
-            key=encoded_key,
+            topic=err_topic,
             value=encoded_value,
+            key=encoded_key,
+            partition=err_partition,
             callback=_delivery_report,
         )
 
 
-async def publish(service: str, value: str, key: str | None = None, replicate_error: bool = False) -> None:
+def publish_sync(service: str, value: str, key: Optional[str] = None, replicate_error: bool = False) -> None:
+    """
+    실제 Kafka로 보내는 동기 함수.
+    asyncio 환경에서는 직접 호출하지 말고 publish() 를 await 할 것.
+    """
+    producer = get_producer()
+    _deliver(producer, service, value, key, replicate_error)
+
+
+async def publish(service: str, value: str, key: Optional[str] = None, replicate_error: bool = False) -> None:
     """
     asyncio 환경에서 사용하는 비동기 발행 함수.
 
@@ -157,8 +236,9 @@ class BatchMessage:
 
 def publish_batch_sync(batch: Sequence[BatchMessage]) -> None:
     """동일 스레드 풀 작업 내에서 배치를 순차 처리."""
+    producer = get_producer()
     for message in batch:
-        publish_sync(message.service, message.value, message.key, message.replicate_error)
+        _deliver(producer, message.service, message.value, message.key, message.replicate_error)
 
 async def publish_batch(batch: Sequence[BatchMessage]) -> None:
     """배치 발행을 한 번의 executor 작업으로 실행."""
