@@ -1,7 +1,14 @@
 import traceback
 
+from .stats import record_clickhouse_write
+
 
 def write_to_clickhouse(df, table_name):
+    batch_count = 0
+    min_ts = None
+    max_ts = None
+    write_succeeded = False
+
     try:
         batch_count = df.count()
         min_ts = df.agg({"event_ts": "min"}).collect()[0][0] if batch_count else None
@@ -17,9 +24,12 @@ def write_to_clickhouse(df, table_name):
             .option("isolationLevel", "NONE") \
             .mode("append") \
             .save()
+        write_succeeded = True
     except Exception as e:
         print(f"[❌ ERROR] Failed writing {table_name} to ClickHouse: {e}")
         traceback.print_exc()
+    finally:
+        record_clickhouse_write(write_succeeded, batch_count)
 
 
 # --------------------------------------------------------------------------------
