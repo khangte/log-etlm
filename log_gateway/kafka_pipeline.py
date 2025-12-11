@@ -7,14 +7,28 @@ from __future__ import annotations
 
 import asyncio
 from collections import Counter
+import logging
+import time
 from typing import List, Tuple
 
 from .producer import BatchMessage, get_producer, publish_batch
 
 # 퍼블리셔 기본 설정
 PUBLISHER_WORKERS: int = 8
-WORKER_BATCH_SIZE: int = 800
+WORKER_BATCH_SIZE: int = 100
 POLL_EVERY: int = 50
+QUEUE_BACKLOG_RATIO: float = 0.7
+IDLE_WAIT_WARN_SEC: float = 0.05
+SLOW_SEND_WARN_SEC: float = 0.2
+
+_logger = logging.getLogger("log_gateway.kafka_pipeline")
+_logger.setLevel(logging.INFO)
+if not _logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+    )
+    _logger.addHandler(handler)
 
 
 async def _publisher_worker(
@@ -28,7 +42,9 @@ async def _publisher_worker(
     while True:
         batch = []
 
+        wait_start = time.perf_counter()
         batch.append(await publish_queue.get())
+        wait_duration = time.perf_counter() - wait_start
         for _ in range(WORKER_BATCH_SIZE - 1):
             try:
                 batch.append(publish_queue.get_nowait())
@@ -38,7 +54,9 @@ async def _publisher_worker(
         messages = [
             BatchMessage(service, payload, None, err) for (service, payload, err) in batch
         ]
+        send_start = time.perf_counter()
         await publish_batch(messages)
+        send_duration = time.perf_counter() - send_start
 
         processed = 0
         for _ in batch:
@@ -46,6 +64,36 @@ async def _publisher_worker(
             if processed % POLL_EVERY == 0:
                 producer.poll(0)
         producer.poll(0)
+
+        queue_depth = publish_queue.qsize()
+        queue_capacity = publish_queue.maxsize
+
+        if wait_duration > IDLE_WAIT_WARN_SEC:
+            _logger.info(
+                "[publisher] idle worker=%d wait=%.3fs queue=%d",
+                worker_id,
+                wait_duration,
+                queue_depth,
+            )
+
+        if send_duration > SLOW_SEND_WARN_SEC:
+            _logger.info(
+                "[publisher] slow send worker=%d batch=%d duration=%.3fs",
+                worker_id,
+                len(batch),
+                send_duration,
+            )
+
+        if queue_capacity and queue_capacity > 0:
+            fill_ratio = queue_depth / queue_capacity
+            if fill_ratio >= QUEUE_BACKLOG_RATIO:
+                _logger.info(
+                    "[publisher] backlog worker=%d queue=%d/%d (%.0f%%)",
+                    worker_id,
+                    queue_depth,
+                    queue_capacity,
+                    fill_ratio * 100,
+                )
 
         svc_counter = Counter(svc for svc, _, _ in batch)
         for svc, cnt in svc_counter.items():
