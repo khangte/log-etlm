@@ -24,7 +24,7 @@ if not _logger.handlers:
 async def stats_reporter(
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
     services: List[str],
-    interval_sec: float = 1.0,
+    interval_sec: float = 10.0,
     logger: logging.Logger | None = None,
 ) -> None:
     """
