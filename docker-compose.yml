@@ -92,6 +92,27 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - KAFKA_BOOTSTRAP=kafka:9092
+      # 10k RPS 튜닝(필요 시 조절)
+      # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
+      - LG_RPS_OVERRIDE=2600
+      - LG_PUBLISHER_WORKERS=4
+      - LG_WORKER_BATCH_SIZE=400
+      - LG_PRODUCER_EXECUTOR=16
+      - LG_QUEUE_SIZE=4000
+      - LG_LOG_BATCH_SIZE=100
+      - LG_LOOPS_PER_SERVICE=8
+      - LG_PRODUCER_LINGER_MS=20
+      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
+      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
+      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
+      - LG_PRODUCER_ACKS=0
+      - LG_PRODUCER_COMPRESSION=none
+      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
+      - LG_TICK_SEC=0.1
+      # 로그 과다 방지(성능 측정 시 중요)
+      - LG_SEND_WARN_SEC=5
+      - LG_IDLE_WARN_SEC=5
     depends_on:
       kafka:
         condition: service_healthy
@@ -99,7 +120,83 @@ services:
     volumes:
       - ./log_gateway:/app/log_gateway:ro
     networks: [logetlm-net]
-    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  simulator2:
+    build:
+      context: .
+      dockerfile: log_gateway/Dockerfile
+    container_name: simulator2
+    restart: unless-stopped
+    environment:
+      - KAFKA_CLIENT_ID=log-monitoring-simulator-2
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - LG_RPS_OVERRIDE=2600
+      - LG_PUBLISHER_WORKERS=4
+      - LG_WORKER_BATCH_SIZE=400
+      - LG_PRODUCER_EXECUTOR=16
+      - LG_QUEUE_SIZE=4000
+      - LG_LOG_BATCH_SIZE=100
+      - LG_LOOPS_PER_SERVICE=8
+      - LG_PRODUCER_LINGER_MS=20
+      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
+      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
+      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
+      - LG_PRODUCER_ACKS=0
+      - LG_PRODUCER_COMPRESSION=none
+      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
+      - LG_TICK_SEC=0.1
+      - LG_SEND_WARN_SEC=5
+      - LG_IDLE_WARN_SEC=5
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./log_gateway:/app/log_gateway:ro
+    networks: [logetlm-net]
+    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  simulator3:
+    build:
+      context: .
+      dockerfile: log_gateway/Dockerfile
+    container_name: simulator3
+    restart: unless-stopped
+    environment:
+      - KAFKA_CLIENT_ID=log-monitoring-simulator-3
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - LG_RPS_OVERRIDE=2600
+      - LG_PUBLISHER_WORKERS=4
+      - LG_WORKER_BATCH_SIZE=400
+      - LG_PRODUCER_EXECUTOR=16
+      - LG_QUEUE_SIZE=4000
+      - LG_LOG_BATCH_SIZE=100
+      - LG_LOOPS_PER_SERVICE=8
+      - LG_PRODUCER_LINGER_MS=20
+      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
+      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
+      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
+      - LG_PRODUCER_ACKS=0
+      - LG_PRODUCER_COMPRESSION=none
+      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
+      - LG_TICK_SEC=0.1
+      - LG_SEND_WARN_SEC=5
+      - LG_IDLE_WARN_SEC=5
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./log_gateway:/app/log_gateway:ro
+    networks: [logetlm-net]
+    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
