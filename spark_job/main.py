@@ -42,6 +42,7 @@ def main() -> None:
             .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP")) \
             .option("subscribePattern", "logs.*") \
             .option("startingOffsets", "latest")  \
+            .option("failOnDataLoss", "false") \
             .option("maxOffsetsPerTrigger", "10000") \
             .load()
 
