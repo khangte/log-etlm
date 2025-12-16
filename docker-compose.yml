@@ -134,7 +134,7 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=2600
+      - LG_RPS_OVERRIDE=2500
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -259,6 +259,12 @@ services:
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
+      # Spark Streaming ingest tuning
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
+      # ClickHouse sink tuning (override as needed)
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=8
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
+      - SPARK_CLICKHOUSE_LOG_STATS=true
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
