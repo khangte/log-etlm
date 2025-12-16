@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import List, Tuple
 
 
@@ -49,7 +50,8 @@ async def stats_reporter(
         if elapsed >= interval_sec:
             rps = total / elapsed if elapsed > 0 else 0.0
             log.info(
-                "[stats] rps=%.1f window=%.2fs total=%d by_svc=(%s)",
+                "[stats pid=%d] rps=%.1f window=%.2fs total=%d by_svc=(%s)",
+                os.getpid(),
                 rps,
                 elapsed,
                 total,
