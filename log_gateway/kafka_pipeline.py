@@ -12,15 +12,15 @@ import os
 import time
 from typing import List, Tuple
 
-from .producer import BatchMessage, get_producer, publish_batch
+from .producer import BatchMessage, get_producer, publish_batch_direct
 
 # 퍼블리셔 기본 설정
 # 10k RPS = (워커 12개 × 워커당 833 RPS × 배치 100건)
-PUBLISHER_WORKERS = int("8")
-WORKER_BATCH_SIZE = int("80")
-QUEUE_WARN_RATIO = float("0.7")
-IDLE_WARN_SEC = float("0.2")
-SEND_WARN_SEC = float("0.3")
+PUBLISHER_WORKERS = int(os.getenv("LG_PUBLISHER_WORKERS", "8"))
+WORKER_BATCH_SIZE = int(os.getenv("LG_WORKER_BATCH_SIZE", "80"))
+QUEUE_WARN_RATIO = float(os.getenv("LG_PUBLISH_QUEUE_WARN_RATIO", os.getenv("LG_QUEUE_WARN_RATIO", "0.7")))
+IDLE_WARN_SEC = float(os.getenv("LG_IDLE_WARN_SEC", "0.2"))
+SEND_WARN_SEC = float(os.getenv("LG_SEND_WARN_SEC", "0.3"))
 
 
 _logger = logging.getLogger("log_gateway.kafka_pipeline")
@@ -35,21 +35,27 @@ if not _logger.handlers:
 
 async def _publisher_worker(
     worker_id: int,
-    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]",
+    publish_queue: "asyncio.Queue[list[Tuple[str, str, bool]]]",
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
 ) -> None:
     """큐에 쌓인 로그를 Kafka에 발행."""
     producer = get_producer()
 
     while True:
-        batch = []
+        batch: list[Tuple[str, str, bool]] = []
+        consumed_batches = 0
 
         wait_start = time.perf_counter()
-        batch.append(await publish_queue.get())
+        first = await publish_queue.get()
         wait_duration = time.perf_counter() - wait_start
-        for _ in range(WORKER_BATCH_SIZE - 1):
+        consumed_batches += 1
+        batch.extend(first)
+
+        while len(batch) < WORKER_BATCH_SIZE:
             try:
-                batch.append(publish_queue.get_nowait())
+                nxt = publish_queue.get_nowait()
+                consumed_batches += 1
+                batch.extend(nxt)
             except asyncio.QueueEmpty:
                 break
 
@@ -57,7 +63,7 @@ async def _publisher_worker(
             BatchMessage(service, payload, None, err) for (service, payload, err) in batch
         ]
         send_start = time.perf_counter()
-        await publish_batch(messages)
+        await publish_batch_direct(messages)
         send_duration = time.perf_counter() - send_start
 
         producer.poll(0)
@@ -96,12 +102,12 @@ async def _publisher_worker(
         for svc, cnt in svc_counter.items():
             stats_queue.put_nowait((svc, cnt))
 
-        for _ in batch:
+        for _ in range(consumed_batches):
             publish_queue.task_done()
 
 
 def create_publisher_tasks(
-    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]",
+    publish_queue: "asyncio.Queue[list[Tuple[str, str, bool]]]",
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
     worker_count: int = PUBLISHER_WORKERS,
 ) -> List[asyncio.Task]:
