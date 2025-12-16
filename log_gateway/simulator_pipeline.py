@@ -9,26 +9,30 @@ import asyncio
 import logging
 import os
 import time
+import random
 from typing import Any, Dict, List, Tuple
 
 from .config.timeband import current_hour_kst, pick_multiplier
 
 # 서비스 루프 기본 설정
 # 10k RPS = (서비스 4개 × 루프당 625 RPS × 배치 100건)
-LOG_BATCH_SIZE = int("100")
-QUEUE_SIZE = int("10000")
-LOOPS_PER_SERVICE = int("8")
-QUEUE_WARN_RATIO = float("0.8")
-QUEUE_LOW_WATERMARK_RATIO = float("0.2")
-QUEUE_LOW_SLEEP_SCALE = float("0.3")
-QUEUE_THROTTLE_RATIO = float("0.9")
-QUEUE_RESUME_RATIO = float("0.75")
-QUEUE_THROTTLE_SLEEP = float("0.05")
-QUEUE_SOFT_THROTTLE_RATIO = float("0.85")
-QUEUE_SOFT_RESUME_RATIO = float("0.7")
-QUEUE_SOFT_SCALE_STEP = float("0.1")
-QUEUE_SOFT_SCALE_MIN = float("0.2")
-QUEUE_SOFT_SCALE_MAX = float("1.0")
+LOG_BATCH_SIZE = int(os.getenv("LG_LOG_BATCH_SIZE", "100"))
+# tick 기반으로 batch_size를 계산해 버스트를 줄인다. (초)
+TICK_SEC = float(os.getenv("LG_TICK_SEC", "0.1"))
+# publish_queue는 "개별 로그"가 아니라 "배치(list)"를 담는다. (큐 연산 오버헤드 절감)
+QUEUE_SIZE = int(os.getenv("LG_QUEUE_SIZE", "2000"))
+LOOPS_PER_SERVICE = int(os.getenv("LG_LOOPS_PER_SERVICE", "8"))
+QUEUE_WARN_RATIO = float(os.getenv("LG_SIM_QUEUE_WARN_RATIO", os.getenv("LG_QUEUE_WARN_RATIO", "0.8")))
+QUEUE_LOW_WATERMARK_RATIO = float(os.getenv("LG_QUEUE_LOW_WATERMARK_RATIO", "0.2"))
+QUEUE_LOW_SLEEP_SCALE = float(os.getenv("LG_QUEUE_LOW_SLEEP_SCALE", "0.3"))
+QUEUE_THROTTLE_RATIO = float(os.getenv("LG_QUEUE_THROTTLE_RATIO", "0.9"))
+QUEUE_RESUME_RATIO = float(os.getenv("LG_QUEUE_RESUME_RATIO", "0.75"))
+QUEUE_THROTTLE_SLEEP = float(os.getenv("LG_QUEUE_THROTTLE_SLEEP", "0.05"))
+QUEUE_SOFT_THROTTLE_RATIO = float(os.getenv("LG_QUEUE_SOFT_THROTTLE_RATIO", "0.85"))
+QUEUE_SOFT_RESUME_RATIO = float(os.getenv("LG_QUEUE_SOFT_RESUME_RATIO", "0.7"))
+QUEUE_SOFT_SCALE_STEP = float(os.getenv("LG_QUEUE_SOFT_SCALE_STEP", "0.1"))
+QUEUE_SOFT_SCALE_MIN = float(os.getenv("LG_QUEUE_SOFT_SCALE_MIN", "0.2"))
+QUEUE_SOFT_SCALE_MAX = float(os.getenv("LG_QUEUE_SOFT_SCALE_MAX", "1.0"))
 
 
 _logger = logging.getLogger("log_gateway.simulator_pipeline")
@@ -45,32 +49,42 @@ async def _service_stream_loop(
     service: str,
     simulator: Any,
     target_rps: float,
-    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]",
+    publish_queue: "asyncio.Queue[list[Tuple[str, str, bool]]]",
     bands: List[Any],
     weight_mode: str,
     log_batch_size: int,
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
     throttle_scale = QUEUE_SOFT_SCALE_MAX
+    tick_sec = max(TICK_SEC, 0.01)
+    max_batch_size = max(log_batch_size, 1)
+    # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
+    await asyncio.sleep(random.uniform(0.0, tick_sec))
     while True:
         loop_start = time.perf_counter()
         hour = current_hour_kst()
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
         effective_rps = max(target_rps * multiplier, 0.01)
         scaled_rps = max(effective_rps * throttle_scale, 0.01)
-        batch_size = log_batch_size
+        batch_size = int(round(scaled_rps * tick_sec))
+        batch_size = max(1, min(max_batch_size, batch_size))
 
         logs = simulator.generate_logs(batch_size)
         enqueue_start = time.perf_counter()
+        batch_items: list[Tuple[str, str, bool]] = []
         for log in logs:
             payload = simulator.render(log)
-            await publish_queue.put((service, payload, log.get("level") == "ERROR"))
+            batch_items.append((service, payload, log.get("level") == "ERROR"))
+        await publish_queue.put(batch_items)
 
         enqueue_duration = time.perf_counter() - enqueue_start
 
-        desired_period = batch_size / scaled_rps
+        desired_period = tick_sec
         elapsed = time.perf_counter() - loop_start
-        sleep_time = max(0.0, desired_period - elapsed)
+        sleep_time = desired_period - elapsed
+        if sleep_time < 0:
+            # 뒤쳐진 상태에서 0-sleep 스핀을 하면 CPU를 태우면서 더 불안정해진다.
+            sleep_time = 0.001
 
         queue_depth = publish_queue.qsize()
         queue_capacity = publish_queue.maxsize
@@ -156,8 +170,7 @@ async def _service_stream_loop(
                     fill_ratio * 100,
                 )
 
-        if sleep_time > 0:
-            await asyncio.sleep(sleep_time)
+        await asyncio.sleep(max(0.0, sleep_time))
 
 
 def create_service_tasks(
@@ -169,9 +182,9 @@ def create_service_tasks(
     log_batch_size: int = LOG_BATCH_SIZE,
     queue_size: int = QUEUE_SIZE,
     loops_per_service: int = LOOPS_PER_SERVICE,
-) -> Tuple["asyncio.Queue[Tuple[str, str, bool]]", List[asyncio.Task], List[str]]:
+) -> Tuple["asyncio.Queue[list[Tuple[str, str, bool]]]", List[asyncio.Task], List[str]]:
     """시뮬레이터 태스크들을 생성하고 publish 큐와 함께 반환."""
-    publish_queue: "asyncio.Queue[Tuple[str, str, bool]]" = asyncio.Queue(maxsize=queue_size)
+    publish_queue: "asyncio.Queue[list[Tuple[str, str, bool]]]" = asyncio.Queue(maxsize=queue_size)
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)
