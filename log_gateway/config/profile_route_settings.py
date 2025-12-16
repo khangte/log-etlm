@@ -8,6 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any, List
 from pathlib import Path
+import os
 import yaml
 
 from .timeband import load_bands, Band
@@ -65,6 +66,9 @@ def load_profile_context(profile_name: str) -> ProfileContext:
     profile_path = PROFILES_DIR / f"{profile_name}.yaml"
     profile = load_profile(profile_path)
     base_rps = float(profile.get("rps", 10.0))
+    rps_override = os.getenv("LG_RPS_OVERRIDE")
+    if rps_override is not None and str(rps_override).strip() != "":
+        base_rps = float(rps_override)
     mix = profile.get("mix", {})
     weight_mode = profile.get("weight_mode", "uniform")
     raw_time_weights = profile.get("time_weights", [])
