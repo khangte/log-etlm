@@ -63,25 +63,37 @@ class ProducerSettings:
     security: Optional[Dict[str, Any]] = None
 
     def _build_producer_config(self) -> Dict[str, Any]:
+        linger_ms = os.getenv("LG_PRODUCER_LINGER_MS", "5")
+        batch_num_messages = os.getenv("LG_PRODUCER_BATCH_NUM_MESSAGES", "1000")
+        queue_buffering_max_kbytes = int(os.getenv("LG_PRODUCER_QUEUE_MAX_KBYTES", str(128 * 1024)))
+        queue_buffering_max_messages = os.getenv("LG_PRODUCER_QUEUE_MAX_MESSAGES", "500000")
+        enable_idempotence = os.getenv("LG_PRODUCER_ENABLE_IDEMPOTENCE", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
+        acks = os.getenv("LG_PRODUCER_ACKS", "all")
+        compression_type = os.getenv("LG_PRODUCER_COMPRESSION", "snappy")
         config = {
             "bootstrap.servers": SETTINGS.brokers,
             "client.id": SETTINGS.client_id,
 
             # 안정성: 멱등성 유지
-            "enable.idempotence": True,
-            "acks": "all",
+            "enable.idempotence": enable_idempotence,
+            "acks": acks,
             "max.in.flight.requests.per.connection": 5,  # 약간 여유를 주되 at-least-once 보장
 
             # 압축 → 기본 snappy, 필요 시 env로 조정
-            "compression.type": "snappy",
+            "compression.type": compression_type,
 
-            # 배치/지연 → 너무 작지 않게 균형값
-            "linger.ms": "0",      # 즉시 전송 대신 2ms 정도 모음
-            "batch.num.messages": "200",
+            # 배치/지연 → 처리량이 필요하면 linger/batch를 키운다.
+            "linger.ms": linger_ms,
+            "batch.num.messages": batch_num_messages,
 
             # 내부 큐: 극단적 버스트만 흡수 (64MB / 100k)
-            "queue.buffering.max.kbytes": int(64 * 1024),
-            "queue.buffering.max.messages": "100000",
+            "queue.buffering.max.kbytes": queue_buffering_max_kbytes,
+            "queue.buffering.max.messages": queue_buffering_max_messages,
 
             # 파티션 분배 방식
             "partitioner": "murmur2_random",
@@ -93,7 +105,7 @@ class ProducerSettings:
 SETTINGS = ProducerSettings()
 
 
-POLL_THREAD_SLEEP_SEC = 0.00
+POLL_THREAD_SLEEP_SEC = float(os.getenv("LG_PRODUCER_POLL_SLEEP_SEC", "0.01"))
 _PRODUCER_POLL_THREAD: Optional[threading.Thread] = None
 _PRODUCER_POLL_SHUTDOWN = threading.Event()
 
@@ -245,3 +257,41 @@ async def publish_batch(batch: Sequence[BatchMessage]) -> None:
     loop = asyncio.get_running_loop()
     executor = get_executor()
     await loop.run_in_executor(executor, publish_batch_sync, batch)
+
+
+async def publish_batch_direct(
+    batch: Sequence[BatchMessage],
+    *,
+    poll_every: int = 1000,
+    backoff_sec: float = 0.001,
+) -> None:
+    """
+    threadpool 없이 event loop에서 바로 produce한다.
+
+    confluent_kafka.Producer.produce()는 비동기 enqueue이며 빠르지만,
+    내부 버퍼가 가득 차면 BufferError가 날 수 있어 poll+backoff로 흡수한다.
+    """
+    producer = get_producer()
+    backoff_sec = max(backoff_sec, 0.0)
+    poll_every = max(int(poll_every), 1)
+
+    for idx, message in enumerate(batch, start=1):
+        while True:
+            try:
+                _deliver(
+                    producer,
+                    message.service,
+                    message.value,
+                    message.key,
+                    message.replicate_error,
+                )
+                break
+            except BufferError:
+                producer.poll(0)
+                if backoff_sec > 0:
+                    await asyncio.sleep(backoff_sec)
+
+        if idx % poll_every == 0:
+            producer.poll(0)
+
+    producer.poll(0)
