@@ -34,8 +34,11 @@ def main() -> None:
             .getOrCreate()
 
         spark.sparkContext.setLogLevel("INFO")
- 
+	 
         # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기
+        # 목표 처리량이 10k RPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
+        # 기본값은 25만(예: dt=25s일 때 약 10k RPS 수준)으로 두고, 환경변수로 조절한다.
+        max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER", "250000")
         kafka_df = spark \
             .readStream \
             .format("kafka") \
@@ -43,7 +46,7 @@ def main() -> None:
             .option("subscribePattern", "logs.*") \
             .option("startingOffsets", "latest")  \
             .option("failOnDataLoss", "false") \
-            .option("maxOffsetsPerTrigger", "10000") \
+            .option("maxOffsetsPerTrigger", max_offsets_per_trigger) \
             .load()
 
         # 3) Kafka raw DF → fact_log 스키마로 파싱
