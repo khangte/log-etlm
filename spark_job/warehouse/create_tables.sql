@@ -34,6 +34,37 @@ ENGINE = MergeTree
 PARTITION BY toDate(event_ts)
 ORDER BY (service, event_ts, request_id);
 
+-- ---------------------------------------------------------------------------
+-- Grafana용 1분 집계 테이블 (원본 fact_log를 매번 스캔하면 SELECT가 수십~수백초까지 늘어나
+-- ingest(Spark→ClickHouse INSERT)까지 같이 느려질 수 있음.
+-- materialized view로 집계를 유지하고, Grafana는 이 테이블만 조회하도록 한다.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_1m
+(
+    bucket       DateTime,
+    service      LowCardinality(String),
+    total        UInt64,
+    errors       UInt64,
+    sum_latency  Float64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, service);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_agg_1m
+TO analytics.fact_log_agg_1m
+AS
+SELECT
+    toStartOfMinute(event_ts) AS bucket,
+    service,
+    count() AS total,
+    countIf(status_code >= 500) AS errors,
+    sum(latency) AS sum_latency
+FROM analytics.fact_log
+GROUP BY bucket, service;
+
 
 -- CREATE TABLE IF NOT EXISTS analytics.dim_service
 -- (
