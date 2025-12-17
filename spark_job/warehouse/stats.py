@@ -5,7 +5,7 @@ def record_clickhouse_write(success: bool, rows: int | None) -> None:
     status = "성공" if success else "실패"
 
     if rows is None:
-        print(f"[📊 ClickHouse] Batch {status} | rows=? success_rate=?")
+        print(f"[📊 ClickHouse] Batch {status} | rows=? (stats skipped) success_rate=? (needs rows)")
         return
 
     success_rows = rows if success else 0

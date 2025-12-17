@@ -78,6 +78,13 @@ def write_to_clickhouse(df, table_name, batch_id: int | None = None):
         write_succeeded = True
     except Exception as e:
         print(f"[❌ ERROR] Failed writing {table_name} to ClickHouse: {e}")
+        msg = str(e)
+        if "TABLE_ALREADY_EXISTS" in msg and "detached" in msg.lower():
+            print(
+                "[🛠️ ClickHouse] Table exists but is DETACHED. Fix by running:\n"
+                "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
+                "    --query \"ATTACH TABLE analytics.fact_log\""
+            )
         traceback.print_exc()
     finally:
         try:
