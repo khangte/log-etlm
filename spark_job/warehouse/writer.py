@@ -35,7 +35,7 @@ class ClickHouseStreamWriter:
             out_df = batch_df
             if deduplicate_keys:
                 out_df = out_df.dropDuplicates(deduplicate_keys)
-            self._foreach_writer(out_df, table_name)
+            self._foreach_writer(out_df, table_name, batch_id=_batch_id)
 
         return (
             df.writeStream
