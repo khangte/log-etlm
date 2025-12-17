@@ -3,14 +3,33 @@
 # Kafka logs.* 토픽에서 데이터를 읽고 콘솔로 출력한다.
 
 import os
+import shutil
+import time
 from pyspark.sql import SparkSession, types as T, functions as F
 from pyspark.sql.functions import from_json, col
 from pyspark.sql.streaming import StreamingQueryException
 
 from .fact.fact_log import parse_fact_log
-from .warehouse.writer import ClickHouseStreamWriter
+from .warehouse.writer import ClickHouseStreamWriter, FACT_LOG_CHECKPOINT_DIR
 
 writer = ClickHouseStreamWriter()
+
+def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
+    """
+    Spark Structured Streaming 체크포인트가 깨졌을 때(예: 컨테이너 강제 종료),
+    실시간 처리를 우선하는 모드에서는 체크포인트를 초기화하고 latest부터 다시 시작한다.
+    """
+    enabled = os.getenv("SPARK_RESET_CHECKPOINT_ON_START", "false").strip().lower() in ("1", "true", "yes", "y")
+    if not enabled:
+        return
+    if not os.path.exists(checkpoint_dir):
+        return
+
+    ts = time.strftime("%Y%m%d-%H%M%S")
+    backup = f"{checkpoint_dir}.bak.{ts}"
+    print(f"[⚠️ checkpoint] reset enabled: move {checkpoint_dir} -> {backup}")
+    shutil.move(checkpoint_dir, backup)
+    os.makedirs(checkpoint_dir, exist_ok=True)
 
 
 def main() -> None:
@@ -34,6 +53,9 @@ def main() -> None:
             .getOrCreate()
 
         spark.sparkContext.setLogLevel("INFO")
+
+        # 체크포인트 손상 시(예: Incomplete log file) 실시간 모드에서 자동 초기화 옵션
+        _maybe_reset_checkpoint(FACT_LOG_CHECKPOINT_DIR)
 	 
         # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기
         # 목표 처리량이 10k RPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
