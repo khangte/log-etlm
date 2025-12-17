@@ -94,7 +94,7 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       # 10k RPS 튜닝(필요 시 조절)
       # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
-      - LG_RPS_OVERRIDE=2600
+      - LG_RPS_OVERRIDE=450
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -134,7 +134,7 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=2500
+      - LG_RPS_OVERRIDE=450
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -172,7 +172,7 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-3
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=2600
+      - LG_RPS_OVERRIDE=450
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -230,7 +230,7 @@ services:
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "4"
+      - "3"
       - "--memory"
       - "4g"
     networks: [logetlm-net]
@@ -245,7 +245,7 @@ services:
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "4"
+      - "3"
       - "--memory"
       - "4g"
     networks: [logetlm-net]
@@ -260,11 +260,20 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
       # Spark Streaming ingest tuning
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
+      # maxOffsetsPerTrigger가 consumed RPS 상한을 만든다.
+      # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k RPS로 캡이 걸림.
+      # 10k RPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
+      # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 RPS가 떨어질 수 있음.
+      # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-250000}
+      # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
+      - SPARK_RESET_CHECKPOINT_ON_START=${SPARK_RESET_CHECKPOINT_ON_START:-false}
       # ClickHouse sink tuning (override as needed)
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=8
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
+      # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
       - SPARK_CLICKHOUSE_LOG_STATS=true
+      - SPARK_CLICKHOUSE_LOG_STATS_EVERY=10
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
@@ -281,6 +290,9 @@ services:
       interval: 45s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -304,6 +316,9 @@ services:
       timeout: 5s
       retries: 5
       start_period: 45s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   grafana:
     image: grafana/grafana:10.4.2
@@ -323,6 +338,9 @@ services:
       clickhouse:
         condition: service_started
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
 networks:
   logetlm-net:
