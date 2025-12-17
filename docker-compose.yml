@@ -49,12 +49,20 @@ services:
       # ★ JVM 힙(정수 단위로)
       # 초기 크기 1GB, 최대 크기 1.5GB
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
+      # 토픽별 retention 감수
+      # 6시간만 보관 + 세그먼트 작게
+      KAFKA_LOG_RETENTION_HOURS: 12
+      KAFKA_LOG_SEGMENT_BYTES: 268435456      # 256MB
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
     volumes:
-      - /data/kafka-logs:/var/lib/kafka/logs
-      - /data/kafka-meta:/var/lib/kafka/metadata
+      - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
+      - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
     ulimits:
       nofile: { soft: 100000, hard: 100000 }
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
     healthcheck:
       test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
       interval: 60s
@@ -219,6 +227,9 @@ services:
       - 7077:7077
       - 8081:8081
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   spark-worker-1:
     image: spark:4.0.1-python3
@@ -234,6 +245,9 @@ services:
       - "--memory"
       - "4g"
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   spark-worker-2:
     image: spark:4.0.1-python3
@@ -249,6 +263,9 @@ services:
       - "--memory"
       - "4g"
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   spark:
     build:
@@ -266,6 +283,8 @@ services:
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 RPS가 떨어질 수 있음.
       # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-250000}
+      # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
+      - SPARK_STARTING_OFFSETS=${SPARK_STARTING_OFFSETS:-latest}
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
       - SPARK_RESET_CHECKPOINT_ON_START=${SPARK_RESET_CHECKPOINT_ON_START:-false}
       # ClickHouse sink tuning (override as needed)
@@ -277,7 +296,7 @@ services:
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
-      - /data/spark_checkpoints:/data/spark_checkpoints
+      - /data/log-etlm/spark_checkpoints:/data/spark_checkpoints
     depends_on:
       - kafka
       - clickhouse
@@ -306,8 +325,9 @@ services:
       - "8123:8123"
       - "9000:9000"
     volumes:
-      - ./data/clickhouse/data:/var/lib/clickhouse
-      - ./data/clickhouse/logs:/var/log/clickhouse-server
+      # NOTE: ClickHouse 데이터는 루트(/)가 아니라 /data에 둬야 디스크(루트) 고갈로 ingest가 멈추는 걸 방지할 수 있음
+      - /data/log-etlm/clickhouse:/var/lib/clickhouse
+      - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
     networks: [logetlm-net]
     healthcheck:
@@ -333,7 +353,8 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
-      - ./data/grafana:/var/lib/grafana
+      # NOTE: Grafana sqlite/db 및 캐시 파일도 /data로 분리
+      - /data/log-etlm/grafana:/var/lib/grafana
     depends_on:
       clickhouse:
         condition: service_started
