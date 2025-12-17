@@ -20,9 +20,14 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
     실시간 처리를 우선하는 모드에서는 체크포인트를 초기화하고 latest부터 다시 시작한다.
     """
     enabled = os.getenv("SPARK_RESET_CHECKPOINT_ON_START", "false").strip().lower() in ("1", "true", "yes", "y")
+    exists = os.path.exists(checkpoint_dir)
     if not enabled:
+        if exists:
+            print(
+                f"[ℹ️ checkpoint] reset disabled (SPARK_RESET_CHECKPOINT_ON_START=false), using existing: {checkpoint_dir}"
+            )
         return
-    if not os.path.exists(checkpoint_dir):
+    if not exists:
         return
 
     ts = time.strftime("%Y%m%d-%H%M%S")
@@ -61,12 +66,18 @@ def main() -> None:
         # 목표 처리량이 10k RPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
         # 기본값은 25만(예: dt=25s일 때 약 10k RPS 수준)으로 두고, 환경변수로 조절한다.
         max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER", "250000")
+        # startingOffsets: "latest" | "earliest" | (토픽별 JSON)
+        # 체크포인트를 리셋한 뒤 "이번만 최신부터" 같은 동작을 docker-compose 환경변수로 제어할 수 있다.
+        starting_offsets = os.getenv("SPARK_STARTING_OFFSETS", "latest")
+        print(
+            f"[ℹ️ spark] startingOffsets={starting_offsets} (note: ignored if checkpoint exists and is valid)"
+        )
         kafka_df = spark \
             .readStream \
             .format("kafka") \
             .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP")) \
             .option("subscribePattern", "logs.*") \
-            .option("startingOffsets", "latest")  \
+            .option("startingOffsets", starting_offsets)  \
             .option("failOnDataLoss", "false") \
             .option("maxOffsetsPerTrigger", max_offsets_per_trigger) \
             .load()
