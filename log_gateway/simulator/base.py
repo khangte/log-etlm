@@ -102,6 +102,15 @@ class BaseServiceSimulator:
         """
         return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
+    @staticmethod
+    def now_utc_ms() -> int:
+        """
+        현재 UTC epoch milliseconds를 반환한다.
+        Returns:
+            int: 예) 1765881230123
+        """
+        return int(datetime.now(timezone.utc).timestamp() * 1000)
+
 
     def generate_request_id(self) -> str:
         """

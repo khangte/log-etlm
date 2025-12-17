@@ -31,6 +31,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         .where(F.col("json").isNotNull())
         .select(
             F.col("json.timestamp").alias("event_ts_str"),
+            F.col("json.timestamp_ms").alias("event_ts_ms"),
             F.col("json.service").alias("service"),
             F.col("json.level").alias("level"),
             F.col("json.request_id").alias("request_id"),
@@ -52,7 +53,11 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         )
         .withColumn(
             "event_ts",
-            F.to_timestamp("event_ts_str", "yyyy-MM-dd'T'HH:mm:ssXXX"),
+            F.coalesce(
+                # timestamp_ms가 있으면 문자열 파싱을 피해서 훨씬 빠르게 변환
+                F.expr("timestamp_millis(event_ts_ms)"),
+                F.to_timestamp("event_ts_str", "yyyy-MM-dd'T'HH:mm:ssXXX"),
+            ),
         )
     )
 
