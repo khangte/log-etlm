@@ -57,7 +57,9 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_agg_1m
 TO analytics.fact_log_agg_1m
 AS
 SELECT
-    toStartOfMinute(event_ts) AS bucket,
+    -- Grafana에서 "현재 RPS"를 보고 싶으면 event_ts(이벤트 시간)보다 ingest_ts(적재 시간)가 더 정확하다.
+    -- event_ts가 과거/미래로 스큐되면 최근 1분 RPS가 낮게 보일 수 있음.
+    toStartOfMinute(ingest_ts) AS bucket,
     service,
     count() AS total,
     countIf(status_code >= 500) AS errors,

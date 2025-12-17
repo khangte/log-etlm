@@ -369,7 +369,7 @@
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS ts,\n  toFloat64(sum(total)) / 60 AS rps\nFROM analytics.fact_log_agg_1m\nWHERE bucket >= toStartOfMinute(now()) - INTERVAL 1 MINUTE",
+          "rawSql": "SELECT\n  now() AS ts,\n  toFloat64(sum(total)) / 60 AS rps\nFROM analytics.fact_log_agg_1m\nWHERE bucket = toStartOfMinute(now()) - INTERVAL 1 MINUTE",
           "refId": "A"
         }
       ],
