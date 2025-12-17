@@ -116,7 +116,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(\n    intDiv(\n      toUInt32(toUnixTimestamp(event_ts)),\n      greatest(intDiv($__interval_ms, 1000), 1)\n    ) * greatest(intDiv($__interval_ms, 1000), 1)\n  ) AS bucket,\n  count() AS total\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  sum(total) AS total\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -156,7 +156,7 @@
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(\n    intDiv(\n      toUInt32(toUnixTimestamp(event_ts)),\n      greatest(intDiv($__interval_ms, 1000), 1)\n    ) * greatest(intDiv($__interval_ms, 1000), 1)\n  ) AS bucket,\n  service,\n  count() AS total\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY bucket, service\nORDER BY bucket, service",
+          "rawSql": "SELECT\n  bucket,\n  service,\n  sum(total) AS total\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket, service\nORDER BY bucket, service",
           "refId": "A"
         }
       ],
@@ -210,7 +210,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(\n    intDiv(\n      toUInt32(toUnixTimestamp(event_ts)),\n      greatest(intDiv($__interval_ms, 1000), 1)\n    ) * greatest(intDiv($__interval_ms, 1000), 1)\n  ) AS bucket,\n  countIf(status_code >= 500) AS errors\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  sum(errors) AS errors\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -264,7 +264,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(\n    intDiv(\n      toUInt32(toUnixTimestamp(event_ts)),\n      greatest(intDiv($__interval_ms, 1000), 1)\n    ) * greatest(intDiv($__interval_ms, 1000), 1)\n  ) AS bucket,\n  round(avg(latency), 2) AS avg_latency_ms\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  round(sum(sum_latency) / nullIf(sum(total), 0), 2) AS avg_latency_ms\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -327,7 +327,7 @@
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(0) AS time,\n  service,\n  count() AS value\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\nGROUP BY service\nORDER BY value DESC",
+          "rawSql": "SELECT\n  toDateTime(0) AS time,\n  service,\n  sum(total) AS value\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY service\nORDER BY value DESC",
           "refId": "A"
         }
       ],
@@ -369,7 +369,7 @@
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS ts,\n  toFloat64(count()) / 60 AS rps\nFROM analytics.fact_log\nWHERE $__timeFilter(event_ts)\n  AND event_ts >= now() - INTERVAL 1 MINUTE",
+          "rawSql": "SELECT\n  now() AS ts,\n  toFloat64(sum(total)) / 60 AS rps\nFROM analytics.fact_log_agg_1m\nWHERE bucket >= toStartOfMinute(now()) - INTERVAL 1 MINUTE",
           "refId": "A"
         }
       ],
@@ -377,7 +377,7 @@
       "type": "stat"
     }
   ],
-  "refresh": "10s",
+  "refresh": "30s",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [

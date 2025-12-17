@@ -8,6 +8,8 @@ providers:
     type: file
     disableDeletion: false
     editable: true
-    allowUiUpdates: true
+    # 파일(provisioning) 기반 대시보드가 source of truth가 되도록 설정.
+    # allowUiUpdates=true 이면 UI에서 저장한 버전이 DB에 남아 파일 변경이 반영되지 않을 수 있다.
+    allowUiUpdates: false
     options:
       path: /etc/grafana/dashboards
