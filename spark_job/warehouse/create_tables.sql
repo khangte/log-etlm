@@ -67,6 +67,37 @@ SELECT
 FROM analytics.fact_log
 GROUP BY bucket, service;
 
+-- ---------------------------------------------------------------------------
+-- Grafana용 1분 집계 테이블 (event_ts 기준)
+-- "로그 생성 시각(event_ts) 기준 RPS"가 필요할 때 사용한다.
+-- NOTE: event_ts가 스큐/지연되면 버킷 분포가 달라질 수 있다.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_event_1m
+(
+    bucket       DateTime,
+    service      LowCardinality(String),
+    total        UInt64,
+    errors       UInt64,
+    sum_latency  Float64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, service);
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_agg_event_1m
+TO analytics.fact_log_agg_event_1m
+AS
+SELECT
+    toStartOfMinute(event_ts) AS bucket,
+    service,
+    count() AS total,
+    countIf(status_code >= 500) AS errors,
+    sum(latency) AS sum_latency
+FROM analytics.fact_log
+GROUP BY bucket, service;
+
 
 -- CREATE TABLE IF NOT EXISTS analytics.dim_service
 -- (
