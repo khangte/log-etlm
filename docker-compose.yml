@@ -1,24 +1,8 @@
-# -----------------------------------------------------------------------------
-# 파일명 : docker-compose.yml
-# 목적   : Kafka(단일 KRaft) + Kafka UI + log_gateway FastAPI 시뮬레이터를 통합 기동
-# 사용법 :
-#   # 1) 브로커 + UI만 띄우기
-#   docker compose up -d kafka kafka-ui
-#
-#   # 2) 시뮬레이터(API + 로그 제너레이터)가 Kafka로 이벤트를 쏘도록 함께 실행
-#   docker compose up -d kafka kafka-ui simulator
-#   # simulator 컨테이너 내 API 핸들러/백그라운드 제너레이터는 uvicorn + run_simulator 로 구동
-#
-# 포트 :
-#   - Kafka 외부접속(호스트): 29092
-#   - Kafka 내부접속(컨테이너 간): kafka:9092
-#   - Kafka UI: http://localhost:8080
-# -----------------------------------------------------------------------------
 services:
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
-    restart: unless-stopped
+    # restart: unless-stopped
     ports: ["29092:29092"]
     environment:
       # KRaft 필수
@@ -64,15 +48,18 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
     healthcheck:
-      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1 || exit 1"]
-      interval: 60s
-      timeout: 15s
-      retries: 20
+      # 고부하/디스크 IO 상황에서 kafka-* CLI가 오래 걸리거나 hang 될 수 있어
+      # 포트 오픈 여부로 가볍게 체크한다.
+      test: ["CMD-SHELL", "timeout 5s bash -lc 'echo > /dev/tcp/localhost/9092' >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
-    restart: unless-stopped
+    # restart: unless-stopped
     ports: ["8080:8080"]
     environment:
       # 클러스터 설정: 내부 브로커 주소 사용
@@ -95,14 +82,14 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator
-    restart: unless-stopped
+    # restart: unless-stopped
     ports: ["8000:8000"]
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - KAFKA_BOOTSTRAP=kafka:9092
       # 10k RPS 튜닝(필요 시 조절)
       # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
-      - LG_RPS_OVERRIDE=450
+      - LG_RPS_OVERRIDE=750
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -138,11 +125,11 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator2
-    restart: unless-stopped
+    # restart: unless-stopped
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=450
+      - LG_RPS_OVERRIDE=750
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -176,11 +163,11 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator3
-    restart: unless-stopped
+    # restart: unless-stopped
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-3
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=450
+      - LG_RPS_OVERRIDE=750
       - LG_PUBLISHER_WORKERS=4
       - LG_WORKER_BATCH_SIZE=400
       - LG_PRODUCER_EXECUTOR=16
@@ -213,7 +200,7 @@ services:
   spark-master:
     image: spark:4.0.1-python3
     container_name: spark-master
-    restart: unless-stopped
+    # restart: unless-stopped
     command:
       - "/opt/spark/bin/spark-class"
       - "org.apache.spark.deploy.master.Master"
@@ -233,7 +220,7 @@ services:
 
   spark-worker-1:
     image: spark:4.0.1-python3
-    restart: unless-stopped
+    # restart: unless-stopped
     depends_on:
       - spark-master
     command:
@@ -251,7 +238,7 @@ services:
 
   spark-worker-2:
     image: spark:4.0.1-python3
-    restart: unless-stopped
+    # restart: unless-stopped
     depends_on:
       - spark-master
     command:
@@ -272,7 +259,7 @@ services:
       context: .
       dockerfile: spark_job/Dockerfile
     container_name: spark
-    restart: unless-stopped
+    # restart: unless-stopped
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -282,13 +269,13 @@ services:
       # 10k RPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 RPS가 떨어질 수 있음.
       # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-250000}
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
-      - SPARK_STARTING_OFFSETS=${SPARK_STARTING_OFFSETS:-latest}
+      - SPARK_STARTING_OFFSETS=latest
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
-      - SPARK_RESET_CHECKPOINT_ON_START=${SPARK_RESET_CHECKPOINT_ON_START:-false}
+      - SPARK_RESET_CHECKPOINT_ON_START=false
       # ClickHouse sink tuning (override as needed)
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=8
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=6
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
       # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
       - SPARK_CLICKHOUSE_LOG_STATS=true
@@ -316,7 +303,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
-    restart: unless-stopped
+    # restart: unless-stopped
     environment:
       - CLICKHOUSE_USER=log_user
       - CLICKHOUSE_PASSWORD=log_pwd
@@ -329,6 +316,7 @@ services:
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
       - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+      - ./spark_job/warehouse/clickhouse_grafana_grants.sql:/docker-entrypoint-initdb.d/clickhouse_grafana_grants.sql:ro
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
@@ -343,7 +331,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
-    restart: unless-stopped
+    # restart: unless-stopped
     ports: ["3000:3000"]
     environment:
       - GF_SECURITY_ADMIN_USER=admin
