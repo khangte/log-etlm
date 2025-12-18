@@ -10,12 +10,12 @@ import logging
 import os
 import time
 import random
+import math
 from typing import Any, Dict, List, Tuple
 
 from .config.timeband import current_hour_kst, pick_multiplier
 
 # 서비스 루프 기본 설정
-# 10k RPS = (서비스 4개 × 루프당 625 RPS × 배치 100건)
 LOG_BATCH_SIZE = int(os.getenv("LG_LOG_BATCH_SIZE", "100"))
 # tick 기반으로 batch_size를 계산해 버스트를 줄인다. (초)
 TICK_SEC = float(os.getenv("LG_TICK_SEC", "0.1"))
@@ -58,26 +58,41 @@ async def _service_stream_loop(
     throttle_scale = QUEUE_SOFT_SCALE_MAX
     tick_sec = max(TICK_SEC, 0.01)
     max_batch_size = max(log_batch_size, 1)
+    carry = 0.0
+    prev_ts = time.perf_counter()
+    behind_log_every_sec = float(os.getenv("LG_SIM_BEHIND_LOG_EVERY_SEC", "5.0"))
+    last_behind_log_ts = 0.0
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
     await asyncio.sleep(random.uniform(0.0, tick_sec))
     while True:
         loop_start = time.perf_counter()
+        now_ts = loop_start
+        dt_actual = max(0.0, now_ts - prev_ts)
+        prev_ts = now_ts
         hour = current_hour_kst()
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
         effective_rps = max(target_rps * multiplier, 0.01)
         scaled_rps = max(effective_rps * throttle_scale, 0.01)
-        batch_size = int(round(scaled_rps * tick_sec))
-        batch_size = max(1, min(max_batch_size, batch_size))
+        # tick 기반 정수 배치(round)는 목표 RPS가 낮을 때(예: 450/서비스4/루프8) 과소/과대 생성이 쉽게 발생한다.
+        # 실제 경과시간(dt_actual) 기반 토큰 버킷으로 평균 RPS를 맞춘다.
+        carry += scaled_rps * dt_actual
+        if carry > max_batch_size:
+            carry = float(max_batch_size)
+        batch_size = int(math.floor(carry))
+        if batch_size > max_batch_size:
+            batch_size = max_batch_size
+        carry -= batch_size
 
-        logs = simulator.generate_logs(batch_size)
-        enqueue_start = time.perf_counter()
-        batch_items: list[Tuple[str, str, bool]] = []
-        for log in logs:
-            payload = simulator.render(log)
-            batch_items.append((service, payload, log.get("level") == "ERROR"))
-        await publish_queue.put(batch_items)
-
-        enqueue_duration = time.perf_counter() - enqueue_start
+        enqueue_duration = 0.0
+        if batch_size > 0:
+            logs = simulator.generate_logs(batch_size)
+            enqueue_start = time.perf_counter()
+            batch_items: list[Tuple[str, str, bool]] = []
+            for log in logs:
+                payload = simulator.render(log)
+                batch_items.append((service, payload, log.get("level") == "ERROR"))
+            await publish_queue.put(batch_items)
+            enqueue_duration = time.perf_counter() - enqueue_start
 
         desired_period = tick_sec
         elapsed = time.perf_counter() - loop_start
@@ -90,6 +105,11 @@ async def _service_stream_loop(
         queue_capacity = publish_queue.maxsize
 
         if elapsed >= desired_period:
+            should_log = True
+            if behind_log_every_sec > 0:
+                should_log = (loop_start - last_behind_log_ts) >= behind_log_every_sec
+            if should_log:
+                last_behind_log_ts = loop_start
             _logger.info(
                 "[simulator] behind target service=%s target_rps=%.1f batch=%d "
                 "duration=%.4fs target_interval=%.4fs enqueue=%.4fs queue=%d",
