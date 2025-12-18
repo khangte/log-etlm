@@ -1,5 +1,5 @@
 {
-  "_comment": "Grafana Log Analytics Overview (ClickHouse fact_log 시계열/서비스별 지표)",
+  "_comment": "Grafana ClickHouse Query Overview (system.query_log 기반 쿼리 모니터링)",
   "__requires": [
     {
       "type": "grafana",
@@ -63,14 +63,58 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "시간 단위로 fact_log 건수를 집계합니다.",
+      "description": "로그의 생성 시간(event_ts) 기준으로 RPS를 표시합니다. (원본 fact_log 스캔)",
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "RPS (event_ts)",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 0 },
+      "id": 7,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  bucket,\n  sum(total) / 60 AS rps\nFROM analytics.fact_log_agg_event_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "refId": "A"
+        }
+      ],
+      "title": "로그 RPS (event_ts 기준)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "ClickHouse 시스템 쿼리(QPS)를 모니터링합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "요청 건수",
+            "axisLabel": "QPS",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -89,11 +133,11 @@
               }
             ]
           },
-          "unit": "short"
+          "unit": "ops"
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 0 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
       "id": 1,
       "options": {
         "legend": {
@@ -116,21 +160,21 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(total) AS total\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  count() / nullIf($__interval_s, 0) AS qps\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
-      "title": "요청 수 (per $__interval)",
+      "title": "쿼리 QPS",
       "type": "timeseries"
     },
     {
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-      "description": "서비스별 요청량 추이를 확인합니다.",
+      "description": "쿼리 종류(SELECT/INSERT/DDL/기타)별 QPS를 확인합니다.",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
           "custom": {
-            "axisLabel": "서비스별 요청 건수",
+            "axisLabel": "종류별 QPS",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -140,11 +184,11 @@
           },
           "mappings": [],
           "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] },
-          "unit": "short"
+          "unit": "ops"
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
       "id": 2,
       "options": {
         "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
@@ -156,11 +200,11 @@
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  service,\n  sum(total) AS total\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket, service\nORDER BY bucket, service",
+          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  multiIf(\n    startsWith(lowerUTF8(trimLeft(query)), 'select'), 'select',\n    startsWith(lowerUTF8(trimLeft(query)), 'insert'), 'insert',\n    startsWith(lowerUTF8(trimLeft(query)), 'create'), 'ddl',\n    startsWith(lowerUTF8(trimLeft(query)), 'alter'), 'ddl',\n    startsWith(lowerUTF8(trimLeft(query)), 'drop'), 'ddl',\n    'other'\n  ) AS kind,\n  count() / nullIf($__interval_s, 0) AS qps\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nGROUP BY bucket, kind\nORDER BY bucket, kind",
           "refId": "A"
         }
       ],
-      "title": "서비스별 요청량 추이",
+      "title": "쿼리 종류별 QPS",
       "type": "timeseries"
     },
     {
@@ -168,14 +212,14 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "시간대별 5xx 오류 건수를 모니터링합니다.",
+      "description": "ClickHouse 쿼리 실패(예외) QPS를 모니터링합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "5xx 오류 건수",
+            "axisLabel": "Error QPS",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -184,11 +228,11 @@
             "spanNulls": true
           },
           "mappings": [],
-          "unit": "short"
+          "unit": "ops"
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
       "id": 3,
       "options": {
         "legend": {
@@ -210,11 +254,11 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(errors) AS errors\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  countIf(exception_code != 0) / nullIf($__interval_s, 0) AS error_qps\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
-      "title": "5xx 오류 추이",
+      "title": "쿼리 Error QPS",
       "type": "timeseries"
     },
     {
@@ -222,14 +266,14 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "시간대별 평균 지연(ms)",
+      "description": "쿼리 지연(p95)을 모니터링합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "continuous-GrYlRd"
           },
           "custom": {
-            "axisLabel": "평균 지연 시간",
+            "axisLabel": "p95 쿼리 지연",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -242,7 +286,7 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 18 },
       "id": 5,
       "options": {
         "legend": {
@@ -264,11 +308,11 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  round(sum(sum_latency) / nullIf(sum(total), 0), 2) AS avg_latency_ms\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  quantile(0.95)(query_duration_ms) AS p95_ms\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
-      "title": "평균 지연 추이",
+      "title": "쿼리 지연 p95",
       "type": "timeseries"
     },
     {
@@ -276,7 +320,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "서비스별 평균/P95 지연 상위 10개",
+      "description": "선택한 시간 범위에서 느린 쿼리를 확인합니다.",
       "fieldConfig": {
         "defaults": {
           "custom": {
@@ -304,77 +348,21 @@
         },
         "overrides": []
       },
-      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 18 },
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 27 },
       "id": 6,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true,
-          "values": [ "percent", "value" ]
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [ "lastNotNull" ],
-          "fields": "",
-          "values": false
-        },
-        "tooltip": { "mode": "single", "sort": "none" }
-      },
+      "options": { "showHeader": true, "sortBy": [] },
       "pluginVersion": "10.4.2",
       "targets": [
         {
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toDateTime(0) AS time,\n  service,\n  sum(total) AS value\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY service\nORDER BY value DESC",
+          "rawSql": "SELECT\n  event_time AS time,\n  query_duration_ms,\n  read_rows,\n  read_bytes,\n  result_rows,\n  result_bytes,\n  exception_code,\n  user,\n  query\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nORDER BY query_duration_ms DESC\nLIMIT 20",
           "refId": "A"
         }
       ],
-      "title": "서비스별 비중",
-      "type": "piechart"
-    },
-     {
-      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-      "description": "최근 1분 동안 집계된 평균 초당 요청수를 확인합니다.",
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "orange", "value": 8000 },
-              { "color": "green", "value": 10000 }
-            ]
-          },
-          "unit": "reqps"
-        },
-        "overrides": []
-      },
-      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 18 },
-      "id": 7,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
-        "textMode": "value",
-        "wideLayout": true
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS ts,\n  toFloat64(sum(total)) / 60 AS rps\nFROM analytics.fact_log_agg_1m\nWHERE bucket = toStartOfMinute(now()) - INTERVAL 1 MINUTE",
-          "refId": "A"
-        }
-      ],
-      "title": "최근 1분 평균 RPS",
-      "type": "stat"
+      "title": "느린 쿼리 Top 20",
+      "type": "table"
     }
   ],
   "refresh": "30s",
@@ -382,7 +370,7 @@
   "style": "dark",
   "tags": [
     "clickhouse",
-    "logs"
+    "queries"
   ],
   "templating": {
     "list": []
@@ -393,7 +381,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "Log Analytics Overview",
+  "title": "ClickHouse Query Overview",
   "uid": "log-analytics",
   "version": 1,
   "weekStart": ""
