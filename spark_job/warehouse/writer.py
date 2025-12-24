@@ -52,34 +52,34 @@ class ClickHouseStreamWriter:
             FACT_LOG_CHECKPOINT_DIR
         )
 
-    def write_dim_date_stream(self, df: DataFrame):
-        return self._write_stream(
-            df,
-            DIM_DATE_TABLE,
-            DIM_DATE_CHECKPOINT_DIR,
-            deduplicate_keys=["date_key"],
-        )
+    # def write_dim_date_stream(self, df: DataFrame):
+    #     return self._write_stream(
+    #         df,
+    #         DIM_DATE_TABLE,
+    #         DIM_DATE_CHECKPOINT_DIR,
+    #         deduplicate_keys=["date_key"],
+    #     )
 
-    def write_dim_time_stream(self, df: DataFrame):
-        return self._write_stream(
-            df,
-            DIM_TIME_TABLE,
-            DIM_TIME_CHECKPOINT_DIR,
-            deduplicate_keys=["time_key"],
-        )
+    # def write_dim_time_stream(self, df: DataFrame):
+    #     return self._write_stream(
+    #         df,
+    #         DIM_TIME_TABLE,
+    #         DIM_TIME_CHECKPOINT_DIR,
+    #         deduplicate_keys=["time_key"],
+    #     )
 
-    def write_dim_service_stream(self, df: DataFrame):
-        return self._write_stream(
-            df,
-            DIM_SERVICE_TABLE,
-            DIM_SERVICE_CHECKPOINT_DIR,
-            deduplicate_keys=["service"],
-        )
+    # def write_dim_service_stream(self, df: DataFrame):
+    #     return self._write_stream(
+    #         df,
+    #         DIM_SERVICE_TABLE,
+    #         DIM_SERVICE_CHECKPOINT_DIR,
+    #         deduplicate_keys=["service"],
+    #     )
 
-    def write_dim_status_stream(self, df: DataFrame):
-        return self._write_stream(
-            df,
-            DIM_STATUS_TABLE,
-            DIM_STATUS_CHECKPOINT_DIR,
-            deduplicate_keys=["status_code"],
-        )
+    # def write_dim_status_stream(self, df: DataFrame):
+    #     return self._write_stream(
+    #         df,
+    #         DIM_STATUS_TABLE,
+    #         DIM_STATUS_CHECKPOINT_DIR,
+    #         deduplicate_keys=["status_code"],
+    #     )
