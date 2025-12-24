@@ -9,8 +9,7 @@ CLICKHOUSE_DB: str = "analytics"
 # -----------------------------------------------------------------------------
 log_value_schema: T.StructType = T.StructType(
     [
-        T.StructField("timestamp",   T.StringType(),  True),
-        # Spark ingest 성능을 위해 epoch(ms)도 같이 전달(있으면 이 값을 우선 사용)
+        # Spark ingest 성능을 위해 epoch(ms)만 전달
         T.StructField("timestamp_ms", T.LongType(),   True),
         T.StructField("service",     T.StringType(),  True),
         T.StructField("level",       T.StringType(),  True),

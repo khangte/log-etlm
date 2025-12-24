@@ -36,7 +36,6 @@ class OrderSimulator(BaseServiceSimulator):
         method = self.pick_method(route)
 
         log = {
-            "timestamp": self.now_utc_iso(),
             "timestamp_ms": self.now_utc_ms(),
             "service": self.service,
             "level": "ERROR" if is_err else "INFO",

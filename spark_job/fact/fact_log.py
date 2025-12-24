@@ -14,7 +14,7 @@ from spark_job.schema import (
 
 def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
     """
-    Kafka에서 읽어온 DF(key, value, topic, timestamp, ...)를
+    Kafka에서 읽어온 DF(key, value, topic, timestamp_ms, ...)를
     analytics.fact_log 스키마에 맞는 DF로 변환한다.
     IO(write)는 하지 않고 변환만 담당.
     """
@@ -32,7 +32,6 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         )
         .where(F.col("json").isNotNull())
         .select(
-            F.col("json.timestamp").alias("event_ts_str"),
             F.col("json.timestamp_ms").alias("event_ts_ms"),
             F.col("json.service").alias("service"),
             F.col("json.level").alias("level"),
@@ -54,11 +53,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         )
         .withColumn(
             "event_ts",
-            F.coalesce(
-                # timestamp_ms가 있으면 문자열 파싱을 피해서 훨씬 빠르게 변환
-                F.expr("timestamp_millis(event_ts_ms)"),
-                F.to_timestamp("event_ts_str", "yyyy-MM-dd'T'HH:mm:ssXXX"),
-            ),
+            F.expr("timestamp_millis(event_ts_ms)"),
         )
     )
 

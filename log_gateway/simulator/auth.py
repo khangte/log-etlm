@@ -37,7 +37,6 @@ class AuthSimulator(BaseServiceSimulator):
         method = self.pick_method(route)         # 해당 경로의 HTTP 메서드 선택
 
         log = {
-            "timestamp": self.now_utc_iso(),
             "timestamp_ms": self.now_utc_ms(),
             "service": self.service,
             "level": "ERROR" if is_err else "INFO",

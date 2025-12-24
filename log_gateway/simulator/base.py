@@ -85,22 +85,23 @@ class BaseServiceSimulator:
         return random.choice(methods)
 
 
-    @staticmethod
-    def now_kst_iso() -> str:
-        """
-        현재 KST 시각을 ISO8601 문자열로 반환한다. (초 단위, +09:00)
-        """
-        return datetime.now(KST).isoformat(timespec="seconds")
+    # @staticmethod
+    # def now_kst_iso() -> str:
+    #     """
+    #     현재 KST 시각을 ISO8601 문자열로 반환한다. (초 단위, +09:00)
+    #     """
+    #     return datetime.now(KST).isoformat(timespec="seconds")
 
 
-    @staticmethod
-    def now_utc_iso() -> str:
-        """
-        현재 UTC 시각을 ISO8601 문자열로 반환한다. (밀리초 없음, 접미사 Z)
-        Returns:
-            str: 예) "2025-11-05T07:55:10Z"
-        """
-        return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # @staticmethod
+    # def now_utc_iso() -> str:
+    #     """
+    #     현재 UTC 시각을 ISO8601 문자열로 반환한다. (밀리초 없음, 접미사 Z)
+    #     Returns:
+    #         str: 예) "2025-11-05T07:55:10Z"
+    #     """
+    #     return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
 
     @staticmethod
     def now_utc_ms() -> int:
