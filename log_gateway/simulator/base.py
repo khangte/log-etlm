@@ -118,12 +118,12 @@ class BaseServiceSimulator:
         Returns:
             str: 예) "req_a1b2c3d4"
         """
-        return f"req_{self.fake.uuid4()}"
+        return f"req_{self.fake.uuid4()[:8]}"
 
 
     def generate_user_id(self) -> str:
         """ 유저 ID 생성 (UUID 기반) """
-        return str(self.fake.uuid4())
+        return str(self.fake.uuid4())[:8]
 
 
     def generate_product_id(self) -> int:
