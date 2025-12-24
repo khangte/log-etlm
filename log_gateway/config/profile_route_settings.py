@@ -31,7 +31,7 @@ def load_profile(profile_path: str | Path) -> Dict[str, Any]:
         profile_path: profiles/*.yaml 경로
 
     Returns:
-        Dict[str, Any]: duration_sec, rps, mix, error_rate, bursts, time_weights 등 포함
+        Dict[str, Any]: duration_sec, eps, mix, error_rate, bursts, time_weights 등 포함
     """
     path = Path(profile_path)
     with path.open("r", encoding="utf-8") as f:
@@ -53,7 +53,7 @@ def load_routes() -> Dict[str, Any]:
 @dataclass(frozen=True)
 class ProfileContext:
     profile: Dict[str, Any]
-    base_rps: float
+    base_eps: float
     mix: Dict[str, Any]
     weight_mode: str
     bands: List[Band]
@@ -65,10 +65,10 @@ def load_profile_context(profile_name: str) -> ProfileContext:
     """
     profile_path = PROFILES_DIR / f"{profile_name}.yaml"
     profile = load_profile(profile_path)
-    base_rps = float(profile.get("rps", 10.0))
-    rps_override = os.getenv("LG_RPS_OVERRIDE")
-    if rps_override is not None and str(rps_override).strip() != "":
-        base_rps = float(rps_override)
+    base_eps = float(profile.get("eps", profile.get("rps", 10.0)))
+    eps_override = os.getenv("EPS_PER_WORKER_OVERRIDE")
+    if eps_override is not None and str(eps_override).strip() != "":
+        base_eps = float(eps_override)
     mix = profile.get("mix", {})
     weight_mode = profile.get("weight_mode", "uniform")
     raw_time_weights = profile.get("time_weights", [])
@@ -76,7 +76,7 @@ def load_profile_context(profile_name: str) -> ProfileContext:
     
     return ProfileContext(
         profile=profile,
-        base_rps=base_rps,
+        base_eps=base_eps,
         mix=mix,
         weight_mode=weight_mode,
         bands=bands,

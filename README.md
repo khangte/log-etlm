@@ -42,7 +42,7 @@
    - `spark_job/warehouse/writer.py` → `write_to_clickhouse()` 가 ClickHouse `analytics.fact_log` 테이블에 JDBC append 합니다.
    - 초기 스키마는 `spark_job/warehouse/create_tables.sql` 로 자동 생성되며, `data/clickhouse` 볼륨에 영속화됩니다.
 5. **로그 시각화 및 모니터링**
-   - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 RPS, 오류율, 상태 코드 분포 등을 시각화합니다.
+   - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 등을 시각화합니다.
    - `monitor/docker_watchdog.py` 는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화를 Slack Webhook/CLI로 통지합니다.
 
 

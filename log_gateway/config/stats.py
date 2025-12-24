@@ -1,7 +1,7 @@
 # -----------------------------------------------------------------------------
 # 파일명 : log_gateway/config/stats.py
 # 목적   : generator에서 사용하는 통계 출력(terminal logging) 헬퍼
-# 설명   : stats_queue를 읽어 일정 주기마다 RPS/서비스별 건수 로그를 남김
+# 설명   : stats_queue를 읽어 일정 주기마다 EPS/서비스별 건수 로그를 남김
 # -----------------------------------------------------------------------------
 from __future__ import annotations
 
@@ -48,11 +48,11 @@ async def stats_reporter(
         now = loop.time()
         elapsed = now - last_report
         if elapsed >= interval_sec:
-            rps = total / elapsed if elapsed > 0 else 0.0
+            eps = total / elapsed if elapsed > 0 else 0.0
             log.info(
-                "[stats pid=%d] rps=%.1f window=%.2fs total=%d by_svc=(%s)",
+                "[stats pid=%d] eps=%.1f window=%.2fs total=%d by_svc=(%s)",
                 os.getpid(),
-                rps,
+                eps,
                 elapsed,
                 total,
                 ", ".join(f"{svc}:{per_service.get(svc, 0)}" for svc in services),

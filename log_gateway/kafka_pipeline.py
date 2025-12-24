@@ -15,12 +15,12 @@ from typing import List, Tuple
 from .producer import BatchMessage, get_producer, publish_batch_direct
 
 # 퍼블리셔 기본 설정
-# 10k RPS = (워커 12개 × 워커당 833 RPS × 배치 100건)
-PUBLISHER_WORKERS = int(os.getenv("LG_PUBLISHER_WORKERS", "8"))
-WORKER_BATCH_SIZE = int(os.getenv("LG_WORKER_BATCH_SIZE", "80"))
-QUEUE_WARN_RATIO = float(os.getenv("LG_PUBLISH_QUEUE_WARN_RATIO", os.getenv("LG_QUEUE_WARN_RATIO", "0.7")))
-IDLE_WARN_SEC = float(os.getenv("LG_IDLE_WARN_SEC", "0.2"))
-SEND_WARN_SEC = float(os.getenv("LG_SEND_WARN_SEC", "0.3"))
+# 10k EPS = (워커 12개 × 워커당 833 EPS × 배치 100건)
+PUBLISHER_WORKERS = int(os.getenv("PUBLISHER_WORKERS", "8"))
+WORKER_BATCH_SIZE = int(os.getenv("WORKER_BATCH_SIZE", "80"))
+QUEUE_WARN_RATIO = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.7")))
+IDLE_WARN_SEC = float(os.getenv("IDLE_WARN_SEC", "0.2"))
+SEND_WARN_SEC = float(os.getenv("SEND_WARN_SEC", "0.3"))
 
 
 _logger = logging.getLogger("log_gateway.kafka_pipeline")

@@ -60,5 +60,5 @@ d_error=${delta["logs.error"]}
 d_order=${delta["logs.order"]}
 d_payment=${delta["logs.payment"]}
 d_notify=${delta["logs.notify"]}
-print(f"dt={dt}s total={total} rps={total/dt:.1f} (auth={d_auth} error={d_error} order={d_order} payment={d_payment} notify={d_notify})")
+print(f"dt={dt}s total={total} eps={total/dt:.1f} (auth={d_auth} error={d_error} order={d_order} payment={d_payment} notify={d_notify})")
 PY

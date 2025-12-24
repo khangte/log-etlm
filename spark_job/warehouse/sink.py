@@ -37,7 +37,7 @@ def write_to_clickhouse(df, table_name, batch_id: int | None = None):
             elif n > current:
                 out_df = out_df.repartition(n)
 
-        # 고RPS에서는 배치마다 count/min/max를 구하면(추가 Spark job + 캐시/스필)
+        # 고EPS에서는 배치마다 count/min/max를 구하면(추가 Spark job + 캐시/스필)
         # sink 자체 처리량이 크게 떨어질 수 있어 샘플링 옵션을 둔다.
         do_log_stats = log_stats and (log_stats_every == 1 or batch_id is None or (batch_id % log_stats_every) == 0)
 

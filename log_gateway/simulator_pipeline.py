@@ -16,23 +16,23 @@ from typing import Any, Dict, List, Tuple
 from .config.timeband import current_hour_kst, pick_multiplier
 
 # 서비스 루프 기본 설정
-LOG_BATCH_SIZE = int(os.getenv("LG_LOG_BATCH_SIZE", "100"))
+LOG_BATCH_SIZE = int(os.getenv("LOG_BATCH_SIZE", "100"))
 # tick 기반으로 batch_size를 계산해 버스트를 줄인다. (초)
-TICK_SEC = float(os.getenv("LG_TICK_SEC", "0.1"))
+TICK_SEC = float(os.getenv("TICK_SEC", "0.1"))
 # publish_queue는 "개별 로그"가 아니라 "배치(list)"를 담는다. (큐 연산 오버헤드 절감)
-QUEUE_SIZE = int(os.getenv("LG_QUEUE_SIZE", "2000"))
-LOOPS_PER_SERVICE = int(os.getenv("LG_LOOPS_PER_SERVICE", "8"))
-QUEUE_WARN_RATIO = float(os.getenv("LG_SIM_QUEUE_WARN_RATIO", os.getenv("LG_QUEUE_WARN_RATIO", "0.8")))
-QUEUE_LOW_WATERMARK_RATIO = float(os.getenv("LG_QUEUE_LOW_WATERMARK_RATIO", "0.2"))
-QUEUE_LOW_SLEEP_SCALE = float(os.getenv("LG_QUEUE_LOW_SLEEP_SCALE", "0.3"))
-QUEUE_THROTTLE_RATIO = float(os.getenv("LG_QUEUE_THROTTLE_RATIO", "0.9"))
-QUEUE_RESUME_RATIO = float(os.getenv("LG_QUEUE_RESUME_RATIO", "0.75"))
-QUEUE_THROTTLE_SLEEP = float(os.getenv("LG_QUEUE_THROTTLE_SLEEP", "0.05"))
-QUEUE_SOFT_THROTTLE_RATIO = float(os.getenv("LG_QUEUE_SOFT_THROTTLE_RATIO", "0.85"))
-QUEUE_SOFT_RESUME_RATIO = float(os.getenv("LG_QUEUE_SOFT_RESUME_RATIO", "0.7"))
-QUEUE_SOFT_SCALE_STEP = float(os.getenv("LG_QUEUE_SOFT_SCALE_STEP", "0.1"))
-QUEUE_SOFT_SCALE_MIN = float(os.getenv("LG_QUEUE_SOFT_SCALE_MIN", "0.2"))
-QUEUE_SOFT_SCALE_MAX = float(os.getenv("LG_QUEUE_SOFT_SCALE_MAX", "1.0"))
+QUEUE_SIZE = int(os.getenv("QUEUE_SIZE", "2000"))
+LOOPS_PER_SERVICE = int(os.getenv("LOOPS_PER_SERVICE", "8"))
+QUEUE_WARN_RATIO = float(os.getenv("SIM_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.8")))
+QUEUE_LOW_WATERMARK_RATIO = float(os.getenv("QUEUE_LOW_WATERMARK_RATIO", "0.2"))
+QUEUE_LOW_SLEEP_SCALE = float(os.getenv("QUEUE_LOW_SLEEP_SCALE", "0.3"))
+QUEUE_THROTTLE_RATIO = float(os.getenv("QUEUE_THROTTLE_RATIO", "0.9"))
+QUEUE_RESUME_RATIO = float(os.getenv("QUEUE_RESUME_RATIO", "0.75"))
+QUEUE_THROTTLE_SLEEP = float(os.getenv("QUEUE_THROTTLE_SLEEP", "0.05"))
+QUEUE_SOFT_THROTTLE_RATIO = float(os.getenv("QUEUE_SOFT_THROTTLE_RATIO", "0.85"))
+QUEUE_SOFT_RESUME_RATIO = float(os.getenv("QUEUE_SOFT_RESUME_RATIO", "0.7"))
+QUEUE_SOFT_SCALE_STEP = float(os.getenv("QUEUE_SOFT_SCALE_STEP", "0.1"))
+QUEUE_SOFT_SCALE_MIN = float(os.getenv("QUEUE_SOFT_SCALE_MIN", "0.2"))
+QUEUE_SOFT_SCALE_MAX = float(os.getenv("QUEUE_SOFT_SCALE_MAX", "1.0"))
 
 
 _logger = logging.getLogger("log_gateway.simulator_pipeline")
@@ -48,7 +48,7 @@ if not _logger.handlers:
 async def _service_stream_loop(
     service: str,
     simulator: Any,
-    target_rps: float,
+    target_eps: float,
     publish_queue: "asyncio.Queue[list[Tuple[str, str, bool]]]",
     bands: List[Any],
     weight_mode: str,
@@ -60,7 +60,7 @@ async def _service_stream_loop(
     max_batch_size = max(log_batch_size, 1)
     carry = 0.0
     prev_ts = time.perf_counter()
-    behind_log_every_sec = float(os.getenv("LG_SIM_BEHIND_LOG_EVERY_SEC", "5.0"))
+    behind_log_every_sec = float(os.getenv("SIM_BEHIND_LOG_EVERY_SEC", "5.0"))
     last_behind_log_ts = 0.0
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
     await asyncio.sleep(random.uniform(0.0, tick_sec))
@@ -71,11 +71,11 @@ async def _service_stream_loop(
         prev_ts = now_ts
         hour = current_hour_kst()
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
-        effective_rps = max(target_rps * multiplier, 0.01)
-        scaled_rps = max(effective_rps * throttle_scale, 0.01)
-        # tick 기반 정수 배치(round)는 목표 RPS가 낮을 때(예: 450/서비스4/루프8) 과소/과대 생성이 쉽게 발생한다.
-        # 실제 경과시간(dt_actual) 기반 토큰 버킷으로 평균 RPS를 맞춘다.
-        carry += scaled_rps * dt_actual
+        effective_eps = max(target_eps * multiplier, 0.01)
+        scaled_eps = max(effective_eps * throttle_scale, 0.01)
+        # tick 기반 정수 배치(round)는 목표 EPS가 낮을 때(예: 450/서비스4/루프8) 과소/과대 생성이 쉽게 발생한다.
+        # 실제 경과시간(dt_actual) 기반 토큰 버킷으로 평균 EPS를 맞춘다.
+        carry += scaled_eps * dt_actual
         if carry > max_batch_size:
             carry = float(max_batch_size)
         batch_size = int(math.floor(carry))
@@ -111,10 +111,10 @@ async def _service_stream_loop(
             if should_log:
                 last_behind_log_ts = loop_start
             _logger.info(
-                "[simulator] behind target service=%s target_rps=%.1f batch=%d "
+                "[simulator] behind target service=%s target_eps=%.1f batch=%d "
                 "duration=%.4fs target_interval=%.4fs enqueue=%.4fs queue=%d",
                 service,
-                effective_rps,
+                effective_eps,
                 batch_size,
                 elapsed,
                 desired_period,
@@ -195,8 +195,8 @@ async def _service_stream_loop(
 
 def create_service_tasks(
     simulators: Dict[str, Any],
-    base_rps: float,
-    service_rps: Dict[str, float],
+    base_eps: float,
+    service_eps: Dict[str, float],
     bands: List[Any],
     weight_mode: str,
     log_batch_size: int = LOG_BATCH_SIZE,
@@ -208,19 +208,19 @@ def create_service_tasks(
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)
-    fallback_rps = base_rps / service_count
+    fallback_eps = base_eps / service_count
 
     loops = max(loops_per_service, 1)
     service_tasks: List[asyncio.Task] = []
     for service in available_services:
-        target = service_rps.get(service, fallback_rps)
-        per_loop_rps = target / loops
+        target = service_eps.get(service, fallback_eps)
+        per_loop_eps = target / loops
         for idx in range(loops):
             task = asyncio.create_task(
                 _service_stream_loop(
                     service=service,
                     simulator=simulators[service],
-                    target_rps=per_loop_rps,
+                    target_eps=per_loop_eps,
                     publish_queue=publish_queue,
                     bands=bands,
                     weight_mode=weight_mode,

@@ -32,7 +32,8 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log
 )
 ENGINE = MergeTree
 PARTITION BY toDate(event_ts)
-ORDER BY (service, event_ts, request_id);
+ORDER BY (service, event_ts, request_id)
+TTL event_ts + INTERVAL 1 DAY;
 
 -- ---------------------------------------------------------------------------
 -- Grafana용 1분 집계 테이블 (원본 fact_log를 매번 스캔하면 SELECT가 수십~수백초까지 늘어나
@@ -50,15 +51,16 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_1m
 )
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
-ORDER BY (bucket, service);
+ORDER BY (bucket, service)
+TTL bucket + INTERVAL 1 DAY;
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_agg_1m
 TO analytics.fact_log_agg_1m
 AS
 SELECT
-    -- Grafana에서 "현재 RPS"를 보고 싶으면 event_ts(이벤트 시간)보다 ingest_ts(적재 시간)가 더 정확하다.
-    -- event_ts가 과거/미래로 스큐되면 최근 1분 RPS가 낮게 보일 수 있음.
+    -- Grafana에서 "현재 EPS"를 보고 싶으면 event_ts(이벤트 시간)보다 ingest_ts(적재 시간)가 더 정확하다.
+    -- event_ts가 과거/미래로 스큐되면 최근 1분 EPS가 낮게 보일 수 있음.
     toStartOfMinute(ingest_ts) AS bucket,
     service,
     count() AS total,
@@ -69,7 +71,7 @@ GROUP BY bucket, service;
 
 -- ---------------------------------------------------------------------------
 -- Grafana용 1분 집계 테이블 (event_ts 기준)
--- "로그 생성 시각(event_ts) 기준 RPS"가 필요할 때 사용한다.
+-- "로그 생성 시각(event_ts) 기준 EPS"가 필요할 때 사용한다.
 -- NOTE: event_ts가 스큐/지연되면 버킷 분포가 달라질 수 있다.
 -- ---------------------------------------------------------------------------
 
@@ -83,7 +85,8 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_event_1m
 )
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
-ORDER BY (bucket, service);
+ORDER BY (bucket, service)
+TTL bucket + INTERVAL 1 DAY;
 
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_agg_event_1m

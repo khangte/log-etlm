@@ -6,7 +6,7 @@ N="${1:-20}"
 
 # Uses docker log timestamps to estimate throughput between successful ClickHouse batches.
 # Output columns:
-#   end_time | rows | dt_sec | rps
+#   end_time | rows | dt_sec | eps
 
 docker logs --timestamps --tail 5000 "${SPARK_CONTAINER}" 2>/dev/null \
   | grep -a -F "Batch 성공" \
@@ -49,12 +49,12 @@ for (t0, _rows0), (t1, rows1) in zip(events, events[1:]):
     dt = (t1 - t0).total_seconds()
     if dt <= 0:
         continue
-    rps = rows1 / dt
+    eps = rows1 / dt
     total_rows += rows1
     total_dt += dt
     end = t1.astimezone(timezone.utc).isoformat()
-    print(f"{end}\trows={rows1}\tdt={dt:.2f}s\trps={rps:.1f}")
+    print(f"{end}\trows={rows1}\tdt={dt:.2f}s\teps={eps:.1f}")
 
 if total_dt > 0:
-    print(f"avg\trows={total_rows}\tdt={total_dt:.2f}s\trps={total_rows/total_dt:.1f}")
+    print(f"avg\trows={total_rows}\tdt={total_dt:.2f}s\teps={total_rows/total_dt:.1f}")
 '

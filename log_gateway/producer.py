@@ -25,7 +25,7 @@ def get_executor() -> ThreadPoolExecutor:
     """Lazy executor with shutdown hook."""
     global _EXECUTOR, _EXECUTOR_SHUTDOWN_REGISTERED
     if _EXECUTOR is None:
-        max_workers = int(os.getenv("LG_PRODUCER_EXECUTOR", "32"))
+        max_workers = int(os.getenv("PRODUCER_EXECUTOR", "32"))
         _EXECUTOR = ThreadPoolExecutor(max_workers=max_workers)
     if not _EXECUTOR_SHUTDOWN_REGISTERED:
         _EXECUTOR_SHUTDOWN_REGISTERED = True
@@ -63,18 +63,18 @@ class ProducerSettings:
     security: Optional[Dict[str, Any]] = None
 
     def _build_producer_config(self) -> Dict[str, Any]:
-        linger_ms = os.getenv("LG_PRODUCER_LINGER_MS", "5")
-        batch_num_messages = os.getenv("LG_PRODUCER_BATCH_NUM_MESSAGES", "1000")
-        queue_buffering_max_kbytes = int(os.getenv("LG_PRODUCER_QUEUE_MAX_KBYTES", str(128 * 1024)))
-        queue_buffering_max_messages = os.getenv("LG_PRODUCER_QUEUE_MAX_MESSAGES", "500000")
-        enable_idempotence = os.getenv("LG_PRODUCER_ENABLE_IDEMPOTENCE", "true").strip().lower() in (
+        linger_ms = os.getenv("PRODUCER_LINGER_MS", "5")
+        batch_num_messages = os.getenv("PRODUCER_BATCH_NUM_MESSAGES", "1000")
+        queue_buffering_max_kbytes = int(os.getenv("PRODUCER_QUEUE_MAX_KBYTES", str(128 * 1024)))
+        queue_buffering_max_messages = os.getenv("PRODUCER_QUEUE_MAX_MESSAGES", "500000")
+        enable_idempotence = os.getenv("PRODUCER_ENABLE_IDEMPOTENCE", "true").strip().lower() in (
             "1",
             "true",
             "yes",
             "y",
         )
-        acks = os.getenv("LG_PRODUCER_ACKS", "all")
-        compression_type = os.getenv("LG_PRODUCER_COMPRESSION", "snappy")
+        acks = os.getenv("PRODUCER_ACKS", "all")
+        compression_type = os.getenv("PRODUCER_COMPRESSION", "snappy")
         config = {
             "bootstrap.servers": SETTINGS.brokers,
             "client.id": SETTINGS.client_id,
@@ -105,7 +105,7 @@ class ProducerSettings:
 SETTINGS = ProducerSettings()
 
 
-POLL_THREAD_SLEEP_SEC = float(os.getenv("LG_PRODUCER_POLL_SLEEP_SEC", "0.01"))
+POLL_THREAD_SLEEP_SEC = float(os.getenv("PRODUCER_POLL_SLEEP_SEC", "0.01"))
 _PRODUCER_POLL_THREAD: Optional[threading.Thread] = None
 _PRODUCER_POLL_SHUTDOWN = threading.Event()
 

@@ -34,10 +34,11 @@ services:
       # 초기 크기 1GB, 최대 크기 1.5GB
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
       # 토픽별 retention 감수
-      # 6시간만 보관 + 세그먼트 작게
-      KAFKA_LOG_RETENTION_HOURS: 12
-      KAFKA_LOG_SEGMENT_BYTES: 268435456      # 256MB
+      # 2시간만 보관 + 세그먼트 작게
+      KAFKA_LOG_RETENTION_HOURS: 1
       KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_LOG_RETENTION_BYTES: 268435456    # 256MB
+      KAFKA_LOG_SEGMENT_BYTES: 134217728      # 128MB
     volumes:
       - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
       - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
@@ -87,27 +88,27 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - KAFKA_BOOTSTRAP=kafka:9092
-      # 10k RPS 튜닝(필요 시 조절)
+      # 10k EPS 튜닝(필요 시 조절)
       # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
-      - LG_RPS_OVERRIDE=750
-      - LG_PUBLISHER_WORKERS=4
-      - LG_WORKER_BATCH_SIZE=400
-      - LG_PRODUCER_EXECUTOR=16
-      - LG_QUEUE_SIZE=4000
-      - LG_LOG_BATCH_SIZE=100
-      - LG_LOOPS_PER_SERVICE=8
-      - LG_PRODUCER_LINGER_MS=20
-      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
-      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
-      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
-      - LG_PRODUCER_ACKS=0
-      - LG_PRODUCER_COMPRESSION=none
-      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
-      - LG_TICK_SEC=0.1
+      - EPS_PER_WORKER_OVERRIDE=100
+      - PUBLISHER_WORKERS=4
+      - WORKER_BATCH_SIZE=400
+      - PRODUCER_EXECUTOR=16
+      - QUEUE_SIZE=4000
+      - LOG_BATCH_SIZE=100
+      - LOOPS_PER_SERVICE=8
+      - PRODUCER_LINGER_MS=20
+      - PRODUCER_BATCH_NUM_MESSAGES=5000
+      - PRODUCER_QUEUE_MAX_KBYTES=262144
+      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - PRODUCER_ENABLE_IDEMPOTENCE=false
+      - PRODUCER_ACKS=0
+      - PRODUCER_COMPRESSION=none
+      - PRODUCER_POLL_SLEEP_SEC=0.01
+      - TICK_SEC=0.1
       # 로그 과다 방지(성능 측정 시 중요)
-      - LG_SEND_WARN_SEC=5
-      - LG_IDLE_WARN_SEC=5
+      - SEND_WARN_SEC=5
+      - IDLE_WARN_SEC=5
     depends_on:
       kafka:
         condition: service_healthy
@@ -129,24 +130,24 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=750
-      - LG_PUBLISHER_WORKERS=4
-      - LG_WORKER_BATCH_SIZE=400
-      - LG_PRODUCER_EXECUTOR=16
-      - LG_QUEUE_SIZE=4000
-      - LG_LOG_BATCH_SIZE=100
-      - LG_LOOPS_PER_SERVICE=8
-      - LG_PRODUCER_LINGER_MS=20
-      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
-      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
-      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
-      - LG_PRODUCER_ACKS=0
-      - LG_PRODUCER_COMPRESSION=none
-      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
-      - LG_TICK_SEC=0.1
-      - LG_SEND_WARN_SEC=5
-      - LG_IDLE_WARN_SEC=5
+      - EPS_PER_WORKER_OVERRIDE=100
+      - PUBLISHER_WORKERS=4
+      - WORKER_BATCH_SIZE=400
+      - PRODUCER_EXECUTOR=16
+      - QUEUE_SIZE=4000
+      - LOG_BATCH_SIZE=100
+      - LOOPS_PER_SERVICE=8
+      - PRODUCER_LINGER_MS=20
+      - PRODUCER_BATCH_NUM_MESSAGES=5000
+      - PRODUCER_QUEUE_MAX_KBYTES=262144
+      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - PRODUCER_ENABLE_IDEMPOTENCE=false
+      - PRODUCER_ACKS=0
+      - PRODUCER_COMPRESSION=none
+      - PRODUCER_POLL_SLEEP_SEC=0.01
+      - TICK_SEC=0.1
+      - SEND_WARN_SEC=5
+      - IDLE_WARN_SEC=5
     depends_on:
       kafka:
         condition: service_healthy
@@ -167,24 +168,24 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-3
       - KAFKA_BOOTSTRAP=kafka:9092
-      - LG_RPS_OVERRIDE=750
-      - LG_PUBLISHER_WORKERS=4
-      - LG_WORKER_BATCH_SIZE=400
-      - LG_PRODUCER_EXECUTOR=16
-      - LG_QUEUE_SIZE=4000
-      - LG_LOG_BATCH_SIZE=100
-      - LG_LOOPS_PER_SERVICE=8
-      - LG_PRODUCER_LINGER_MS=20
-      - LG_PRODUCER_BATCH_NUM_MESSAGES=5000
-      - LG_PRODUCER_QUEUE_MAX_KBYTES=262144
-      - LG_PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - LG_PRODUCER_ENABLE_IDEMPOTENCE=false
-      - LG_PRODUCER_ACKS=0
-      - LG_PRODUCER_COMPRESSION=none
-      - LG_PRODUCER_POLL_SLEEP_SEC=0.01
-      - LG_TICK_SEC=0.1
-      - LG_SEND_WARN_SEC=5
-      - LG_IDLE_WARN_SEC=5
+      - EPS_PER_WORKER_OVERRIDE=100
+      - PUBLISHER_WORKERS=4
+      - WORKER_BATCH_SIZE=400
+      - PRODUCER_EXECUTOR=16
+      - QUEUE_SIZE=4000
+      - LOG_BATCH_SIZE=100
+      - LOOPS_PER_SERVICE=8
+      - PRODUCER_LINGER_MS=20
+      - PRODUCER_BATCH_NUM_MESSAGES=5000
+      - PRODUCER_QUEUE_MAX_KBYTES=262144
+      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - PRODUCER_ENABLE_IDEMPOTENCE=false
+      - PRODUCER_ACKS=0
+      - PRODUCER_COMPRESSION=none
+      - PRODUCER_POLL_SLEEP_SEC=0.01
+      - TICK_SEC=0.1
+      - SEND_WARN_SEC=5
+      - IDLE_WARN_SEC=5
     depends_on:
       kafka:
         condition: service_healthy
@@ -264,22 +265,21 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
       # Spark Streaming ingest tuning
-      # maxOffsetsPerTrigger가 consumed RPS 상한을 만든다.
-      # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k RPS로 캡이 걸림.
-      # 10k RPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
-      # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 RPS가 떨어질 수 있음.
+      # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
+      # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k EPS로 캡이 걸림.
+      # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
+      # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
       # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
       - SPARK_STARTING_OFFSETS=latest
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
-      - SPARK_RESET_CHECKPOINT_ON_START=false
+      - SPARK_RESET_CHECKPOINT_ON_START=False
       # ClickHouse sink tuning (override as needed)
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=6
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
       # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
-      - SPARK_CLICKHOUSE_LOG_STATS=true
-      - SPARK_CLICKHOUSE_LOG_STATS_EVERY=10
+      - SPARK_CLICKHOUSE_LOG_STATS=false
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro

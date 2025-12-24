@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # End-to-end measurement without Kafka consumer groups:
-# - Produced RPS: Kafka end offsets delta
-# - Consumed RPS: Spark checkpoint offsets delta
+# - Produced EPS: Kafka end offsets delta
+# - Consumed EPS: Spark checkpoint offsets delta
 # - Lag: (Kafka end offsets - Spark checkpoint offsets)
 
 KAFKA_CONTAINER="${KAFKA_CONTAINER:-kafka}"
@@ -120,8 +120,7 @@ lag0 = lag(end0, comm0)
 lag1 = lag(end1, comm1)
 
 print(f"dt={dt}s checkpoint_batch={batch0}->{batch1}")
-print(f"produced={produced} rps={produced/dt:.1f}")
-print(f"consumed={consumed} rps={consumed/dt:.1f}")
+print(f"produced={produced} eps={produced/dt:.1f}")
+print(f"consumed={consumed} eps={consumed/dt:.1f}")
 print(f"lag0={lag0} lag1={lag1} delta={lag1-lag0}")
 PY
-
