@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
@@ -17,6 +18,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
     analytics.fact_log 스키마에 맞는 DF로 변환한다.
     IO(write)는 하지 않고 변환만 담당.
     """
+    store_raw_json = os.getenv("SPARK_STORE_RAW_JSON", "true").strip().lower() in ("1", "true", "yes", "y")
 
     parsed = (
         kafka_df
@@ -45,7 +47,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
             F.col("json.product_id").alias("product_id"),
             F.col("json.amount").alias("amount"),
             F.col("topic"),
-            F.col("raw_json"),
+            (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
             "ingest_ts",

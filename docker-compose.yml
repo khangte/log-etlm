@@ -280,6 +280,8 @@ services:
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
       # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
       - SPARK_CLICKHOUSE_LOG_STATS=false
+      # 원본 JSON(raw_json) 저장 여부
+      - SPARK_STORE_RAW_JSON=false
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
