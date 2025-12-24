@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log
 )
 ENGINE = MergeTree
 PARTITION BY toDate(event_ts)
-ORDER BY (service, event_ts, request_id)
+ORDER BY (service, event_ts)
 TTL event_ts + INTERVAL 1 DAY;
 
 -- ---------------------------------------------------------------------------
