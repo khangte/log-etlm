@@ -18,7 +18,6 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("method",      T.StringType(),  True),
         T.StructField("path",        T.StringType(),  True),
         T.StructField("status_code", T.IntegerType(), True),
-        T.StructField("latency",     T.DoubleType(),  True),
         T.StructField("event",       T.StringType(),  True),
 
         T.StructField("user_id",           T.StringType(),  True),
@@ -47,7 +46,6 @@ fact_log_schema: T.StructType = T.StructType(
         T.StructField("method",      T.StringType(), True),
         T.StructField("path",        T.StringType(), True),
         T.StructField("status_code", T.IntegerType(), True),
-        T.StructField("latency",     T.DoubleType(),  True),
         T.StructField("event",       T.StringType(),  True),
 
         # 비즈니스 필드(서비스별로 있을 수도/없을 수도 있음)
@@ -77,7 +75,6 @@ FACT_LOG_COLUMNS: list[str] = [
     "method",
     "path",
     "status_code",
-    "latency",
     "event",
     "user_id",
     "notification_type",

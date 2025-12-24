@@ -45,7 +45,6 @@ class AuthSimulator(BaseServiceSimulator):
             "method": method,
             "path": route["path"],
             "status_code":  random.choice([401, 403, 429, 500]) if is_err else random.choice([200, 200, 204]),
-            "latency": round(random.uniform(60, 250) if is_err else random.uniform(20, 120), 2),
             "event": "LoginFailed" if is_err else "LoginSucceeded",
 
             "user_id": self.generate_user_id(),

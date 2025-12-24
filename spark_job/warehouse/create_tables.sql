@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log
     method         String,
     path           String,
     status_code    Int32,
-    latency        Float64,
     event          String,
 
     -- 비즈니스 필드
@@ -46,8 +45,7 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_1m
     bucket       DateTime,
     service      LowCardinality(String),
     total        UInt64,
-    errors       UInt64,
-    sum_latency  Float64
+    errors       UInt64
 )
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
@@ -64,8 +62,7 @@ SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     service,
     count() AS total,
-    countIf(status_code >= 500) AS errors,
-    sum(latency) AS sum_latency
+    countIf(status_code >= 500) AS errors
 FROM analytics.fact_log
 GROUP BY bucket, service;
 
@@ -80,8 +77,7 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log_agg_event_1m
     bucket       DateTime,
     service      LowCardinality(String),
     total        UInt64,
-    errors       UInt64,
-    sum_latency  Float64
+    errors       UInt64
 )
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
@@ -96,8 +92,7 @@ SELECT
     toStartOfMinute(event_ts) AS bucket,
     service,
     count() AS total,
-    countIf(status_code >= 500) AS errors,
-    sum(latency) AS sum_latency
+    countIf(status_code >= 500) AS errors
 FROM analytics.fact_log
 GROUP BY bucket, service;
 

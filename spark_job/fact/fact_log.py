@@ -40,7 +40,6 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
             F.col("json.method").alias("method"),
             F.col("json.path").alias("path"),
             F.col("json.status_code").alias("status_code"),
-            F.col("json.latency").alias("latency"),
             F.col("json.event").alias("event"),
             F.col("json.user_id").alias("user_id"),
             F.col("json.notification_type").alias("notification_type"),

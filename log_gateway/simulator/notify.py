@@ -44,7 +44,6 @@ class NotifySimulator(BaseServiceSimulator):
             "method": method,
             "path": route["path"],
             "status_code":  random.choice([500, 429, 400]) if is_err else random.choice([200, 202, 204]),
-            "latency": round(random.uniform(60, 300) if is_err else random.uniform(20, 120), 2),
             "event": "NotificationFailed" if is_err else "NotificationSent",
 
             "user_id": self.generate_user_id(),
