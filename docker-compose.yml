@@ -90,7 +90,7 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       # 10k EPS 튜닝(필요 시 조절)
       # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
-      - EPS_PER_WORKER_OVERRIDE=100
+      - EPS_PER_WORKER_OVERRIDE=750
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
@@ -130,7 +130,7 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=100
+      - EPS_PER_WORKER_OVERRIDE=750
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
@@ -168,7 +168,7 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-3
       - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=100
+      - EPS_PER_WORKER_OVERRIDE=750
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
