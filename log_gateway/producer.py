@@ -139,6 +139,7 @@ def _select_partition(topic: str) -> int:
     if count <= 1:
         return 0
 
+    # 토픽별로 라운드로빈 분배해 파티션 편향을 줄인다.
     idx = _partition_counters.get(topic, 0)
     next_idx = (idx + 1) % count
     _partition_counters[topic] = next_idx
@@ -156,6 +157,7 @@ def _start_poll_thread() -> None:
                 producer.poll(0)
             time.sleep(POLL_THREAD_SLEEP_SEC)
 
+    # 백그라운드 poll로 delivery 콜백을 꾸준히 처리한다.
     _PRODUCER_POLL_THREAD = threading.Thread(target=_poll_loop, name="lg-producer-poll", daemon=True)
     _PRODUCER_POLL_THREAD.start()
 

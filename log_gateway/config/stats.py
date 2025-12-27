@@ -64,7 +64,7 @@ async def stats_reporter(
         timeout = max(0.0, interval_sec - (loop.time() - last_report))
         try:
             service, count = await asyncio.wait_for(stats_queue.get(), timeout=timeout)
-            # per_service[service] = per_service.get(service, 0) + count
+            # 대상 서비스만 집계해 잡음 로그를 줄인다.
             if service in per_service:
                 per_service[service] += count
             total += count

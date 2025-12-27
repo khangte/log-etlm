@@ -85,6 +85,7 @@ FACT_LOG_COLUMNS: list[str] = [
     "raw_json",
 ]
 
+
 # -----------------------------------------------------------------------------
 # 4) Dimension 테이블 컬럼 순서
 # -----------------------------------------------------------------------------
@@ -99,7 +100,6 @@ FACT_LOG_COLUMNS: list[str] = [
 #     ]
 # )
 
-
 # DIM_DATE_SCHEMA = T.StructType(
 #     [
 #         T.StructField("date",        T.DateType(),   False),
@@ -112,7 +112,6 @@ FACT_LOG_COLUMNS: list[str] = [
 #     ]
 # )
 
-
 # DIM_SERVICE_SCHEMA = T.StructType(
 #     [
 #         T.StructField("service",       T.StringType(), False),
@@ -120,7 +119,6 @@ FACT_LOG_COLUMNS: list[str] = [
 #         T.StructField("is_active",     T.IntegerType(), False),
 #     ]
 # )
-
 
 # DIM_STATUS_CODE_SCHEMA = T.StructType(
 #     [

@@ -73,8 +73,7 @@ async def _service_stream_loop(
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
         effective_eps = max(target_eps * multiplier, 0.01)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
-        # tick 기반 정수 배치(round)는 목표 EPS가 낮을 때(예: 450/서비스4/루프8) 과소/과대 생성이 쉽게 발생한다.
-        # 실제 경과시간(dt_actual) 기반 토큰 버킷으로 평균 EPS를 맞춘다.
+        # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
         carry += scaled_eps * dt_actual
         if carry > max_batch_size:
             carry = float(max_batch_size)
@@ -127,6 +126,7 @@ async def _service_stream_loop(
             if fill_ratio >= QUEUE_THROTTLE_RATIO:
                 throttle_scale = QUEUE_SOFT_SCALE_MIN
                 throttle_started_at = time.perf_counter()
+                # 큐 포화 시 강한 스로틀로 급격한 버스트를 막는다.
                 _logger.info(
                     "[simulator] throttling service=%s queue=%d/%d (%.0f%%)",
                     service,
@@ -158,6 +158,7 @@ async def _service_stream_loop(
             if fill_ratio >= QUEUE_SOFT_THROTTLE_RATIO:
                 new_scale = max(QUEUE_SOFT_SCALE_MIN, throttle_scale - QUEUE_SOFT_SCALE_STEP)
                 if new_scale < throttle_scale:
+                    # 큐가 차오르면 생성 속도를 점진적으로 낮춘다.
                     throttle_scale = new_scale
                     _logger.info(
                         "[simulator] soft throttle service=%s scale=%.2f queue=%d/%d (%.0f%%)",

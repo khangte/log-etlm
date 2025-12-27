@@ -20,4 +20,5 @@ async def ping():
 
 @app.on_event("startup")
 async def start_generator() -> None:
+    # API 서버 기동과 함께 시뮬레이터 루프를 백그라운드로 시작한다.
     asyncio.create_task(run_simulator())

@@ -50,10 +50,12 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
+            # Kafka 브로커가 기록한 수신 시각을 ingest_ts로 사용한다.
             "ingest_ts",
             F.col("kafka_ts"),
         )
         .withColumn(
+            # Spark 배치에서 처리된 시점을 기록한다.
             "processed_ts",
             F.current_timestamp(),
         )

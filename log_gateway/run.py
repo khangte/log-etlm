@@ -28,6 +28,7 @@ async def run_simulator(profile_name: Optional[str] = None) -> None:
         publisher_tasks,
     ) = build_generation_pipeline(profile_name or PROFILE_NAME)
 
+    # stats 리포터는 백그라운드 태스크로 붙여 throughput 로그를 남긴다.
     stats_task = asyncio.create_task(
         stats_reporter(stats_queue=stats_queue, services=services),
         name="stats-reporter",

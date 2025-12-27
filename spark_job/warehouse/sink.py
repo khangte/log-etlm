@@ -33,8 +33,10 @@ def write_to_clickhouse(df, table_name, batch_id: int | None = None):
             n = int(target_partitions)
             current = out_df.rdd.getNumPartitions()
             if n < current:
+                # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
                 out_df = out_df.coalesce(n)
             elif n > current:
+                # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
                 out_df = out_df.repartition(n)
 
         # 고EPS에서는 배치마다 count/min/max를 구하면(추가 Spark job + 캐시/스필)

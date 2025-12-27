@@ -53,6 +53,7 @@ async def _publisher_worker(
 
         while len(batch) < WORKER_BATCH_SIZE:
             try:
+                # 여러 배치를 합쳐 publish overhead를 줄인다.
                 nxt = publish_queue.get_nowait()
                 consumed_batches += 1
                 batch.extend(nxt)

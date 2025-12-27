@@ -34,6 +34,7 @@ class ClickHouseStreamWriter:
         def _foreach(batch_df: DataFrame, _batch_id: int):
             out_df = batch_df
             if deduplicate_keys:
+                # 배치 내 중복을 제거해 ClickHouse 중복 기록을 줄인다.
                 out_df = out_df.dropDuplicates(deduplicate_keys)
             self._foreach_writer(out_df, table_name, batch_id=_batch_id)
 
