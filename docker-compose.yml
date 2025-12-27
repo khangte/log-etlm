@@ -90,13 +90,14 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       # 10k EPS 튜닝(필요 시 조절)
       # uvicorn worker(프로세스) 4개 기준: 프로세스당 2.5k → 총 10k
-      - EPS_PER_WORKER_OVERRIDE=750
+      # - EPS_PER_WORKER_OVERRIDE=1250
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
       - QUEUE_SIZE=4000
-      - LOG_BATCH_SIZE=100
-      - LOOPS_PER_SERVICE=8
+      - LOG_BATCH_SIZE=200
+      - LOOPS_PER_SERVICE=4
+      - QUEUE_LOW_SLEEP_SCALE=1.0
       - PRODUCER_LINGER_MS=20
       - PRODUCER_BATCH_NUM_MESSAGES=5000
       - PRODUCER_QUEUE_MAX_KBYTES=262144
@@ -105,7 +106,7 @@ services:
       - PRODUCER_ACKS=0
       - PRODUCER_COMPRESSION=none
       - PRODUCER_POLL_SLEEP_SEC=0.01
-      - TICK_SEC=0.1
+      - TICK_SEC=0.3
       # 로그 과다 방지(성능 측정 시 중요)
       - SEND_WARN_SEC=5
       - IDLE_WARN_SEC=5
@@ -130,13 +131,14 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=750
+      # - EPS_PER_WORKER_OVERRIDE=1250
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
       - QUEUE_SIZE=4000
-      - LOG_BATCH_SIZE=100
-      - LOOPS_PER_SERVICE=8
+      - LOG_BATCH_SIZE=200
+      - LOOPS_PER_SERVICE=4
+      - QUEUE_LOW_SLEEP_SCALE=1.0
       - PRODUCER_LINGER_MS=20
       - PRODUCER_BATCH_NUM_MESSAGES=5000
       - PRODUCER_QUEUE_MAX_KBYTES=262144
@@ -145,7 +147,7 @@ services:
       - PRODUCER_ACKS=0
       - PRODUCER_COMPRESSION=none
       - PRODUCER_POLL_SLEEP_SEC=0.01
-      - TICK_SEC=0.1
+      - TICK_SEC=0.3
       - SEND_WARN_SEC=5
       - IDLE_WARN_SEC=5
     depends_on:
@@ -159,43 +161,44 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  simulator3:
-    build:
-      context: .
-      dockerfile: log_gateway/Dockerfile
-    container_name: simulator3
-    # restart: unless-stopped
-    environment:
-      - KAFKA_CLIENT_ID=log-monitoring-simulator-3
-      - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=750
-      - PUBLISHER_WORKERS=4
-      - WORKER_BATCH_SIZE=400
-      - PRODUCER_EXECUTOR=16
-      - QUEUE_SIZE=4000
-      - LOG_BATCH_SIZE=100
-      - LOOPS_PER_SERVICE=8
-      - PRODUCER_LINGER_MS=20
-      - PRODUCER_BATCH_NUM_MESSAGES=5000
-      - PRODUCER_QUEUE_MAX_KBYTES=262144
-      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - PRODUCER_ENABLE_IDEMPOTENCE=false
-      - PRODUCER_ACKS=0
-      - PRODUCER_COMPRESSION=none
-      - PRODUCER_POLL_SLEEP_SEC=0.01
-      - TICK_SEC=0.1
-      - SEND_WARN_SEC=5
-      - IDLE_WARN_SEC=5
-    depends_on:
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./log_gateway:/app/log_gateway:ro
-    networks: [logetlm-net]
-    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
+  # simulator3:
+  #   build:
+  #     context: .
+  #     dockerfile: log_gateway/Dockerfile
+  #   container_name: simulator3
+  #   # restart: unless-stopped
+  #   environment:
+  #     - KAFKA_CLIENT_ID=log-monitoring-simulator-3
+  #     - KAFKA_BOOTSTRAP=kafka:9092
+  #     - EPS_PER_WORKER_OVERRIDE=750
+  #     - PUBLISHER_WORKERS=4
+  #     - WORKER_BATCH_SIZE=400
+  #     - PRODUCER_EXECUTOR=16
+  #     - QUEUE_SIZE=4000
+  #     - LOG_BATCH_SIZE=200
+  #     - LOOPS_PER_SERVICE=4
+  #     - QUEUE_LOW_SLEEP_SCALE=1.0
+  #     - PRODUCER_LINGER_MS=20
+  #     - PRODUCER_BATCH_NUM_MESSAGES=5000
+  #     - PRODUCER_QUEUE_MAX_KBYTES=262144
+  #     - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+  #     - PRODUCER_ENABLE_IDEMPOTENCE=false
+  #     - PRODUCER_ACKS=0
+  #     - PRODUCER_COMPRESSION=none
+  #     - PRODUCER_POLL_SLEEP_SEC=0.01
+  #     - TICK_SEC=0.2
+  #     - SEND_WARN_SEC=5
+  #     - IDLE_WARN_SEC=5
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./log_gateway:/app/log_gateway:ro
+  #   networks: [logetlm-net]
+  #   command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+  #   logging:
+  #     driver: json-file
+  #     options: { max-size: "10m", max-file: "5" }
 
 
   spark-master:
@@ -231,7 +234,7 @@ services:
       - "--cores"
       - "3"
       - "--memory"
-      - "4g"
+      - "3g"
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -249,11 +252,12 @@ services:
       - "--cores"
       - "3"
       - "--memory"
-      - "4g"
+      - "3g"
     networks: [logetlm-net]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
+
 
   spark:
     build:
@@ -270,14 +274,14 @@ services:
       # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
       # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=400000
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
       - SPARK_STARTING_OFFSETS=latest
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
       - SPARK_RESET_CHECKPOINT_ON_START=False
       # ClickHouse sink tuning (override as needed)
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=6
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=200000
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=3
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=60000
       # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
       - SPARK_CLICKHOUSE_LOG_STATS=false
       # 원본 JSON(raw_json) 저장 여부
