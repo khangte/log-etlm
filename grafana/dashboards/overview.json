@@ -1,5 +1,5 @@
 {
-  "_comment": "Grafana ClickHouse Query Overview (system.query_log 기반 쿼리 모니터링)",
+  "_comment": "Grafana 로그 파이프라인 Overview (EPS/지연/ClickHouse 상태)",
   "__requires": [
     {
       "type": "grafana",
@@ -63,7 +63,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "로그의 생성 시간(event_ts) 기준으로 EPS를 표시합니다. (원본 fact_log 스캔)",
+      "description": "이벤트 생성 시간(event_ts) 기준 EPS입니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -107,7 +107,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "로그 적재 시간(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다.",
+      "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -151,7 +151,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "event_ts 대비 ingest_ts 지연(초) 평균입니다. (1분 집계)",
+      "description": "event_ts 대비 ingest_ts 평균 지연(초)입니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -195,7 +195,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ClickHouse INSERT 쿼리 지연(p95)입니다. Spark sink 영향도를 보기 위한 패널입니다.",
+      "description": "ClickHouse INSERT 쿼리 지연(p95)입니다. Spark sink 영향도를 보기 위한 패널입니다. (system.query_log)",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "continuous-GrYlRd" },
@@ -238,7 +238,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ingest_ts 기준 EPS와 event_ts 기준 EPS의 차이(ingest - event)를 표시합니다.",
+      "description": "ingest_ts EPS와 event_ts EPS의 차이(ingest - event)입니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
@@ -279,7 +279,7 @@
     },
     {
       "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse" },
-      "description": "MergeTree active parts 수(현재 값). 지속 증가 시 merge backlog 가능성이 큼.",
+      "description": "MergeTree active parts 수(현재 값). 지속 증가 시 merge backlog 가능.",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
