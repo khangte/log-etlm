@@ -25,6 +25,7 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
         .selectExpr(
             "CAST(value AS STRING) AS raw_json",
             "topic",
+            "timestamp AS kafka_ts",
         )
         .withColumn(
             "json",
@@ -45,10 +46,15 @@ def parse_fact_log(kafka_df: DataFrame) -> DataFrame:
             F.col("json.product_id").alias("product_id"),
             F.col("json.amount").alias("amount"),
             F.col("topic"),
+            F.col("kafka_ts"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
             "ingest_ts",
+            F.col("kafka_ts"),
+        )
+        .withColumn(
+            "processed_ts",
             F.current_timestamp(),
         )
         .withColumn(
