@@ -40,7 +40,7 @@
    - Spark 스트림은 `/data/spark_checkpoints` 체크포인트를 활용해 장애 복구 시점을 유지합니다.
 4. **로그 저장**
    - `spark_job/warehouse/writer.py` → `write_to_clickhouse()` 가 ClickHouse `analytics.fact_log` 테이블에 JDBC append 합니다.
-   - 초기 스키마는 `spark_job/warehouse/create_tables.sql` 로 자동 생성되며, `data/clickhouse` 볼륨에 영속화됩니다.
+   - 초기 스키마는 `spark_job/warehouse/create_tables.sql` 로 자동 생성되며, `/data/log-etlm/clickhouse` 볼륨에 영속화됩니다.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 등을 시각화합니다.
    - `monitor/docker_watchdog.py` 는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화를 Slack Webhook/CLI로 통지합니다.
@@ -52,10 +52,10 @@
 # 0. 사전 준비
 # - Docker / Docker Compose 설치
 # - VM이라면 /data 파티션을 미리 마운트하고 아래 디렉터리를 생성해 rw 권한을 부여한다.
-#     sudo mkdir -p /data/kafka-logs /data/kafka-meta /data/spark_checkpoints \
-#                  /home/kang/log-monitoring/data/clickhouse/{data,logs} \
-#                  /home/kang/log-monitoring/data/grafana
-#     sudo chown -R $USER:$USER /data /home/kang/log-monitoring/data
+#     sudo mkdir -p /data/log-etlm/kafka-logs /data/log-etlm/kafka-meta \
+#                  /data/log-etlm/spark_checkpoints /data/log-etlm/clickhouse \
+#                  /data/log-etlm/clickhouse-logs /data/log-etlm/grafana
+#     sudo chown -R $USER:$USER /data/log-etlm
 # - 방화벽/보안 그룹에서 29092(Kafka), 4040(Spark UI), 3000(Grafana) 등을 허용
 
 # 1. Kafka + Kafka UI만 우선 기동 (토픽/메시지 확인용)
