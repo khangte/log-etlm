@@ -35,8 +35,9 @@ log_value_schema: T.StructType = T.StructType(
 fact_log_schema: T.StructType = T.StructType(
     [
         # 시간 관련
-        T.StructField("event_ts",  T.TimestampType(), False),  # UTC timestamp
-        T.StructField("ingest_ts", T.TimestampType(), False),  # Spark 적재 시각(UTC)
+        T.StructField("event_ts",     T.TimestampType(), False),  # 발생 시각(UTC)
+        T.StructField("ingest_ts",    T.TimestampType(), False),  # Kafka 적재 시각(UTC)
+        T.StructField("processed_ts", T.TimestampType(), False),  # Spark 처리 시각(UTC)
 
         # 공통 메타 정보
         T.StructField("service",     T.StringType(), False),
@@ -68,6 +69,7 @@ fact_log_schema: T.StructType = T.StructType(
 FACT_LOG_COLUMNS: list[str] = [
     "event_ts",
     "ingest_ts",
+    "processed_ts",
     "service",
     "level",
     "request_id",
