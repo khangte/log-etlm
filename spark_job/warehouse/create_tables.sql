@@ -5,8 +5,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_log
     -- 시간
     -- ClickHouse JDBC 0.4.x가 DateTime64(precision, 'TZ')를 TIMESTAMP_WITH_TIMEZONE으로 반환하면서
     -- Spark 4.0이 타입을 파싱하지 못하므로 타임존 표기를 생략하고 UTC 기준으로 저장한다.
-    event_ts   DateTime64(3)           ,  -- UTC 보장 (Spark에서 변환)
-    ingest_ts  DateTime64(3)           ,  -- UTC 보장 (Spark에서 변환)
+    event_ts     DateTime64(3)           ,  -- 발생 시각 (UTC, Spark에서 변환)
+    ingest_ts    DateTime64(3)           ,  -- Kafka 적재 시각 (UTC)
+    processed_ts DateTime64(3)           ,  -- Spark 처리 시각 (UTC)
+    stored_ts    DateTime64(3) DEFAULT now64(3),  -- ClickHouse 적재 시각 (UTC)
 
     -- 공통 메타 정보
     service        LowCardinality(String),
@@ -95,6 +97,69 @@ SELECT
     countIf(status_code >= 500) AS errors
 FROM analytics.fact_log
 GROUP BY bucket, service;
+
+-- ---------------------------------------------------------------------------
+-- Spark 처리 지연(avg) 집계 테이블 (ingest_ts 기준 1분 버킷)
+-- - fact_log 풀스캔을 피하기 위해 sum/count로 평균 계산
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_lag_1m
+(
+    bucket   DateTime,
+    sum_lag  UInt64,
+    cnt      UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL bucket + INTERVAL 1 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_lag_1m
+TO analytics.fact_log_lag_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    sum(toUInt64(dateDiff('second', event_ts, ingest_ts))) AS sum_lag,
+    count() AS cnt
+FROM analytics.fact_log
+WHERE event_ts IS NOT NULL
+  AND ingest_ts IS NOT NULL
+GROUP BY bucket;
+
+-- ---------------------------------------------------------------------------
+-- End-to-end/구간 지연 p95 집계 테이블 (stored_ts 기준 1분 버킷)
+-- - 원본 fact_log 전체 스캔을 피하기 위해 AggregatingMergeTree 사용
+-- - Grafana는 이 테이블을 조회하도록 한다.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_latency_1m
+(
+    bucket       DateTime,
+    e2e_state    AggregateFunction(quantileTDigest, Float64),
+    ingest_state AggregateFunction(quantileTDigest, Float64),
+    process_state AggregateFunction(quantileTDigest, Float64),
+    sink_state   AggregateFunction(quantileTDigest, Float64)
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL bucket + INTERVAL 1 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_latency_1m
+TO analytics.fact_log_latency_1m
+AS
+SELECT
+    toStartOfMinute(stored_ts) AS bucket,
+    quantileTDigestState(toFloat64(dateDiff('millisecond', event_ts, stored_ts))) AS e2e_state,
+    quantileTDigestState(toFloat64(dateDiff('millisecond', event_ts, ingest_ts))) AS ingest_state,
+    quantileTDigestState(toFloat64(dateDiff('millisecond', ingest_ts, processed_ts))) AS process_state,
+    quantileTDigestState(toFloat64(dateDiff('millisecond', processed_ts, stored_ts))) AS sink_state
+FROM analytics.fact_log
+WHERE event_ts IS NOT NULL
+  AND ingest_ts IS NOT NULL
+  AND processed_ts IS NOT NULL
+  AND stored_ts IS NOT NULL
+GROUP BY bucket;
 
 
 -- CREATE TABLE IF NOT EXISTS analytics.dim_service
