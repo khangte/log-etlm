@@ -190,7 +190,7 @@ def _deliver(
     def _delivery_report(err, msg):
         if err is not None:
             logger.warning(
-                "Kafka publish failed: topic=%s key=%s error=%s",
+                "Kafka 전송 실패: topic=%s key=%s error=%s",
                 msg.topic(),
                 msg.key(),
                 err,

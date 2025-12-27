@@ -53,6 +53,7 @@ class ClickHouseStreamWriter:
             FACT_LOG_CHECKPOINT_DIR
         )
 
+
     # def write_dim_date_stream(self, df: DataFrame):
     #     return self._write_stream(
     #         df,

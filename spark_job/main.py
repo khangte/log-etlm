@@ -24,7 +24,7 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
     if not enabled:
         if exists:
             print(
-                f"[ℹ️ checkpoint] reset disabled (SPARK_RESET_CHECKPOINT_ON_START=false), using existing: {checkpoint_dir}"
+                f"[ℹ️ checkpoint] reset 비활성 (SPARK_RESET_CHECKPOINT_ON_START=false), 기존 사용: {checkpoint_dir}"
             )
         return
     if not exists:
@@ -32,7 +32,7 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
 
     ts = time.strftime("%Y%m%d-%H%M%S")
     backup = f"{checkpoint_dir}.bak.{ts}"
-    print(f"[⚠️ checkpoint] reset enabled: move {checkpoint_dir} -> {backup}")
+    print(f"[⚠️ checkpoint] reset 활성: 이동 {checkpoint_dir} -> {backup}")
     shutil.move(checkpoint_dir, backup)
     os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -64,14 +64,10 @@ def main() -> None:
 	 
         # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기
         # 목표 처리량이 10k EPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
-        # 기본값은 25만(예: dt=25s일 때 약 10k EPS 수준)으로 두고, 환경변수로 조절한다.
         max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER", "250000")
         # startingOffsets: "latest" | "earliest" | (토픽별 JSON)
-        # 체크포인트를 리셋한 뒤 "이번만 최신부터" 같은 동작을 docker-compose 환경변수로 제어할 수 있다.
         starting_offsets = os.getenv("SPARK_STARTING_OFFSETS", "latest")
-        print(
-            f"[ℹ️ spark] startingOffsets={starting_offsets} (note: ignored if checkpoint exists and is valid)"
-        )
+        print(f"[ℹ️ spark] startingOffsets={starting_offsets} (체크포인트가 있으면 무시될 수 있음)")
         kafka_df = spark \
             .readStream \
             .format("kafka") \
@@ -92,16 +88,16 @@ def main() -> None:
             query.awaitTermination()
         except StreamingQueryException as exc:
             # 드라이버 종료 원인 파악을 위해 전체 예외 메시지 출력
-            print(f"[❌ StreamingQueryException] {exc}")
+            print(f"[❌ 스트리밍 쿼리 예외] {exc}")
             raise
 
     except Exception as exc:
-        print(f"[❌ SparkSession] Unexpected failure: {exc}")
+        print(f"[❌ SparkSession] 예기치 않은 오류: {exc}")
         raise
         
     finally:
         if spark:
-            print("[ℹ️ SparkSession] Stopping Spark session.")
+            print("[ℹ️ SparkSession] 세션 종료.")
             spark.stop()
 
     # 어느 하나라도 죽으면 리턴

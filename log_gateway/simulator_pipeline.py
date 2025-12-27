@@ -62,17 +62,21 @@ async def _service_stream_loop(
     prev_ts = time.perf_counter()
     behind_log_every_sec = float(os.getenv("SIM_BEHIND_LOG_EVERY_SEC", "5.0"))
     last_behind_log_ts = 0.0
+
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
     await asyncio.sleep(random.uniform(0.0, tick_sec))
+
     while True:
         loop_start = time.perf_counter()
         now_ts = loop_start
         dt_actual = max(0.0, now_ts - prev_ts)
         prev_ts = now_ts
         hour = current_hour_kst()
+
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
         effective_eps = max(target_eps * multiplier, 0.01)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
+
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
         carry += scaled_eps * dt_actual
         if carry > max_batch_size:
@@ -181,6 +185,7 @@ async def _service_stream_loop(
                         fill_ratio * 100,
                     )
             if sleep_time > 0 and fill_ratio <= QUEUE_LOW_WATERMARK_RATIO:
+                # 큐가 비어있을 땐 sleep을 줄여 목표 EPS를 더 잘 맞춘다.
                 sleep_time *= QUEUE_LOW_SLEEP_SCALE
             if fill_ratio >= QUEUE_WARN_RATIO:
                 _logger.info(
