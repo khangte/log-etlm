@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# ClickHouse SQL로 dim 테이블을 배치 갱신한다.
+# DIM_LOOKBACK_DAYS로 범위를 제한하고, DIM_RESET=1이면 TRUNCATE 후 재적재한다.
 set -euo pipefail
 cd /home/kang/log-etlm
 
