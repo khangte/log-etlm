@@ -21,13 +21,7 @@ def _build_spark() -> SparkSession:
         .builder \
         .master("local[*]")  \
         .appName("LogForge_Dim_Batch") \
-        .config(
-            "spark.jars.packages", 
-            ",".join([
-                "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1",
-                "com.clickhouse:clickhouse-jdbc:0.4.6",
-            ]),
-        ) \
+        .config("spark.jars.packages", "com.clickhouse:clickhouse-jdbc:0.4.6") \
         .config("spark.driver.bindAddress", "0.0.0.0") \
         .config("spark.ui.enabled", "true") \
         .config("spark.ui.port", "4041") \
