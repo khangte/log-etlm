@@ -158,46 +158,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  # simulator3:
-  #   build:
-  #     context: .
-  #     dockerfile: log_gateway/Dockerfile
-  #   container_name: simulator3
-  #   # restart: unless-stopped
-  #   environment:
-  #     - KAFKA_CLIENT_ID=log-monitoring-simulator-3
-  #     - KAFKA_BOOTSTRAP=kafka:9092
-  #     - EPS_PER_WORKER_OVERRIDE=750
-  #     - PUBLISHER_WORKERS=4
-  #     - WORKER_BATCH_SIZE=400
-  #     - PRODUCER_EXECUTOR=16
-  #     - QUEUE_SIZE=4000
-  #     - LOG_BATCH_SIZE=200
-  #     - LOOPS_PER_SERVICE=4
-  #     - QUEUE_LOW_SLEEP_SCALE=1.0
-  #     - PRODUCER_LINGER_MS=20
-  #     - PRODUCER_BATCH_NUM_MESSAGES=5000
-  #     - PRODUCER_QUEUE_MAX_KBYTES=262144
-  #     - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-  #     - PRODUCER_ENABLE_IDEMPOTENCE=false
-  #     - PRODUCER_ACKS=0
-  #     - PRODUCER_COMPRESSION=none
-  #     - PRODUCER_POLL_SLEEP_SEC=0.01
-  #     - TICK_SEC=0.2
-  #     - SEND_WARN_SEC=5
-  #     - IDLE_WARN_SEC=5
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./log_gateway:/app/log_gateway:ro
-  #   networks: [logetlm-net]
-  #   command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
-  #   logging:
-  #     driver: json-file
-  #     options: { max-size: "10m", max-file: "5" }
-
-
   spark-master:
     image: spark:4.0.1-python3
     container_name: spark-master
