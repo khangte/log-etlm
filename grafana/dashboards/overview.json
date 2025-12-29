@@ -616,65 +616,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ClickHouse 쿼리 지연(p95)입니다. (system.query_log)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "continuous-GrYlRd"
-          },
-          "custom": {
-            "axisLabel": "p95 쿼리 지연",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "id": 34,
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  quantile(0.95)(query_duration_ms) AS p95_ms\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\nGROUP BY bucket\nORDER BY bucket",
-          "refId": "A"
-        }
-      ],
-      "title": "쿼리 지연 p95",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 36
-      }
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "MergeTree active parts 수(현재 값). 지속 증가 시 merge backlog 가능.",
       "fieldConfig": {
         "defaults": {
