@@ -1,10 +1,9 @@
 CREATE DATABASE IF NOT EXISTS analytics;
 
+-- 메인 이벤트 로그 테이블 (원본 로그 적재용)
 CREATE TABLE IF NOT EXISTS analytics.fact_log
 (
     -- 시간
-    -- ClickHouse JDBC 0.4.x가 DateTime64(precision, 'TZ')를 TIMESTAMP_WITH_TIMEZONE으로 반환하면서
-    -- Spark 4.0이 타입을 파싱하지 못하므로 타임존 표기를 생략하고 UTC 기준으로 저장한다.
     event_ts     DateTime64(3)           ,  -- 발생 시각 (UTC, Spark에서 변환)
     ingest_ts    DateTime64(3)           ,  -- Kafka 적재 시각 (UTC)
     processed_ts DateTime64(3)           ,  -- Spark 처리 시각 (UTC)
@@ -122,40 +121,6 @@ SELECT
     count() AS total
 FROM analytics.fact_log
 GROUP BY bucket, topic;
-
--- ---------------------------------------------------------------------------
--- 시간 품질 지표 집계 테이블 (stored_ts 기준 1분 버킷)
--- - event_ts > stored_ts 비율, 시간 필드 NULL 비율 등
--- ---------------------------------------------------------------------------
-
-CREATE TABLE IF NOT EXISTS analytics.fact_log_quality_1m
-(
-    bucket         DateTime,
-    total          UInt64,
-    ts_inverted    UInt64,
-    null_event     UInt64,
-    null_ingest    UInt64,
-    null_processed UInt64,
-    null_stored    UInt64
-)
-ENGINE = SummingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_quality_1m
-TO analytics.fact_log_quality_1m
-AS
-SELECT
-    toStartOfMinute(stored_ts) AS bucket,
-    count() AS total,
-    countIf(event_ts > stored_ts) AS ts_inverted,
-    countIf(isNull(event_ts)) AS null_event,
-    countIf(isNull(ingest_ts)) AS null_ingest,
-    countIf(isNull(processed_ts)) AS null_processed,
-    countIf(isNull(stored_ts)) AS null_stored
-FROM analytics.fact_log
-GROUP BY bucket;
 
 -- ---------------------------------------------------------------------------
 -- Spark 처리 지연(avg) 집계 테이블 (ingest_ts 기준 1분 버킷)
