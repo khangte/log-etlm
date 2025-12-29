@@ -88,7 +88,8 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=625
+      - SIMULATOR_SHARE=0.5
+      - UVICORN_WORKERS=4
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
@@ -128,7 +129,8 @@ services:
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
       - KAFKA_BOOTSTRAP=kafka:9092
-      - EPS_PER_WORKER_OVERRIDE=625
+      - SIMULATOR_SHARE=0.5
+      - UVICORN_WORKERS=4
       - PUBLISHER_WORKERS=4
       - WORKER_BATCH_SIZE=400
       - PRODUCER_EXECUTOR=16
