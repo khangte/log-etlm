@@ -57,24 +57,24 @@ services:
       retries: 10
       start_period: 60s
 
-  # kafka-ui:
-  #   image: provectuslabs/kafka-ui:latest
-  #   container_name: kafka-ui
-  #   # restart: unless-stopped
-  #   ports: ["8080:8080"]
-  #   environment:
-  #     # 클러스터 설정: 내부 브로커 주소 사용
-  #     - KAFKA_CLUSTERS_0_NAME=local
-  #     - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-  #     # (선택) 토픽 생성 허용
-  #     - KAFKA_CLUSTERS_0_READONLY=false
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   networks: [logetlm-net]
-  #   logging:
-  #     driver: json-file
-  #     options: { max-size: "10m", max-file: "5" }
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    # restart: unless-stopped
+    ports: ["8080:8080"]
+    environment:
+      # 클러스터 설정: 내부 브로커 주소 사용
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+      # (선택) 토픽 생성 허용
+      - KAFKA_CLUSTERS_0_READONLY=false
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
 
   simulator:
     # 시뮬레이터 컨테이너(옵션). log_gateway FastAPI 앱을 uvicorn으로 실행하면서

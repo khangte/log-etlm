@@ -99,6 +99,65 @@ FROM analytics.fact_log
 GROUP BY bucket, service;
 
 -- ---------------------------------------------------------------------------
+-- Kafka 토픽별 EPS 집계 테이블 (ingest_ts 기준 1분 버킷)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_topic_1m
+(
+    bucket   DateTime,
+    topic    LowCardinality(String),
+    total    UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, topic)
+TTL bucket + INTERVAL 1 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_topic_1m
+TO analytics.fact_log_topic_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    topic,
+    count() AS total
+FROM analytics.fact_log
+GROUP BY bucket, topic;
+
+-- ---------------------------------------------------------------------------
+-- 시간 품질 지표 집계 테이블 (stored_ts 기준 1분 버킷)
+-- - event_ts > stored_ts 비율, 시간 필드 NULL 비율 등
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.fact_log_quality_1m
+(
+    bucket         DateTime,
+    total          UInt64,
+    ts_inverted    UInt64,
+    null_event     UInt64,
+    null_ingest    UInt64,
+    null_processed UInt64,
+    null_stored    UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL bucket + INTERVAL 1 DAY;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_log_quality_1m
+TO analytics.fact_log_quality_1m
+AS
+SELECT
+    toStartOfMinute(stored_ts) AS bucket,
+    count() AS total,
+    countIf(event_ts > stored_ts) AS ts_inverted,
+    countIf(isNull(event_ts)) AS null_event,
+    countIf(isNull(ingest_ts)) AS null_ingest,
+    countIf(isNull(processed_ts)) AS null_processed,
+    countIf(isNull(stored_ts)) AS null_stored
+FROM analytics.fact_log
+GROUP BY bucket;
+
+-- ---------------------------------------------------------------------------
 -- Spark 처리 지연(avg) 집계 테이블 (ingest_ts 기준 1분 버킷)
 -- - fact_log 풀스캔을 피하기 위해 sum/count로 평균 계산
 -- ---------------------------------------------------------------------------
