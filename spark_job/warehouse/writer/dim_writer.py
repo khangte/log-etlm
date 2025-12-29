@@ -8,6 +8,7 @@ DIM_DATE_TABLE = "analytics.dim_date"
 DIM_TIME_TABLE = "analytics.dim_time"
 DIM_SERVICE_TABLE = "analytics.dim_service"
 DIM_STATUS_TABLE = "analytics.dim_status_code"
+DIM_USER_TABLE = "analytics.dim_user"
 
 
 class ClickHouseDimWriter:
@@ -36,3 +37,6 @@ class ClickHouseDimWriter:
 
     def write_dim_status(self, df: DataFrame):
         self._write_batch(df, DIM_STATUS_TABLE, deduplicate_keys=["status_code"])
+
+    def write_dim_user(self, df: DataFrame):
+        self._write_batch(df, DIM_USER_TABLE, deduplicate_keys=["user_id"])

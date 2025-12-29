@@ -12,6 +12,7 @@ from .dimension import (
     parse_dim_service,
     parse_dim_status_code,
     parse_dim_time,
+    parse_dim_user,
 )
 from .warehouse.writer.dim_writer import ClickHouseDimWriter
 
@@ -40,7 +41,7 @@ def _read_fact_log(spark: SparkSession):
 
     # 최근 N일 데이터만 읽어서 dim을 갱신한다.
     query = f"""(
-        SELECT event_ts, service, status_code
+        SELECT event_ts, service, status_code, user_id
         FROM analytics.fact_log
         WHERE event_ts >= now() - INTERVAL {lookback_days} DAY
     ) AS fact"""
@@ -67,12 +68,14 @@ def main() -> None:
     dim_time_df = parse_dim_time(fact_df)
     dim_service_df = parse_dim_service(fact_df)
     dim_status_df = parse_dim_status_code(fact_df)
+    dim_user_df = parse_dim_user(fact_df)
 
     writer = ClickHouseDimWriter()
     writer.write_dim_date(dim_date_df)
     writer.write_dim_time(dim_time_df)
     writer.write_dim_service(dim_service_df)
     writer.write_dim_status(dim_status_df)
+    writer.write_dim_user(dim_user_df)
 
     spark.stop()
 
