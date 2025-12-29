@@ -2,7 +2,12 @@ import os
 import traceback
 
 
-def write_to_clickhouse(df, table_name, batch_id: int | None = None):
+def write_to_clickhouse(
+    df,
+    table_name,
+    batch_id: int | None = None,
+    mode: str = "append",
+):
     cached = False
 
     try:
@@ -39,7 +44,7 @@ def write_to_clickhouse(df, table_name, batch_id: int | None = None):
             .option("dbtable", table_name) \
             .option("isolationLevel", "NONE") \
             .option("batchsize", jdbc_batchsize)
-            .mode("append")
+            .mode(mode)
         )
         writer.save()
 
