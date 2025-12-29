@@ -305,27 +305,28 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  spark-batch:
-    build:
-      context: .
-      dockerfile: spark_job/Dockerfile
-    container_name: spark-batch
-    user: "1000:185"
-    environment:
-      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
-      - SPARK_CLICKHOUSE_USER=log_user
-      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-      - DIM_BATCH_LOOKBACK_DAYS=1
-    ports: ["4041:4041"]   # Spark UI (batch)
-    volumes:
-      - ./spark_job:/app/spark_job:ro
-    depends_on:
-      - clickhouse
-    networks: [logetlm-net]
-    command: ["python", "-m", "spark_job.dim_batch"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
+  # spark-batch:
+  #   # spark 사용 dim 갱신 (./spark_job/dim_batch.py 실행)
+  #   build:
+  #     context: .
+  #     dockerfile: spark_job/Dockerfile
+  #   container_name: spark-batch
+  #   user: "1000:185"
+  #   environment:
+  #     - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
+  #     - SPARK_CLICKHOUSE_USER=log_user
+  #     - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+  #     - DIM_BATCH_LOOKBACK_DAYS=1
+  #   ports: ["4041:4041"]   # Spark UI (batch)
+  #   volumes:
+  #     - ./spark_job:/app/spark_job:ro
+  #   depends_on:
+  #     - clickhouse
+  #   networks: [logetlm-net]
+  #   command: ["python", "-m", "spark_job.dim_batch"]
+  #   logging:
+  #     driver: json-file
+  #     options: { max-size: "10m", max-file: "5" }
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
