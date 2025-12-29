@@ -235,3 +235,12 @@ CREATE TABLE IF NOT EXISTS analytics.dim_time
 )
 ENGINE = MergeTree
 ORDER BY time_key;
+
+CREATE TABLE IF NOT EXISTS analytics.dim_user
+(
+    user_id     String,
+    is_active   UInt8,
+    description Nullable(String)
+)
+ENGINE = MergeTree
+ORDER BY user_id;

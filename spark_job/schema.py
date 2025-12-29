@@ -130,6 +130,14 @@ DIM_STATUS_CODE_SCHEMA = T.StructType(
     ]
 )
 
+DIM_USER_SCHEMA = T.StructType(
+    [
+        T.StructField("user_id",     T.StringType(), False),
+        T.StructField("is_active",   T.IntegerType(), False),
+        T.StructField("description", T.StringType(), True),
+    ]
+)
+
 DIM_DATE_COLUMNS: list[str] = [
     "date",
     "year",
@@ -159,5 +167,11 @@ DIM_STATUS_CODE_COLUMNS: list[str] = [
     "status_code",
     "status_class",
     "is_error",
+    "description",
+]
+
+DIM_USER_COLUMNS: list[str] = [
+    "user_id",
+    "is_active",
     "description",
 ]
