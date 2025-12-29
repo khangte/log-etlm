@@ -10,6 +10,10 @@ GRANT SELECT ON analytics.fact_log_topic_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_log_latency_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_log_lag_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_log TO grafana_user;
+GRANT SELECT ON analytics.dim_service TO grafana_user;
+GRANT SELECT ON analytics.dim_status_code TO grafana_user;
+GRANT SELECT ON analytics.dim_date TO grafana_user;
+GRANT SELECT ON analytics.dim_time TO grafana_user;
 GRANT SELECT ON system.parts TO grafana_user;
 GRANT SELECT ON system.merges TO grafana_user;
 

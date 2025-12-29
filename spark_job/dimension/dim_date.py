@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql import types as T
-
 from spark_job.schema import DIM_DATE_COLUMNS
 
 
@@ -36,5 +34,4 @@ def parse_dim_date(fact_df: DataFrame) -> DataFrame:
         )
     )
 
-    result = fact_df.sparkSession.createDataFrame(enriched.rdd, schema=DIM_DATE_SCHEMA)
-    return result
+    return enriched.select(*DIM_DATE_COLUMNS)

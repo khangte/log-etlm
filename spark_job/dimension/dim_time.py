@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql import types as T
-
 from spark_job.schema import DIM_TIME_COLUMNS
 
 
@@ -30,6 +28,11 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
         .withColumn("second", F.second("event_ts").cast("int"))
     )
 
+    with_key = base.withColumn(
+        "time_key",
+        (F.col("hour") * 10000 + F.col("minute") * 100 + F.col("second")).cast("int"),
+    )
+
     with_bucket = with_key.withColumn(
         "time_of_day",
         F.when(F.col("hour").between(0, 5), F.lit("dawn"))
@@ -40,9 +43,8 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
 
     distinct_df = (
         with_bucket
-        .select("hour", "minute", "second", "time_of_day")
+        .select("time_key", "hour", "minute", "second", "time_of_day")
         .distinct()
     )
 
-    result = fact_df.sparkSession.createDataFrame(distinct_df.rdd, schema=DIM_TIME_SCHEMA)
-    return result
+    return distinct_df.select(*DIM_TIME_COLUMNS)

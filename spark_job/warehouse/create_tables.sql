@@ -186,47 +186,52 @@ WHERE event_ts IS NOT NULL
 GROUP BY bucket;
 
 
--- CREATE TABLE IF NOT EXISTS analytics.dim_service
--- (
---     service       String,
---     service_group String,
---     is_active     UInt8
--- )
--- ENGINE = MergeTree
--- ORDER BY service;
+-- ---------------------------------------------------------------------------
+-- Dimension 테이블 (최소 구성)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS analytics.dim_service
+(
+    service       String,
+    service_group String,
+    is_active     UInt8,
+    description   String
+)
+ENGINE = MergeTree
+ORDER BY service;
 
 
--- CREATE TABLE IF NOT EXISTS analytics.dim_status_code
--- (
---     status_code  Int32,
---     status_class String,
---     is_error     UInt8,
---     description  String
--- )
--- ENGINE = MergeTree
--- ORDER BY status_code;
+CREATE TABLE IF NOT EXISTS analytics.dim_status_code
+(
+    status_code  Int32,
+    status_class String,
+    is_error     UInt8,
+    description  String
+)
+ENGINE = MergeTree
+ORDER BY status_code;
+
+CREATE TABLE IF NOT EXISTS analytics.dim_date
+(
+    date         Date,
+    year         UInt16,
+    month        UInt8,
+    day          UInt8,
+    week         UInt8,
+    day_of_week  UInt8,
+    is_weekend   UInt8
+)
+ENGINE = MergeTree
+ORDER BY date;
 
 
--- CREATE TABLE IF NOT EXISTS analytics.dim_date
--- (
---     date         Date,
---     year         UInt16,
---     month        UInt8,
---     day          UInt8,
---     week         UInt8,
---     day_of_week  UInt8,
---     is_weekend   UInt8
--- )
--- ENGINE = MergeTree
--- ORDER BY date;
-
-
--- CREATE TABLE IF NOT EXISTS analytics.dim_time
--- (
---     hour        UInt8,     -- 0~23
---     minute      UInt8,     -- 0~59
---     second      UInt8,     -- 0~59
---     time_of_day String     -- dawn/morning/afternoon/evening
--- )
--- ENGINE = MergeTree
--- ORDER BY time_key;
+CREATE TABLE IF NOT EXISTS analytics.dim_time
+(
+    time_key    UInt32,   -- HHMMSS 형식 (예: 093015)
+    hour        UInt8,    -- 0~23
+    minute      UInt8,    -- 0~59
+    second      UInt8,    -- 0~59
+    time_of_day String    -- dawn/morning/afternoon/evening
+)
+ENGINE = MergeTree
+ORDER BY time_key;

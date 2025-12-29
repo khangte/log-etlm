@@ -10,7 +10,20 @@ from pyspark.sql.functions import from_json, col
 from pyspark.sql.streaming import StreamingQueryException
 
 from .fact.fact_log import parse_fact_log
-from .warehouse.writer import ClickHouseStreamWriter, FACT_LOG_CHECKPOINT_DIR
+from .dimension import (
+    parse_dim_date,
+    parse_dim_service,
+    parse_dim_status_code,
+    parse_dim_time,
+)
+from .warehouse.writer import (
+    ClickHouseStreamWriter,
+    FACT_LOG_CHECKPOINT_DIR,
+    DIM_DATE_CHECKPOINT_DIR,
+    DIM_TIME_CHECKPOINT_DIR,
+    DIM_SERVICE_CHECKPOINT_DIR,
+    DIM_STATUS_CHECKPOINT_DIR,
+)
 
 writer = ClickHouseStreamWriter()
 
@@ -61,6 +74,10 @@ def main() -> None:
 
         # 체크포인트 손상 시(예: Incomplete log file) 실시간 모드에서 자동 초기화 옵션
         _maybe_reset_checkpoint(FACT_LOG_CHECKPOINT_DIR)
+        _maybe_reset_checkpoint(DIM_DATE_CHECKPOINT_DIR)
+        _maybe_reset_checkpoint(DIM_TIME_CHECKPOINT_DIR)
+        _maybe_reset_checkpoint(DIM_SERVICE_CHECKPOINT_DIR)
+        _maybe_reset_checkpoint(DIM_STATUS_CHECKPOINT_DIR)
 	 
         # 2) Kafka logs.* 토픽에서 스트리밍 데이터 읽기
         # 목표 처리량이 10k EPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
@@ -82,10 +99,23 @@ def main() -> None:
         fact_df = parse_fact_log(kafka_df)
 
         # 4) ClickHouse analytics.fact_log로 스트리밍 적재
-        query = writer.write_fact_log_stream(fact_df)
+        fact_query = writer.write_fact_log_stream(fact_df)
+
+        # 5) Dimension 테이블 적재 (최소 구성)
+        dim_date_df = parse_dim_date(fact_df)
+        dim_time_df = parse_dim_time(fact_df)
+        dim_service_df = parse_dim_service(fact_df)
+        dim_status_df = parse_dim_status_code(fact_df)
+
+        dim_queries = [
+            writer.write_dim_date_stream(dim_date_df),
+            writer.write_dim_time_stream(dim_time_df),
+            writer.write_dim_service_stream(dim_service_df),
+            writer.write_dim_status_stream(dim_status_df),
+        ]
 
         try:
-            query.awaitTermination()
+            spark.streams.awaitAnyTermination()
         except StreamingQueryException as exc:
             # 드라이버 종료 원인 파악을 위해 전체 예외 메시지 출력
             print(f"[❌ 스트리밍 쿼리 예외] {exc}")

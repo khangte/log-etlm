@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql import types as T
-
 from spark_job.schema import DIM_STATUS_CODE_COLUMNS
 
 
@@ -56,5 +54,4 @@ def parse_dim_status_code(fact_df: DataFrame) -> DataFrame:
         .otherwise(F.lit("Unknown"))
     )
 
-    result = fact_df.sparkSession.createDataFrame(with_desc.rdd, schema=DIM_STATUS_CODE_SCHEMA)
-    return result
+    return with_desc.select(*DIM_STATUS_CODE_COLUMNS)

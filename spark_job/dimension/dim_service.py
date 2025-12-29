@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from pyspark.sql import types as T
-
 from spark_job.schema import DIM_SERVICE_COLUMNS
 
 
@@ -27,7 +25,7 @@ def parse_dim_service(fact_df: DataFrame) -> DataFrame:
         base
         .withColumn("service_group", F.lit("default"))
         .withColumn("is_active", F.lit(1).cast("int"))
+        .withColumn("description", F.lit(None).cast("string"))
     )
 
-    result = fact_df.sparkSession.createDataFrame(enriched.rdd, schema=DIM_SERVICE_SCHEMA)
-    return result
+    return enriched.select(*DIM_SERVICE_COLUMNS)
