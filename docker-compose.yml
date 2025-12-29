@@ -234,8 +234,6 @@ services:
       - "--memory"
       - "3g"
     networks: [logetlm-net]
-    volumes:
-      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -255,12 +253,9 @@ services:
       - "--memory"
       - "3g"
     networks: [logetlm-net]
-    volumes:
-      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
-
 
   spark:
     build:
@@ -290,22 +285,44 @@ services:
       - SPARK_CLICKHOUSE_LOG_STATS=false
       # 원본 JSON(raw_json) 저장 여부
       - SPARK_STORE_RAW_JSON=false
-    ports: ["4040:4040"]   # Spark UI
+    ports: ["4040:4040"]   # Spark UI (stream)
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     depends_on:
       - kafka
-      - clickhouse
       - spark-master
       - spark-worker-1
       - spark-worker-2
+      - clickhouse
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
       interval: 45s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+  spark-batch:
+    build:
+      context: .
+      dockerfile: spark_job/Dockerfile
+    container_name: spark-batch
+    user: "1000:185"
+    environment:
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
+      - SPARK_CLICKHOUSE_USER=log_user
+      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      - DIM_BATCH_LOOKBACK_DAYS=1
+    ports: ["4041:4041"]   # Spark UI (batch)
+    volumes:
+      - ./spark_job:/app/spark_job:ro
+    depends_on:
+      - clickhouse
+    networks: [logetlm-net]
+    command: ["python", "-m", "spark_job.dim_batch"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
