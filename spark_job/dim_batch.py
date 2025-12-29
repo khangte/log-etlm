@@ -62,7 +62,7 @@ def main() -> None:
     spark = _build_spark()
     spark.sparkContext.setLogLevel("INFO")
 
-    fact_df = _read_fact_log(spark).cache()
+    fact_df = _read_fact_log(spark)
 
     dim_date_df = parse_dim_date(fact_df)
     dim_time_df = parse_dim_time(fact_df)
