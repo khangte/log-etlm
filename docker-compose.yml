@@ -234,7 +234,7 @@ services:
       # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k EPS로 캡이 걸림.
       # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
-      # 현재 VM 리소스 기준으로 35만부터 시작해서 측정값(consume/lag)에 따라 올리거나 내린다.
+      # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=400000
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
       - SPARK_STARTING_OFFSETS=latest
