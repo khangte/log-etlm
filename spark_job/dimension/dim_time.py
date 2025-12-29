@@ -19,13 +19,15 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
         - time_of_day: 시간대 구간(dawn/morning/afternoon/evening)
     """
 
+    kst_ts = F.from_utc_timestamp(F.col("event_ts"), "Asia/Seoul")
+
     base = (
         fact_df
         .select("event_ts")
         .where(F.col("event_ts").isNotNull())
-        .withColumn("hour", F.hour("event_ts").cast("int"))
-        .withColumn("minute", F.minute("event_ts").cast("int"))
-        .withColumn("second", F.second("event_ts").cast("int"))
+        .withColumn("hour", F.hour(kst_ts).cast("int"))
+        .withColumn("minute", F.minute(kst_ts).cast("int"))
+        .withColumn("second", F.second(kst_ts).cast("int"))
     )
 
     with_key = base.withColumn(
