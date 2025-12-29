@@ -222,6 +222,7 @@ services:
   spark-worker-1:
     image: spark:4.0.1-python3
     # restart: unless-stopped
+    user: "185:185"
     depends_on:
       - spark-master
     command:
@@ -233,6 +234,8 @@ services:
       - "--memory"
       - "3g"
     networks: [logetlm-net]
+    volumes:
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -240,6 +243,7 @@ services:
   spark-worker-2:
     image: spark:4.0.1-python3
     # restart: unless-stopped
+    user: "185:185"
     depends_on:
       - spark-master
     command:
@@ -251,6 +255,8 @@ services:
       - "--memory"
       - "3g"
     networks: [logetlm-net]
+    volumes:
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -261,6 +267,7 @@ services:
       context: .
       dockerfile: spark_job/Dockerfile
     container_name: spark
+    user: "1000:185"
     # restart: unless-stopped
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
@@ -286,7 +293,7 @@ services:
     ports: ["4040:4040"]   # Spark UI
     volumes:
       - ./spark_job:/app/spark_job:ro
-      - /data/log-etlm/spark_checkpoints:/data/spark_checkpoints
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     depends_on:
       - kafka
       - clickhouse
