@@ -16,5 +16,5 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-docker compose --env-file "$ENV_FILE" up -d spark
+docker compose --env-file "$ENV_FILE" up -d --force-recreate --no-deps spark
 echo "applied env profile: $PROFILE ($ENV_FILE)"

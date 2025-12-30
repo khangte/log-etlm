@@ -2,6 +2,7 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
+    cpus: "1.0"
     # restart: unless-stopped
     ports: ["29092:29092"]
     environment:
@@ -83,6 +84,7 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator
+    cpus: "0.4"
     # restart: unless-stopped
     ports: ["8000:8000"]
     environment:
@@ -125,6 +127,7 @@ services:
       context: .
       dockerfile: log_gateway/Dockerfile
     container_name: simulator2
+    cpus: "0.4"
     # restart: unless-stopped
     environment:
       - KAFKA_CLIENT_ID=log-monitoring-simulator-2
@@ -187,12 +190,13 @@ services:
     user: "185:185"
     depends_on:
       - spark-master
+    cpus: "1.75"
     command:
       - "/opt/spark/bin/spark-class"
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "3"
+      - "2"
       - "--memory"
       - "3g"
     networks: [logetlm-net]
@@ -206,12 +210,13 @@ services:
     user: "185:185"
     depends_on:
       - spark-master
+    cpus: "1.75"
     command:
       - "/opt/spark/bin/spark-class"
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "3"
+      - "2"
       - "--memory"
       - "3g"
     networks: [logetlm-net]
@@ -235,18 +240,18 @@ services:
       # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
       # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=400000
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-400000}
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
-      - SPARK_STARTING_OFFSETS=latest
+      - SPARK_STARTING_OFFSETS=${SPARK_STARTING_OFFSETS:-latest}
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
-      - SPARK_RESET_CHECKPOINT_ON_START=False
+      - SPARK_RESET_CHECKPOINT_ON_START=${SPARK_RESET_CHECKPOINT_ON_START:-False}
       # ClickHouse sink tuning (override as needed)
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=3
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=60000
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-60000}
       # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
-      - SPARK_CLICKHOUSE_LOG_STATS=false
+      - SPARK_CLICKHOUSE_LOG_STATS=${SPARK_CLICKHOUSE_LOG_STATS:-false}
       # 원본 JSON(raw_json) 저장 여부
-      - SPARK_STORE_RAW_JSON=false
+      - SPARK_STORE_RAW_JSON=${SPARK_STORE_RAW_JSON:-false}
     ports: ["4040:4040"]   # Spark UI (stream)
     volumes:
       - ./spark_job:/app/spark_job:ro
@@ -293,6 +298,7 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
+    cpus: "0.7"
     # restart: unless-stopped
     environment:
       - CLICKHOUSE_USER=log_user
