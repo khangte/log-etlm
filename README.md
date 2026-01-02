@@ -112,8 +112,6 @@ crontab -e
 
 ## 결과 기록
 
-아래 표: 측정 결과 요약.
-
 | 시나리오 | EPS | Spark 프로파일 | E2E p95 | process p95 | sink p95 | 비고 |
 | --- | --- | --- | --- | --- | --- | --- |
 | baseline | 5k | mid | ~3.3s | ~1.3s | ~2.0s | EPS 약 5k, CH insert p95 약 0.1-0.3s, 스파이크 0.8s 미만 |
