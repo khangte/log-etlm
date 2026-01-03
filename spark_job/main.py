@@ -53,6 +53,8 @@ def main() -> None:
                 ]),
             ) \
             .config("spark.driver.bindAddress", "0.0.0.0") \
+            .config("spark.eventLog.enabled", "true") \
+            .config("spark.eventLog.dir", "/data/log-etlm/spark-events") \
             .config("spark.ui.enabled", "true") \
             .config("spark.ui.port", "4040") \
             .getOrCreate()
