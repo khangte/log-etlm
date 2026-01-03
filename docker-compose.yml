@@ -256,6 +256,7 @@ services:
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
+      - /data/log-etlm/spark-events:/data/log-etlm/spark-events
     depends_on:
       - kafka
       - spark-master
