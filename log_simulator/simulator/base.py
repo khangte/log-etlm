@@ -240,10 +240,8 @@ class BaseServiceSimulator:
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": "http_request_completed",
-            "event_version": 1,
             "domain": "http",
             "ts_ms": ts_ms,
-            "ingested_ms": self.now_utc_ms(),
             "service": self.service,
             "request_id": request_id,
             "method": method,
@@ -282,10 +280,8 @@ class BaseServiceSimulator:
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": event_name,
-            "event_version": 1,
             "domain": self.domain,
             "ts_ms": ts_ms,
-            "ingested_ms": self.now_utc_ms(),
             "service": self.service,
             "request_id": request_id,
             "result": result,

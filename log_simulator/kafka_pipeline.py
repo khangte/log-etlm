@@ -11,6 +11,7 @@ import logging
 import time
 from typing import List, Tuple
 
+from .dlq import publish_dlq_batch
 from .producer import publish_batch_direct
 from .models.messages import BatchMessage
 from .config.settings import PUBLISHER_SETTINGS
@@ -64,13 +65,14 @@ async def _publisher_worker(
         send_start = time.perf_counter()
         try:
             await publish_batch_direct(batch)
-        except Exception:
+        except Exception as exc:
             send_ok = False
             _logger.exception(
                 "[publisher] send failed worker=%d batch=%d",
                 worker_id,
                 len(batch),
             )
+            await publish_dlq_batch(batch, exc)
             if RETRY_BACKOFF_SEC > 0:
                 await asyncio.sleep(RETRY_BACKOFF_SEC)
         send_duration = time.perf_counter() - send_start

@@ -34,8 +34,8 @@ TOPICS: Dict[str, str] = {
     "auth": "logs.event",
     "order": "logs.event",
     "payment": "logs.event",
+    "dlq": "logs.dlq",
 }
-DLQ_TOPIC = "logs.dlq"  # 상수로만 두고(참조용), 시뮬레이터에서는 보통 안 보냄
 
 def get_topic(service: str) -> str:
     return TOPICS.get(service, "logs.event")
