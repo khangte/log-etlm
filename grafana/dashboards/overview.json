@@ -63,76 +63,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "이벤트 생성 시간(event_ts) 기준 EPS입니다. (1분 집계)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "EPS (event_ts)",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "lineWidth": 2,
-            "showPoints": "auto",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 0
-      },
-      "id": 7,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_event_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
-          "refId": "A"
-        }
-      ],
-      "title": "로그 EPS (event_ts 기준)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
@@ -166,7 +96,7 @@
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 12,
+        "x": 0,
         "y": 0
       },
       "id": 8,
@@ -203,14 +133,14 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ingest_ts EPS와 event_ts EPS의 차이(ingest - event)입니다. (1분 집계)",
+      "description": "ingest_ts 기준 1분 집계에서 에러율(5xx)을 계산합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "EPS gap",
+            "axisLabel": "error %",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -229,15 +159,15 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "percent"
         },
         "overrides": []
       },
       "gridPos": {
         "h": 9,
         "w": 12,
-        "x": 0,
-        "y": 9
+        "x": 12,
+        "y": 0
       },
       "id": 13,
       "options": {
@@ -261,81 +191,12 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(consumed) - sum(produced) AS eps_gap\nFROM (\n  SELECT\n    bucket,\n    uniqCombined64Merge(total_state) / 60 AS produced,\n    0 AS consumed\n  FROM analytics.fact_event_agg_event_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket,\n    0 AS produced,\n    uniqCombined64Merge(total_state) / 60 AS consumed\n  FROM analytics.fact_event_agg_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  if(total = 0, 0, errors / total) * 100 AS error_rate\nFROM (\n  SELECT\n    bucket,\n    uniqCombined64Merge(total_state) AS total,\n    uniqCombined64Merge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY bucket",
           "refId": "A"
         }
       ],
-      "title": "EPS 차이 (ingest - event)",
+      "title": "에러율 (ingest 기준)",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "Kafka 토픽별 EPS(ingest_ts 기준)입니다. (1분 집계)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "EPS (topic)",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "lineWidth": 2,
-            "showPoints": "auto",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "ops"
-        },
-        "overrides": []
-      },
-      "id": 30,
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_topic_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket, topic\nORDER BY time ASC, topic",
-          "refId": "A"
-        }
-      ],
-      "title": "Kafka 토픽 EPS (ingest_ts)",
-      "type": "timeseries",
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 9
-      }
     },
     {
       "datasource": {
@@ -376,7 +237,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 9
       },
       "id": 9,
       "options": {
@@ -412,19 +273,20 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ingest/process/sink 구간 지연(p95)입니다. (1분 집계)",
+      "description": "stored_ts 기준 end-to-end p95 지연(ms)입니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "p95 지연",
+            "axisLabel": "p95 (ms)",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
+            "fillOpacity": 12,
             "lineWidth": 2,
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true
           },
           "mappings": [],
@@ -445,79 +307,12 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 27
-      },
-      "id": 21,
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  stage,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    'ingest' AS stage,\n    quantileTDigestMerge(ingest_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'process' AS stage,\n    quantileTDigestMerge(process_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'sink' AS stage,\n    quantileTDigestMerge(sink_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC, stage ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "구간 지연 p95 (ingest/process/sink)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "event_ts→stored_ts 기준 end-to-end 지연(p95)입니다. (1분 집계)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "p95 지연",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "showPoints": "never",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "ms"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 27
+        "y": 9
       },
       "id": 20,
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -536,7 +331,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    quantileTDigestMerge(e2e_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -548,19 +343,20 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ClickHouse INSERT 쿼리 지연(p95)입니다. Spark sink 영향도를 보기 위한 패널입니다. (system.query_log)",
+      "description": "fact_event_dlq 실제 유입량(EPS)을 1분 단위로 표시합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "continuous-GrYlRd"
+            "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "p95 INSERT 지연",
+            "axisLabel": "DLQ EPS",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
+            "fillOpacity": 12,
             "lineWidth": 2,
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": true
           },
           "mappings": [],
@@ -573,19 +369,20 @@
               }
             ]
           },
-          "unit": "ms"
+          "unit": "eps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
-        "x": 12,
+        "x": 0,
         "y": 18
       },
-      "id": 10,
+      "id": 21,
       "options": {
         "legend": {
+          "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
@@ -604,128 +401,12 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toStartOfInterval(event_time, toIntervalSecond($__interval_s)) AS bucket,\n  quantile(0.95)(query_duration_ms) AS p95_ms\nFROM system.query_log\nWHERE $__timeFilter(event_time)\n  AND type = 'QueryFinish'\n  AND startsWith(lowerUTF8(trimLeft(query)), 'insert')\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  count() / 60 AS eps\nFROM analytics.fact_event_dlq\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time ASC",
           "refId": "A"
         }
       ],
-      "title": "ClickHouse INSERT 지연 p95",
+      "title": "DLQ EPS",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "MergeTree active parts 수(현재 값). 지속 증가 시 merge backlog 가능.",
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 36
-      },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  count() AS parts\nFROM system.parts\nWHERE active",
-          "refId": "A"
-        }
-      ],
-      "title": "Active Parts (now)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "현재 진행 중인 merge 개수(현재 값). 높게 유지되면 merge 병목 가능.",
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 45
-      },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  count() AS merges\nFROM system.merges",
-          "refId": "A"
-        }
-      ],
-      "title": "Merge In Progress (now)",
-      "type": "stat"
     }
   ],
   "refresh": "10s",
