@@ -11,19 +11,6 @@ PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
 TTL bucket + INTERVAL 1 DAY;
 
--- Aggregate tables for event_ts basis
-CREATE TABLE IF NOT EXISTS analytics.fact_event_agg_event_1m
-(
-    bucket       DateTime,
-    service      LowCardinality(String),
-    total_state  AggregateFunction(uniqCombined64, String),
-    errors_state AggregateFunction(uniqCombined64, String)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY (bucket, service)
-TTL bucket + INTERVAL 1 DAY;
-
 -- Topic EPS aggregates
 CREATE TABLE IF NOT EXISTS analytics.fact_event_topic_1m
 (
@@ -52,11 +39,9 @@ TTL bucket + INTERVAL 1 DAY;
 -- Latency aggregates (stored_ts basis)
 CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m
 (
-    bucket        DateTime,
-    e2e_state     AggregateFunction(quantileTDigest, Float64),
-    ingest_state  AggregateFunction(quantileTDigest, Float64),
-    process_state AggregateFunction(quantileTDigest, Float64),
-    sink_state    AggregateFunction(quantileTDigest, Float64)
+    bucket    DateTime,
+    e2e_state AggregateFunction(quantileTDigest, Float64),
+    sink_state AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
