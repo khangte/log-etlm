@@ -12,17 +12,17 @@ ORDER BY (bucket, service)
 TTL bucket + INTERVAL 1 DAY;
 
 -- Lag aggregates (ingest_ts basis)
-CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
-(
-    bucket   DateTime,
-    sum_lag  UInt64,
-    cnt      UInt64,
-    skew_cnt UInt64
-)
-ENGINE = SummingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
+-- CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
+-- (
+--     bucket   DateTime,
+--     sum_lag  UInt64,
+--     cnt      UInt64,
+--     skew_cnt UInt64
+-- )
+-- ENGINE = SummingMergeTree
+-- PARTITION BY toDate(bucket)
+-- ORDER BY bucket
+-- TTL bucket + INTERVAL 1 DAY;
 
 -- Latency aggregates (stored_ts basis)
 CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m

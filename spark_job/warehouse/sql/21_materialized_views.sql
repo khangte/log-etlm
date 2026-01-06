@@ -10,18 +10,18 @@ SELECT
 FROM analytics.fact_event
 GROUP BY bucket, service;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
-TO analytics.fact_event_lag_1m
-AS
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    sum(toUInt64(greatest(dateDiff('second', event_ts, ingest_ts), 0))) AS sum_lag,
-    count() AS cnt,
-    countIf(dateDiff('second', event_ts, ingest_ts) < 0) AS skew_cnt
-FROM analytics.fact_event
-WHERE event_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
-GROUP BY bucket;
+-- CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
+-- TO analytics.fact_event_lag_1m
+-- AS
+-- SELECT
+--     toStartOfMinute(ingest_ts) AS bucket,
+--     sum(toUInt64(greatest(dateDiff('second', event_ts, ingest_ts), 0))) AS sum_lag,
+--     count() AS cnt,
+--     countIf(dateDiff('second', event_ts, ingest_ts) < 0) AS skew_cnt
+-- FROM analytics.fact_event
+-- WHERE event_ts IS NOT NULL
+--   AND ingest_ts IS NOT NULL
+-- GROUP BY bucket;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_1m
 TO analytics.fact_event_latency_1m
