@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
     ingest_ts    DateTime64(3) CODEC(Delta, ZSTD(3)),
     processed_ts DateTime64(3) CODEC(Delta, ZSTD(3)),
     stored_ts    DateTime64(3) DEFAULT now64(3) CODEC(Delta, ZSTD(3)),
+    ingest_ms    Nullable(Int32),
+    process_ms   Nullable(Int32),
 
     service        LowCardinality(String),
     domain         LowCardinality(String),
