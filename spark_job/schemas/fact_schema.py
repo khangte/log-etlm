@@ -42,7 +42,8 @@ log_value_schema: T.StructType = T.StructType(
 # -----------------------------------------------------------------------------
 # 2) ClickHouse analytics.fact_event 타겟 스키마
 #    - 여기서는 타입/이름을 약간 정규화해서 사용
-#    - Spark DF가 이 스키마를 만족하도록 parsing 코드(fact/fact_event.py)를 작성
+#    - Spark DF는 FACT_EVENT_COLUMNS에 있는 컬럼만 적재하고,
+#      stored_ts는 ClickHouse에서 채운다(e2e_ms/sink_ms는 MV에서 계산).
 # -----------------------------------------------------------------------------
 
 fact_event_schema: T.StructType = T.StructType(
@@ -51,6 +52,9 @@ fact_event_schema: T.StructType = T.StructType(
         T.StructField("event_ts",     T.TimestampType(), False),  # 발생 시각(UTC)
         T.StructField("ingest_ts",    T.TimestampType(), False),  # Kafka 적재 시각(UTC)
         T.StructField("processed_ts", T.TimestampType(), False),  # Spark 처리 시각(UTC)
+        T.StructField("stored_ts",    T.TimestampType(), False),  # ClickHouse 저장 시각(UTC)
+        T.StructField("ingest_ms",    T.IntegerType(), True),     # event->ingest 지연(ms, Spark)
+        T.StructField("process_ms",   T.IntegerType(), True),     # ingest->process 지연(ms, Spark)
 
         # 공통 메타 정보
         T.StructField("service",     T.StringType(), False),
@@ -96,6 +100,8 @@ FACT_EVENT_COLUMNS: list[str] = [
     "event_ts",
     "ingest_ts",
     "processed_ts",
+    "ingest_ms",
+    "process_ms",
 
     # 2) 식별자 / 상관관계
     "event_id",
