@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schema import DIM_STATUS_CODE_COLUMNS
+from spark_job.schemas.dim_schema import DIM_STATUS_CODE_COLUMNS
 
 
 def parse_dim_status_code(fact_df: DataFrame) -> DataFrame:
     """
-    fact_log DF에서 status_code 기준으로 dim_status_code DF 생성.
+    fact_event DF에서 status_code 기준으로 dim_status_code DF 생성.
     - 입력 DF: status_code (Int) 컬럼 포함
     - 출력 DF: status_code 기준 distinct + class / is_error / description
     """

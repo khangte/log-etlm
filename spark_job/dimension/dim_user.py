@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schema import DIM_USER_COLUMNS
+from spark_job.schemas.dim_schema import DIM_USER_COLUMNS
 
 
 def parse_dim_user(fact_df: DataFrame) -> DataFrame:
     """
-    fact_log DF에서 user_id 기준으로 dim_user DF 생성.
+    fact_event DF에서 user_id 기준으로 dim_user DF 생성.
     - 입력 DF: user_id (StringType) 컬럼 포함
     - 출력 DF: user_id 기준 distinct + is_active 기본값
     """

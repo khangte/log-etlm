@@ -12,6 +12,12 @@ def write_to_clickhouse(
 
     try:
         target_partitions = os.getenv("SPARK_CLICKHOUSE_WRITE_PARTITIONS")
+        allow_repartition = os.getenv("SPARK_CLICKHOUSE_ALLOW_REPARTITION", "false").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
         jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE", "50000")
         clickhouse_url = os.getenv(
             "SPARK_CLICKHOUSE_URL",
@@ -31,8 +37,14 @@ def write_to_clickhouse(
                 # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
                 out_df = out_df.coalesce(n)
             elif n > current:
-                # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
-                out_df = out_df.repartition(n)
+                if allow_repartition:
+                    # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
+                    out_df = out_df.repartition(n)
+                else:
+                    print(
+                        "[ℹ️ clickhouse sink] repartition 비활성: "
+                        "SPARK_CLICKHOUSE_ALLOW_REPARTITION=true로 켜세요."
+                    )
 
         writer = (
             out_df.write
@@ -55,7 +67,7 @@ def write_to_clickhouse(
             print(
                 "[🛠️ ClickHouse] 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
                 "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
-                "    --query \"ATTACH TABLE analytics.fact_log\""
+                f"    --query \"ATTACH TABLE {table_name}\""
             )
         traceback.print_exc()
     finally:

@@ -1,36 +1,22 @@
-# spark_job/dim_batch.py
+# spark_job/jobs/dim_batch_job.py
 # 하루 1회 배치로 Dimension 테이블을 갱신한다.
 # NOTE: 이 파일은 자동 실행되지 않으며, 수동 또는 크론으로 실행해야 한다.
 
 from __future__ import annotations
 
 import os
-from pyspark.sql import SparkSession
 
-from .dimension import (
+from ..dimension import (
     parse_dim_date,
     parse_dim_service,
     parse_dim_status_code,
     parse_dim_time,
     parse_dim_user,
 )
-from .warehouse.writer.dim_writer import ClickHouseDimWriter
+from ..spark import build_batch_spark
+from ..warehouse.writer.dim_writer import ClickHouseDimWriter
 
-
-def _build_spark() -> SparkSession:
-    spark = SparkSession \
-        .builder \
-        .master("local[*]")  \
-        .appName("LogForge_Dim_Batch") \
-        .config("spark.jars.packages", "com.clickhouse:clickhouse-jdbc:0.4.6") \
-        .config("spark.driver.bindAddress", "0.0.0.0") \
-        .config("spark.ui.enabled", "true") \
-        .config("spark.ui.port", "4041") \
-        .getOrCreate()
-    return spark
-
-
-def _read_fact_log(spark: SparkSession):
+def _read_fact_event(spark):
     clickhouse_url = os.getenv(
         "SPARK_CLICKHOUSE_URL",
         "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
@@ -42,7 +28,7 @@ def _read_fact_log(spark: SparkSession):
     # 최근 N일 데이터만 읽어서 dim을 갱신한다.
     query = f"""(
         SELECT event_ts, service, status_code, user_id
-        FROM analytics.fact_log
+        FROM analytics.fact_event
         WHERE event_ts >= now() - INTERVAL {lookback_days} DAY
     ) AS fact"""
 
@@ -58,11 +44,11 @@ def _read_fact_log(spark: SparkSession):
     )
 
 
-def main() -> None:
-    spark = _build_spark()
+def run_dim_batch() -> None:
+    spark = build_batch_spark()
     spark.sparkContext.setLogLevel("INFO")
 
-    fact_df = _read_fact_log(spark)
+    fact_df = _read_fact_event(spark)
 
     dim_date_df = parse_dim_date(fact_df)
     dim_time_df = parse_dim_time(fact_df)
@@ -81,4 +67,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    run_dim_batch()
