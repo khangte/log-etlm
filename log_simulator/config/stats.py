@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_gateway/config/stats.py
+# 파일명 : log_simulator/config/stats.py
 # 목적   : generator에서 사용하는 통계 출력(terminal logging) 헬퍼
 # 설명   : stats_queue를 읽어 일정 주기마다 EPS/서비스별 건수 로그를 남김
 # -----------------------------------------------------------------------------
@@ -11,7 +11,7 @@ import os
 from typing import List, Tuple
 
 
-_logger = logging.getLogger("log_gateway.stats")
+_logger = logging.getLogger("log_simulator.stats")
 _logger.setLevel(logging.INFO)
 
 if not _logger.handlers:

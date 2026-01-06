@@ -22,7 +22,7 @@
 
 | 아이콘 | 설명 |
 | --- | --- |
-| <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"> | FastAPI: log_gateway 시뮬레이터 및 API 엔드포인트 |
+| <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"> | FastAPI: log_simulator 시뮬레이터 및 API 엔드포인트 |
 | <img src="https://img.shields.io/badge/ApacheKafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white"> | Apache Kafka + Kafka UI: 로그 수집 버퍼와 모니터링 UI |
 | <img src="https://img.shields.io/badge/ApacheSpark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white"> | Apache Spark 4.0 Structured Streaming: Kafka → ClickHouse 실시간 적재 |
 | <img src="https://img.shields.io/badge/ClickHouse-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=white"> | ClickHouse: OLAP 테이블 로그 저장 |
@@ -38,8 +38,8 @@
 ![시스템아키텍처](images/SystemArchitecture.png)
 
 1. **로그 생성/수집**
-   - `log_gateway/generator.py`가 서비스별 트래픽 믹스·시간대 가중치·오류율을 반영한 HTTP 이벤트 생성.
-   - FastAPI 앱의 `/ping` 헬스체크와 generator 백그라운드 태스크 실행, 지속 로그 생성.
+   - `log_simulator/pipeline_builder.py`가 서비스별 트래픽 믹스·시간대 가중치·오류율을 반영한 HTTP 이벤트 생성 파이프라인을 구성.
+   - FastAPI 앱의 `/ping` 헬스체크와 엔진 라이프사이클에 따라 지속 로그 생성.
 2. **로그 브로커/버퍼링**
    - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.notify`, `logs.error` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
@@ -77,7 +77,7 @@ docker compose up -d simulator simulator2
 
 # 4. 상태 점검
 docker compose ps
-curl http://localhost:8000/ping                 # log_gateway FastAPI
+curl http://localhost:8000/ping                 # log_simulator FastAPI
 curl http://localhost:4040/api/v1/applications  # Spark UI REST
 
 # 5. (선택) CLI 모니터링
@@ -92,7 +92,7 @@ crontab -e
 
 ## 프로파일 & 튜닝 포인트
 
-- 시뮬레이터 부하 프로파일: `log_gateway/profiles/baseline.yaml`
+- 시뮬레이터 부하 프로파일: `log_simulator/profiles/baseline.yaml`
   - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
 - Spark 환경 프로파일: `env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정

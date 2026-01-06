@@ -1,0 +1,75 @@
+routes:
+  auth:
+    - path: "/v2/auth/signup"
+      methods: ["POST"]
+      weight: 2
+      api_group: "AUTH_SIGNUP"
+      domain_events: { success: "auth_signup_succeeded", fail: "auth_signup_failed" }
+
+    - path: "/v2/auth/login"
+      methods: ["POST"]
+      weight: 2
+      api_group: "AUTH_LOGIN"
+      domain_events: { success: "auth_login_succeeded", fail: "auth_login_failed" }
+
+    - path: "/v2/auth/token/refresh"
+      methods: ["POST"]
+      weight: 4
+      api_group: "AUTH_TOKEN_REFRESH"
+      domain_events: { success: "auth_token_refresh_succeeded", fail: "auth_token_refresh_failed" }
+
+    - path: "/v2/auth/logout"
+      methods: ["POST"]
+      weight: 2
+      api_group: "AUTH_LOGOUT"
+      domain_events: { success: "auth_logout_succeeded", fail: "auth_logout_failed" }
+
+  order:
+    - path: "/v2/orders"
+      methods: ["POST"]
+      weight: 3
+      api_group: "ORDER_CREATE"
+      domain_events: { success: "order_created", fail: "order_create_failed" }
+
+    - path: "/v2/orders"
+      methods: ["GET"]
+      weight: 4
+      api_group: "ORDER_LIST"
+      domain_events: null
+
+    - path: "/v2/orders/{order_id}"
+      methods: ["GET"]
+      weight: 2
+      api_group: "ORDER_GET"
+      domain_events: null
+
+    - path: "/v2/orders/{order_id}/cancel"
+      methods: ["POST"]
+      weight: 1
+      api_group: "ORDER_CANCEL"
+      domain_events: { success: "order_cancelled", fail: "order_cancel_failed" }
+
+  payment:
+    - path: "/v2/payments"
+      methods: ["POST"]
+      weight: 4
+      api_group: "PAYMENT_CREATE"
+      domain_events: { success: "payment_created", fail: "payment_create_failed" }
+
+    - path: "/v2/payments/{payment_id}/confirm"
+      methods: ["POST"]
+      weight: 2
+      api_group: "PAYMENT_CONFIRM"
+      domain_events: { success: "payment_confirm_succeeded", fail: "payment_confirm_failed" }
+
+    - path: "/v2/payments/{payment_id}"
+      methods: ["GET"]
+      weight: 3
+      api_group: "PAYMENT_GET"
+      domain_events: null
+
+    - path: "/v2/payments/{payment_id}/refund"
+      methods: ["POST"]
+      weight: 1
+      api_group: "PAYMENT_REFUND"
+      domain_events: { success: "payment_refunded", fail: "payment_refund_failed" }
