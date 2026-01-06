@@ -120,46 +120,6 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
-  # simulator2:
-  #   build:
-  #     context: .
-  #     dockerfile: log_simulator/Dockerfile
-  #   container_name: simulator2
-  #   # restart: unless-stopped
-  #   ports: ["8001:8000"]
-  #   environment:
-  #     - SIMULATOR_SHARE=0.5
-  #     - LOG_BATCH_SIZE=300
-  #     - TICK_SEC=0.2
-  #     - QUEUE_SIZE=6000
-  #     - LOOPS_PER_SERVICE=4
-  #     - QUEUE_LOW_SLEEP_SCALE=1.0
-  #     - PUBLISHER_WORKERS=6
-  #     - WORKER_BATCH_SIZE=600
-  #     - SIM_EVENT_MODE=domain
-  #     - IDLE_WARN_SEC=5
-  #     - SEND_WARN_SEC=5
-  #     - KAFKA_BOOTSTRAP=kafka:9092
-  #     - KAFKA_CLIENT_ID=log-monitoring-simulator
-  #     - PRODUCER_LINGER_MS=20
-  #     - PRODUCER_BATCH_NUM_MESSAGES=5000
-  #     - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-  #     - PRODUCER_QUEUE_MAX_KBYTES=262144
-  #     - PRODUCER_ENABLE_IDEMPOTENCE=false
-  #     - PRODUCER_ACKS=0
-  #     - PRODUCER_COMPRESSION=none
-  #   depends_on:
-  #     kafka:
-  #       condition: service_healthy
-  #   volumes:
-  #     - ./log_simulator:/app/log_simulator:ro
-  #   networks: [logetlm-net]
-  #   command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
-  #   logging:
-  #     driver: json-file
-  #     options: { max-size: "10m", max-file: "5" }
-
-
   spark-master:
     image: spark:4.0.1-python3
     container_name: spark-master
@@ -177,6 +137,57 @@ services:
       - 7077:7077
       - 8081:8081
     networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+
+  spark:
+    build:
+      context: .
+      dockerfile: spark_job/Dockerfile
+    container_name: spark
+    # restart: unless-stopped
+    user: "1000:185"
+    environment:
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      # Spark Streaming ingest tuning
+      # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
+      - SPARK_STARTING_OFFSETS=latest
+      # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
+      - SPARK_RESET_CHECKPOINT_ON_START=false
+      # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
+      # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k EPS로 캡이 걸림.
+      # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
+      # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
+      # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=250000
+      # ClickHouse sink tuning (override as needed)
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=3
+      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=true
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=50000
+      # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
+      - SPARK_CLICKHOUSE_LOG_STATS=false
+      # 원본 JSON(raw_json) 저장 여부
+      - SPARK_STORE_RAW_JSON=false
+    ports: ["4040:4040"]   # Spark UI (stream)
+    volumes:
+      - ./spark_job:/app/spark_job:ro
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
+      - /data/log-etlm/spark-events:/data/log-etlm/spark-events
+    depends_on:
+      - kafka
+      - spark-master
+      - spark-worker-1
+      - spark-worker-2
+      - clickhouse
+    networks: [logetlm-net]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
+      interval: 45s
+      timeout: 5s
+      retries: 5
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
@@ -224,56 +235,6 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
-  spark:
-    build:
-      context: .
-      dockerfile: spark_job/Dockerfile
-    container_name: spark
-    # restart: unless-stopped
-    user: "1000:185"
-    environment:
-      - KAFKA_BOOTSTRAP=kafka:9092
-      - SPARK_MASTER_URL=spark://spark-master:7077
-      # Spark Streaming ingest tuning
-      # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
-      - SPARK_STARTING_OFFSETS=${SPARK_STARTING_OFFSETS:-latest}
-      # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
-      - SPARK_RESET_CHECKPOINT_ON_START=${SPARK_RESET_CHECKPOINT_ON_START:-False}
-      # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
-      # 예) 배치 주기(dt)가 35s면 250k/35s ≈ 7.1k EPS로 캡이 걸림.
-      # 10k EPS 목표면 최소 10k*dt 이상으로 올려야 함(여유 포함).
-      # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
-      # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-250000}
-      # ClickHouse sink tuning (override as needed)
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-50000}
-      # 배치마다 count/min/max 집계는 처리량을 크게 깎을 수 있어 샘플링(예: 10배치마다 1번)로 제한
-      - SPARK_CLICKHOUSE_LOG_STATS=${SPARK_CLICKHOUSE_LOG_STATS:-false}
-      # 원본 JSON(raw_json) 저장 여부
-      - SPARK_STORE_RAW_JSON=${SPARK_STORE_RAW_JSON:-false}
-    ports: ["4040:4040"]   # Spark UI (stream)
-    volumes:
-      - ./spark_job:/app/spark_job:ro
-      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
-      - /data/log-etlm/spark-events:/data/log-etlm/spark-events
-    depends_on:
-      - kafka
-      - spark-master
-      - spark-worker-1
-      - spark-worker-2
-      - clickhouse
-    networks: [logetlm-net]
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
-      interval: 45s
-      timeout: 5s
-      retries: 5
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
-
-
   clickhouse:
     image: clickhouse/clickhouse-server:latest
     container_name: clickhouse
@@ -290,8 +251,12 @@ services:
       # NOTE: ClickHouse 데이터는 루트(/)가 아니라 /data에 둬야 디스크(루트) 고갈로 ingest가 멈추는 걸 방지할 수 있음
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
-      - ./spark_job/warehouse/create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
-      - ./spark_job/warehouse/clickhouse_grafana_grants.sql:/docker-entrypoint-initdb.d/clickhouse_grafana_grants.sql:ro
+      - ./spark_job/warehouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
+      - ./spark_job/warehouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
+      - ./spark_job/warehouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
+      - ./spark_job/warehouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
+      # - ./spark_job/warehouse/sql/30_dimensions.sql:/docker-entrypoint-initdb.d/30_dimensions.sql:ro
+      - ./spark_job/warehouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
