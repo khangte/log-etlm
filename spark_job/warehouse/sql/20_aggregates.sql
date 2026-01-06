@@ -11,18 +11,6 @@ PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
 TTL bucket + INTERVAL 1 DAY;
 
--- Topic EPS aggregates
-CREATE TABLE IF NOT EXISTS analytics.fact_event_topic_1m
-(
-    bucket   DateTime,
-    topic    LowCardinality(String),
-    total_state AggregateFunction(uniqCombined64, String)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY (bucket, topic)
-TTL bucket + INTERVAL 1 DAY;
-
 -- Lag aggregates (ingest_ts basis)
 CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 (

@@ -10,16 +10,6 @@ SELECT
 FROM analytics.fact_event
 GROUP BY bucket, service;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_topic_1m
-TO analytics.fact_event_topic_1m
-AS
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    topic,
-    uniqCombined64State(event_id) AS total_state
-FROM analytics.fact_event
-GROUP BY bucket, topic;
-
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
 TO analytics.fact_event_lag_1m
 AS
