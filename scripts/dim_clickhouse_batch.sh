@@ -29,7 +29,7 @@ SELECT
   if(day_of_week IN (6, 7), 1, 0) AS is_weekend
 FROM (
   SELECT toDate(event_ts) AS date
-  FROM analytics.fact_log
+  FROM analytics.fact_event
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
   GROUP BY date
 );
@@ -49,7 +49,7 @@ FROM (
     toHour(event_ts) AS hour,
     toMinute(event_ts) AS minute,
     toSecond(event_ts) AS second
-  FROM analytics.fact_log
+  FROM analytics.fact_event
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
   GROUP BY hour, minute, second
 );
@@ -62,7 +62,7 @@ SELECT
   cast(NULL AS Nullable(String)) AS description
 FROM (
   SELECT service
-  FROM analytics.fact_log
+  FROM analytics.fact_event
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND service IS NOT NULL
   GROUP BY service
@@ -88,7 +88,7 @@ SELECT
           'Unknown') AS description
 FROM (
   SELECT status_code
-  FROM analytics.fact_log
+  FROM analytics.fact_event
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND status_code IS NOT NULL
   GROUP BY status_code
@@ -101,7 +101,7 @@ SELECT
   cast(NULL AS Nullable(String)) AS description
 FROM (
   SELECT user_id
-  FROM analytics.fact_log
+  FROM analytics.fact_event
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND user_id IS NOT NULL
   GROUP BY user_id

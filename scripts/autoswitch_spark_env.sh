@@ -41,7 +41,7 @@ P95_ROW="$(
                  quantileTDigestMerge(0.95)(sink_state), \
                  quantileTDigestMerge(0.95)(process_state) \
                )) AS p95_max \
-             FROM analytics.fact_log_latency_1m \
+             FROM analytics.fact_event_latency_1m \
              WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE"
 )"
 
