@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schema import DIM_DATE_COLUMNS
+from spark_job.schemas.dim_schema import DIM_DATE_COLUMNS
 
 
 def parse_dim_date(fact_df: DataFrame) -> DataFrame:
     """
-    fact_log DF에서 event_ts 기준으로 dim_date DF 생성.
+    fact_event DF에서 event_ts 기준으로 dim_date DF 생성.
     - 입력 DF: event_ts (TimestampType) 컬럼을 포함
     - 출력 DF: dim_date 스키마에 맞는 DF (date 기준 distinct)
     """

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schema import DIM_TIME_COLUMNS
+from spark_job.schemas.dim_schema import DIM_TIME_COLUMNS
 
 
 def parse_dim_time(fact_df: DataFrame) -> DataFrame:
     """
-    fact_log DF에서 event_ts 기준으로 dim_time DF 생성.
+    fact_event DF에서 event_ts 기준으로 dim_time DF 생성.
 
     - 입력 DF: event_ts (TimestampType) 컬럼 포함
     - 출력 DF: 시간 단위 차원 테이블용 DF

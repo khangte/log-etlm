@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schema import DIM_SERVICE_COLUMNS
+from spark_job.schemas.dim_schema import DIM_SERVICE_COLUMNS
 
 
 def parse_dim_service(fact_df: DataFrame) -> DataFrame:
     """
-    fact_log DF에서 service 기준으로 dim_service DF 생성.
+    fact_event DF에서 service 기준으로 dim_service DF 생성.
     - 입력 DF: service (StringType) 컬럼 포함
     - 출력 DF: service 기준 distinct + 기본값 service_group / is_active
     """
