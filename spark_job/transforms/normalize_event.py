@@ -9,6 +9,16 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
     """
     parsed struct -> fact_event 컬럼 표준화.
     """
+    def _ms_diff(end_col: str, start_col: str) -> F.Column:
+        end_ts = F.col(end_col)
+        start_ts = F.col(start_col)
+        diff_ms = (end_ts.cast("double") - start_ts.cast("double")) * F.lit(1000)
+        return (
+            F.when(end_ts.isNull() | start_ts.isNull(), F.lit(None))
+            .otherwise(F.greatest(diff_ms, F.lit(0.0)))
+            .cast("int")
+        )
+
     parsed = (
         good_df.select(
             F.coalesce(
@@ -105,7 +115,15 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
         )
         .withColumn(
             "event_ts",
-            F.expr("timestamp_millis(event_ts_ms)"),
+            F.to_timestamp((F.col("event_ts_ms") / F.lit(1000)).cast("double")),
+        )
+        .withColumn(
+            "ingest_ms",
+            _ms_diff("ingest_ts", "event_ts"),
+        )
+        .withColumn(
+            "process_ms",
+            _ms_diff("processed_ts", "ingest_ts"),
         )
     )
 
