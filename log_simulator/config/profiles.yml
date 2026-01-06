@@ -1,0 +1,33 @@
+eps: 5000
+
+mix:  # 서비스별 트래픽 비중(합계 1.0)
+  auth: 0.34
+  order: 0.33
+  payment: 0.33
+
+# weight_mode: "uniform"  # 가중치 배열에서 균등 확률로 선택
+# time_weights:  # 시간대별 가중치 범위(베이스 EPS × weight 중 임의 선택)
+#   - { range: "0-5",   weight: [0.25, 0.45] }  # 새벽 : 저부하
+#   - { range: "6-11",  weight: [0.35, 0.60] }  # 오전 : 점진 상승
+#   - { range: "12-13", weight: [0.30, 0.50] }  # 점심 : 완만한 저부하
+#   - { range: "14-18", weight: [0.45, 0.80] }  # 오후 : 정상 범위
+#   - { range: "19-23", weight: [0.70, 1.00] }  # 야간 : 최대 1.0까지 부하 가중
+
+error_rate:  # 서비스별 오류율
+  auth: 0.003
+  order: 0.002
+  payment: 0.004 
+
+domain_event_policy:
+  emit_for_get_routes: false   # GET은 도메인 이벤트 안 찍기(추천)
+  emit_on_fail: true           # 실패도 도메인 이벤트로 남김(추천)
+
+# funnel:  # 도메인 흐름(퍼널) 제어: DB 없이도 엔티티 연결되게 만드는 핵심
+#   auth_login_success_to_order_create_rate: 0.30
+#   order_created_to_payment_create_rate: 0.75
+#   payment_created_to_confirm_attempt_rate: 0.90
+
+# entity_pool:  # 시뮬레이터 내부 인메모리 상태(=DB 아님) 보호용
+#   active_users_max: 150000
+#   open_orders_max: 80000
+#   open_payments_max: 80000

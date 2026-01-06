@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_gateway/config/timeband.py
+# 파일명 : log_simulator/config/timeband.py
 # 목적   : profiles/*.yaml의 time_weights 설정을 Band 객체로 변환하고 multiplier 계산
 # 사용   : generator가 현재 시각(Asia/Seoul)에 맞는 배수를 선택해 EPS 조절
 # 설명   : range "0-7" + weight [min,max], weight_mode(uniform/mid/low/high) 지원

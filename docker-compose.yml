@@ -1,4 +1,5 @@
 services:
+
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
@@ -58,6 +59,7 @@ services:
       retries: 10
       start_period: 60s
 
+
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -77,91 +79,86 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
+
   simulator:
-    # 시뮬레이터 컨테이너(옵션). log_gateway FastAPI 앱을 uvicorn으로 실행하면서
-    # 백그라운드 로그 제너레이터가 Kafka로 이벤트를 전송한다.
     build:
       context: .
-      dockerfile: log_gateway/Dockerfile
+      dockerfile: log_simulator/Dockerfile
     container_name: simulator
-    cpus: "0.8"
     # restart: unless-stopped
     ports: ["8000:8000"]
     environment:
-      - KAFKA_CLIENT_ID=log-monitoring-simulator
-      - KAFKA_BOOTSTRAP=kafka:9092
-      - SIMULATOR_SHARE=0.5
-      - UVICORN_WORKERS=4
-      - PUBLISHER_WORKERS=4
-      - WORKER_BATCH_SIZE=400
-      - PRODUCER_EXECUTOR=16
+      - SIMULATOR_SHARE=1
+      - LOG_BATCH_SIZE=240
+      - TICK_SEC=0.22
       - QUEUE_SIZE=4000
-      - LOG_BATCH_SIZE=200
       - LOOPS_PER_SERVICE=4
       - QUEUE_LOW_SLEEP_SCALE=1.0
+      - PUBLISHER_WORKERS=5
+      - WORKER_BATCH_SIZE=500
+      - SIM_EVENT_MODE=domain
+      - IDLE_WARN_SEC=5
+      - SEND_WARN_SEC=5
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - KAFKA_CLIENT_ID=log-monitoring-simulator
       - PRODUCER_LINGER_MS=20
       - PRODUCER_BATCH_NUM_MESSAGES=5000
-      - PRODUCER_QUEUE_MAX_KBYTES=262144
       - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - PRODUCER_QUEUE_MAX_KBYTES=262144
       - PRODUCER_ENABLE_IDEMPOTENCE=false
       - PRODUCER_ACKS=0
       - PRODUCER_COMPRESSION=none
-      - PRODUCER_POLL_SLEEP_SEC=0.01
-      - TICK_SEC=0.3
-      # 로그 과다 방지(성능 측정 시 중요)
-      - SEND_WARN_SEC=5
-      - IDLE_WARN_SEC=5
     depends_on:
       kafka:
         condition: service_healthy
     volumes:
-      - ./log_gateway:/app/log_gateway:ro
+      - ./log_simulator:/app/log_simulator:ro
     networks: [logetlm-net]
-    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+    command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  simulator2:
-    build:
-      context: .
-      dockerfile: log_gateway/Dockerfile
-    container_name: simulator2
-    cpus: "0.8"
-    # restart: unless-stopped
-    environment:
-      - KAFKA_CLIENT_ID=log-monitoring-simulator-2
-      - KAFKA_BOOTSTRAP=kafka:9092
-      - SIMULATOR_SHARE=0.5
-      - UVICORN_WORKERS=4
-      - PUBLISHER_WORKERS=4
-      - WORKER_BATCH_SIZE=400
-      - PRODUCER_EXECUTOR=16
-      - QUEUE_SIZE=4000
-      - LOG_BATCH_SIZE=200
-      - LOOPS_PER_SERVICE=4
-      - QUEUE_LOW_SLEEP_SCALE=1.0
-      - PRODUCER_LINGER_MS=20
-      - PRODUCER_BATCH_NUM_MESSAGES=5000
-      - PRODUCER_QUEUE_MAX_KBYTES=262144
-      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - PRODUCER_ENABLE_IDEMPOTENCE=false
-      - PRODUCER_ACKS=0
-      - PRODUCER_COMPRESSION=none
-      - PRODUCER_POLL_SLEEP_SEC=0.01
-      - TICK_SEC=0.3
-      - SEND_WARN_SEC=5
-      - IDLE_WARN_SEC=5
-    depends_on:
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./log_gateway:/app/log_gateway:ro
-    networks: [logetlm-net]
-    command: ["uvicorn", "log_gateway.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
+
+  # simulator2:
+  #   build:
+  #     context: .
+  #     dockerfile: log_simulator/Dockerfile
+  #   container_name: simulator2
+  #   # restart: unless-stopped
+  #   ports: ["8001:8000"]
+  #   environment:
+  #     - SIMULATOR_SHARE=0.5
+  #     - LOG_BATCH_SIZE=300
+  #     - TICK_SEC=0.2
+  #     - QUEUE_SIZE=6000
+  #     - LOOPS_PER_SERVICE=4
+  #     - QUEUE_LOW_SLEEP_SCALE=1.0
+  #     - PUBLISHER_WORKERS=6
+  #     - WORKER_BATCH_SIZE=600
+  #     - SIM_EVENT_MODE=domain
+  #     - IDLE_WARN_SEC=5
+  #     - SEND_WARN_SEC=5
+  #     - KAFKA_BOOTSTRAP=kafka:9092
+  #     - KAFKA_CLIENT_ID=log-monitoring-simulator
+  #     - PRODUCER_LINGER_MS=20
+  #     - PRODUCER_BATCH_NUM_MESSAGES=5000
+  #     - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+  #     - PRODUCER_QUEUE_MAX_KBYTES=262144
+  #     - PRODUCER_ENABLE_IDEMPOTENCE=false
+  #     - PRODUCER_ACKS=0
+  #     - PRODUCER_COMPRESSION=none
+  #   depends_on:
+  #     kafka:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ./log_simulator:/app/log_simulator:ro
+  #   networks: [logetlm-net]
+  #   command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+  #   logging:
+  #     driver: json-file
+  #     options: { max-size: "10m", max-file: "5" }
+
 
   spark-master:
     image: spark:4.0.1-python3
@@ -184,6 +181,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
+
   spark-worker-1:
     image: spark:4.0.1-python3
     # cpus: "1.75"
@@ -204,6 +202,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
+
   spark-worker-2:
     image: spark:4.0.1-python3
     # cpus: "1.75"
@@ -223,6 +222,7 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
+
 
   spark:
     build:
@@ -273,28 +273,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-  # spark-batch:
-  #   # spark 사용 dim 갱신 (./spark_job/dim_batch.py 실행)
-  #   build:
-  #     context: .
-  #     dockerfile: spark_job/Dockerfile
-  #   container_name: spark-batch
-  #   user: "1000:185"
-  #   environment:
-  #     - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
-  #     - SPARK_CLICKHOUSE_USER=log_user
-  #     - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-  #     - DIM_BATCH_LOOKBACK_DAYS=1
-  #   ports: ["4041:4041"]   # Spark UI (batch)
-  #   volumes:
-  #     - ./spark_job:/app/spark_job:ro
-  #   depends_on:
-  #     - clickhouse
-  #   networks: [logetlm-net]
-  #   command: ["python", "-m", "spark_job.dim_batch"]
-  #   logging:
-  #     driver: json-file
-  #     options: { max-size: "10m", max-file: "5" }
 
   clickhouse:
     image: clickhouse/clickhouse-server:latest
@@ -325,6 +303,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
+
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
@@ -347,6 +326,7 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
+
 
 networks:
   logetlm-net:

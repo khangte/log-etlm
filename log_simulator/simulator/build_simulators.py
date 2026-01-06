@@ -1,4 +1,4 @@
-# log_gateway/simulator/build_simulators.py
+# log_simulator/simulator/build_simulators.py
 
 from __future__ import annotations
 from typing import Any, Dict
