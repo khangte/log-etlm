@@ -21,6 +21,7 @@ class ClickHouseStreamWriter:
         table_name: str,
         checkpoint_dir: str,
         output_mode: str = "append",
+        query_name: str | None = None,
         deduplicate_keys: list[str] | None = None,
     ):
         def _foreach(batch_df: DataFrame, _batch_id: int):
@@ -30,13 +31,20 @@ class ClickHouseStreamWriter:
                 out_df = out_df.dropDuplicates(deduplicate_keys) 
             self._foreach_writer(out_df, table_name, batch_id=_batch_id)
 
-        return (
+        writer = (
             df.writeStream
             .outputMode(output_mode)
             .foreachBatch(_foreach)
             .option("checkpointLocation", checkpoint_dir)
-            .start()
         )
+        if query_name:
+            writer = writer.queryName(query_name)
+        return writer.start()
 
     def write_fact_event_stream(self, df: DataFrame):
-        return self._write_stream(df, FACT_EVENT_TABLE, FACT_EVENT_CHECKPOINT_DIR)
+        return self._write_stream(
+            df,
+            FACT_EVENT_TABLE,
+            FACT_EVENT_CHECKPOINT_DIR,
+            query_name="fact_event_stream",
+        )
