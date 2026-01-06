@@ -121,7 +121,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(total) / 60 AS eps\nFROM analytics.fact_log_agg_event_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_event_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -191,7 +191,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(total) / 60 AS eps\nFROM analytics.fact_log_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -261,7 +261,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket,\n  sum(consumed) - sum(produced) AS eps_gap\nFROM (\n  SELECT\n    bucket,\n    sum(total) / 60 AS produced,\n    0 AS consumed\n  FROM analytics.fact_log_agg_event_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket,\n    0 AS produced,\n    sum(total) / 60 AS consumed\n  FROM analytics.fact_log_agg_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nGROUP BY bucket\nORDER BY bucket",
+          "rawSql": "SELECT\n  bucket,\n  sum(consumed) - sum(produced) AS eps_gap\nFROM (\n  SELECT\n    bucket,\n    uniqCombined64Merge(total_state) / 60 AS produced,\n    0 AS consumed\n  FROM analytics.fact_event_agg_event_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket,\n    0 AS produced,\n    uniqCombined64Merge(total_state) / 60 AS consumed\n  FROM analytics.fact_event_agg_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nGROUP BY bucket\nORDER BY bucket",
           "refId": "A"
         }
       ],
@@ -324,7 +324,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  sum(total) / 60 AS eps\nFROM analytics.fact_log_topic_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket, topic\nORDER BY time ASC, topic",
+          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_topic_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket, topic\nORDER BY time ASC, topic",
           "refId": "A"
         }
       ],
@@ -400,7 +400,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  if(cnt = 0, 0, sum_lag / cnt) AS lag_sec\nFROM analytics.fact_log_lag_1m\nWHERE $__timeFilter(bucket)\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  if(cnt = 0, 0, sum_lag / cnt) AS lag_sec\nFROM analytics.fact_event_lag_1m\nWHERE $__timeFilter(bucket)\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -468,7 +468,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  stage,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    'ingest' AS stage,\n    quantileTDigestMerge(ingest_state) AS p95_ms\n  FROM analytics.fact_log_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'process' AS stage,\n    quantileTDigestMerge(process_state) AS p95_ms\n  FROM analytics.fact_log_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'sink' AS stage,\n    quantileTDigestMerge(sink_state) AS p95_ms\n  FROM analytics.fact_log_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC, stage ASC",
+          "rawSql": "SELECT\n  time,\n  stage,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    'ingest' AS stage,\n    quantileTDigestMerge(ingest_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'process' AS stage,\n    quantileTDigestMerge(process_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n  UNION ALL\n  SELECT\n    bucket AS time,\n    'sink' AS stage,\n    quantileTDigestMerge(sink_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC, stage ASC",
           "refId": "A"
         }
       ],
@@ -536,7 +536,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    quantileTDigestMerge(e2e_state) AS p95_ms\n  FROM analytics.fact_log_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC",
+          "rawSql": "SELECT\n  time,\n  p95_ms\nFROM (\n  SELECT\n    bucket AS time,\n    quantileTDigestMerge(e2e_state) AS p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n)\nORDER BY time ASC",
           "refId": "A"
         }
       ],

@@ -18,7 +18,7 @@ datasources:
     editable: false
     jsonData:
       defaultDatabase: analytics
-      defaultTable: fact_log_agg_1m
+      defaultTable: fact_event_agg_1m
       port: 8123
       protocol: http
       host: clickhouse
@@ -29,7 +29,7 @@ datasources:
       # NOTE: 플러그인이 string으로 파싱하는 경로가 있어 숫자는 문자열로 전달한다.
       dialTimeout: "10"
       # 집계 테이블로 전환했으므로, 조회는 수 초 내로 끝나야 정상이다.
-      # 큰 값은 오히려 원본 fact_log 스캔 같은 비정상 쿼리를 오래 살려 ingest를 막을 수 있어 보수적으로 설정.
+      # 큰 값은 오히려 원본 fact_event 스캔 같은 비정상 쿼리를 오래 살려 ingest를 막을 수 있어 보수적으로 설정.
       queryTimeout: "60"
     secureJsonData:
       password: grafana_pwd
