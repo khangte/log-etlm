@@ -6,13 +6,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 
 @dataclass(frozen=True)
 class BatchMessage:
     service: str
-    value: bytes
+    value: Any
     key: Optional[bytes]
     replicate_error: bool
     enqueued_ms: Optional[int] = None
