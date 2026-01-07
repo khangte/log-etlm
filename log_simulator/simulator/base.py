@@ -170,7 +170,9 @@ class BaseServiceSimulator:
 
     def _should_emit_domain_event(self, method: str, route: Dict[str, Any], is_err: bool) -> bool:
         if not route.get("domain_events"):
-            return False
+            # domain_events가 없으면 api_group 기반 fallback만 허용한다.
+            if not route.get("api_group"):
+                return False
         if method == "GET" and not self.domain_event_policy["emit_for_get_routes"]:
             return False
         if is_err and not self.domain_event_policy["emit_on_fail"]:
@@ -180,8 +182,13 @@ class BaseServiceSimulator:
     def _domain_event_name(self, route: Dict[str, Any], is_err: bool) -> Optional[str]:
         de = route.get("domain_events")
         if not isinstance(de, dict):
-            return None
-        return de.get("fail" if is_err else "success")
+            api_group = route.get("api_group")
+            return api_group
+        name = de.get("fail" if is_err else "success")
+        if name:
+            return name
+        api_group = route.get("api_group")
+        return api_group
 
     def _estimate_http_event_rate(self) -> float:
         return 1.0 if self.event_mode in ("all", "http") else 0.0
@@ -198,7 +205,8 @@ class BaseServiceSimulator:
 
         for route in self.routes:
             de = route.get("domain_events")
-            if not isinstance(de, dict):
+            has_domain_event = isinstance(de, dict) or bool(route.get("api_group"))
+            if not has_domain_event:
                 continue
             methods = route.get("methods") or ["GET"]
             if not isinstance(methods, list) or not methods:
