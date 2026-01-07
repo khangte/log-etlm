@@ -10,16 +10,20 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 import bisect
 import json
+import logging
+import os
 import random
 import time
-import uuid
+import gc
+
+_PROFILE_LOGGER = logging.getLogger("log_simulator.gen_profile")
 
 
 class BaseServiceSimulator:
     """
     성능 최적화 포인트
     - routes 전처리(누적 weight)로 pick_route 비용 절감
-    - Faker 제거: uuid4 기반 ID 생성으로 속도 향상
+    - Faker 제거: randbits 기반 ID 생성으로 속도 향상
     - time.time_ns 기반 now_utc_ms
     - 요청 1건 -> 이벤트 리스트(1~2개) 생성 패턴 지원
     """
@@ -28,19 +32,25 @@ class BaseServiceSimulator:
     domain: str = "base"
 
     __slots__ = (
-        "routes",
-        "profile",
-        "error_rate",
-        "domain_event_policy",
-        "event_mode",
-        "domain_event_rate",
-        "http_event_rate",
-        "_rng",
-        "_route_prefix_sums",
-        "_route_total_weight",
+        "routes",               # 원본 라우트 목록
+        "profile",              # 프로파일 설정 딕셔너리
+        "error_rate",           # 서비스별 에러율
+        "domain_event_policy",  # 도메인 이벤트 정책
+        "event_mode",           # all|domain|http
+        "domain_event_rate",    # 도메인 이벤트 추정 비율
+        "http_event_rate",      # HTTP 이벤트 추정 비율
+        "_rng",                 # 인스턴스 전용 RNG
+        "_route_prefix_sums",   # 라우트 가중치 누적합
+        "_route_total_weight",  # 라우트 가중치 합계
+        "_profile_enabled",     # 프로파일 로그 활성화
+        "_profile_every",       # 프로파일 로그 주기
+        "_profile_counter",     # 프로파일 로그 카운터
+        "_profile_id_ms",       # id 생성 누적 시간(ms)
+        "_profile_id_count",    # id 생성 측정 횟수
     )
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
+        """라우트/프로파일을 검증하고 초기 상태를 준비한다."""
         if not isinstance(routes, list):
             raise ValueError("routes must be a list")
         if not isinstance(profile, dict):
@@ -109,40 +119,138 @@ class BaseServiceSimulator:
         self._route_total_weight = total
         self.domain_event_rate = self._estimate_domain_event_rate()
         self.http_event_rate = self._estimate_http_event_rate()
+        self._profile_enabled = os.getenv("SIM_GEN_PROFILE", "0").strip().lower() in ( # 현재는 비활성화
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
+        self._profile_every = max(int(os.getenv("SIM_GEN_PROFILE_EVERY", "500")), 1)
+        self._profile_counter = 0
+        self._profile_id_ms = 0.0
+        self._profile_id_count = 0
+        if self._profile_enabled and not _PROFILE_LOGGER.handlers:
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+            )
+            _PROFILE_LOGGER.addHandler(handler)
+            _PROFILE_LOGGER.setLevel(logging.INFO)
 
 
     # ---------- 공통 유틸 ----------
 
+    def _rand_hex(self, width: int) -> str:
+        """지정 길이의 hex 문자열을 빠르게 생성한다."""
+        bits = width * 4
+        return f"{self._rng.getrandbits(bits):0{width}x}"
+
     @staticmethod
     def now_utc_ms() -> int:
-        """현재 UTC epoch ms (빠른 구현)"""
+        """현재 UTC epoch ms를 반환한다."""
         return time.time_ns() // 1_000_000
 
     def generate_request_id(self) -> str:
-        """req_ + 12 hex"""
-        return "req_" + uuid.uuid4().hex[:12]
+        """요청 ID를 생성한다."""
+        if self._profile_enabled:
+            started = time.perf_counter()
+            value = self._rand_hex(12)
+            self._profile_id_ms += (time.perf_counter() - started) * 1000.0
+            self._profile_id_count += 1
+            return "req_" + value
+        return "req_" + self._rand_hex(12)
 
     def generate_event_id(self) -> str:
-        """evt_ + 32 hex"""
-        return "evt_" + uuid.uuid4().hex
+        """이벤트 ID를 생성한다."""
+        if self._profile_enabled:
+            started = time.perf_counter()
+            value = self._rand_hex(32)
+            self._profile_id_ms += (time.perf_counter() - started) * 1000.0
+            self._profile_id_count += 1
+            return "evt_" + value
+        return "evt_" + self._rand_hex(32)
 
     def generate_user_id(self) -> str:
-        """간단 user id(8 hex)"""
-        return uuid.uuid4().hex[:8]
+        """사용자 ID를 생성한다."""
+        if self._profile_enabled:
+            started = time.perf_counter()
+            value = self._rand_hex(8)
+            self._profile_id_ms += (time.perf_counter() - started) * 1000.0
+            self._profile_id_count += 1
+            return value
+        return self._rand_hex(8)
 
     def generate_order_id(self) -> str:
-        return "o_" + uuid.uuid4().hex[:12]
+        """주문 ID를 생성한다."""
+        if self._profile_enabled:
+            started = time.perf_counter()
+            value = self._rand_hex(12)
+            self._profile_id_ms += (time.perf_counter() - started) * 1000.0
+            self._profile_id_count += 1
+            return "o_" + value
+        return "o_" + self._rand_hex(12)
 
     def generate_payment_id(self) -> str:
-        return "p_" + uuid.uuid4().hex[:12]
+        """결제 ID를 생성한다."""
+        if self._profile_enabled:
+            started = time.perf_counter()
+            value = self._rand_hex(12)
+            self._profile_id_ms += (time.perf_counter() - started) * 1000.0
+            self._profile_id_count += 1
+            return "p_" + value
+        return "p_" + self._rand_hex(12)
+
+    def _profile_reset_id_timings(self) -> None:
+        """ID 생성 프로파일 누적치를 초기화한다."""
+        self._profile_id_ms = 0.0
+        self._profile_id_count = 0
+
+    def _profile_get_id_timings(self) -> tuple[float, int]:
+        """ID 생성 프로파일 누적치를 반환한다."""
+        return self._profile_id_ms, self._profile_id_count
+
+    def _maybe_log_gen_profile(
+        self,
+        *,
+        service: str,
+        event_count: int,
+        pick_ms: float,
+        id_ms: float,
+        rand_ms: float,
+        event_ms: float,
+        total_ms: float,
+        idgen_ms: float,
+        idgen_count: int,
+    ) -> None:
+        """프로파일 조건을 만족하면 생성 성능 로그를 남긴다."""
+        if not self._profile_enabled:
+            return
+        self._profile_counter += 1
+        if self._profile_counter % self._profile_every != 0:
+            return
+        gc_counts = gc.get_count()
+        gc_gen2 = gc.get_stats()[2]["collections"] if gc.isenabled() else 0
+        _PROFILE_LOGGER.info(
+            "[gen-profile] service=%s events=%d pick_ms=%.3f id_ms=%.3f "
+            "rand_ms=%.3f event_ms=%.3f total_ms=%.3f idgen_ms=%.3f idgen_n=%d "
+            "gc_count=%s gc_gen2=%d",
+            service,
+            event_count,
+            pick_ms,
+            id_ms,
+            rand_ms,
+            event_ms,
+            total_ms,
+            idgen_ms,
+            idgen_count,
+            gc_counts,
+            gc_gen2,
+        )
 
     # ---------- route/method 선택 ----------
 
     def pick_route(self, routes: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """
-        최적화: 기본은 self.routes + prefix sums로 선택.
-        레거시 호환: routes가 self.routes가 아니면 느린 방식으로 처리.
-        """
+        """가중치 기반으로 라우트를 선택한다."""
         if routes is None or routes is self.routes:
             # 1..total
             x = self._rng.randrange(1, self._route_total_weight + 1)
@@ -156,19 +264,22 @@ class BaseServiceSimulator:
         return self._rng.choices(routes, weights=weights, k=1)[0]
 
     def pick_method(self, route: Dict[str, Any]) -> str:
+        """라우트의 HTTP 메서드를 선택한다."""
         methods = route.get("methods") or ["GET"]
         if len(methods) == 1:
             return methods[0]
         return methods[self._rng.randrange(0, len(methods))]
 
     def sample_duration_ms(self) -> int:
-        """간단 지연 샘플(override는 나중에)"""
+        """응답 지연 시간을 샘플링한다."""
         return self._rng.randint(5, 300)
 
     def _is_err(self) -> bool:
+        """에러 여부를 확률로 결정한다."""
         return self._rng.random() < self.error_rate
 
     def _should_emit_domain_event(self, method: str, route: Dict[str, Any], is_err: bool) -> bool:
+        """도메인 이벤트 발행 여부를 판단한다."""
         if not route.get("domain_events"):
             # domain_events가 없으면 api_group 기반 fallback만 허용한다.
             if not route.get("api_group"):
@@ -180,6 +291,7 @@ class BaseServiceSimulator:
         return True
 
     def _domain_event_name(self, route: Dict[str, Any], is_err: bool) -> Optional[str]:
+        """도메인 이벤트명을 결정한다."""
         de = route.get("domain_events")
         if not isinstance(de, dict):
             api_group = route.get("api_group")
@@ -191,9 +303,11 @@ class BaseServiceSimulator:
         return api_group
 
     def _estimate_http_event_rate(self) -> float:
+        """HTTP 이벤트 비율 추정값을 반환한다."""
         return 1.0 if self.event_mode in ("all", "http") else 0.0
 
     def _estimate_domain_event_rate(self) -> float:
+        """도메인 이벤트 비율 추정값을 계산한다."""
         total_weight = float(self._route_total_weight or 0)
         if total_weight <= 0:
             return 0.0
@@ -222,9 +336,11 @@ class BaseServiceSimulator:
         return rate
 
     def _emit_http_event(self) -> bool:
+        """HTTP 이벤트 발행 여부를 반환한다."""
         return self.event_mode in ("all", "http")
 
     def _emit_domain_event(self) -> bool:
+        """도메인 이벤트 발행 여부를 반환한다."""
         return self.event_mode in ("all", "domain")
 
 
@@ -245,6 +361,7 @@ class BaseServiceSimulator:
         api_group: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """HTTP 이벤트 페이로드를 생성한다."""
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": "http_request_completed",
@@ -285,6 +402,7 @@ class BaseServiceSimulator:
         route_template: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """도메인 이벤트 페이로드를 생성한다."""
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": event_name,
@@ -315,21 +433,18 @@ class BaseServiceSimulator:
     # ---------- 생성 템플릿 ----------
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
-        """요청 1건 -> 이벤트 리스트(서브클래스 구현)"""
+        """요청 1건의 이벤트 목록을 생성한다."""
         raise NotImplementedError
 
     def generate_log_one(self) -> Dict[str, Any]:
-        """
-        레거시 호환: 첫 번째 이벤트만 반환.
-        (가능하면 호출부를 generate_events로 바꾸는 걸 권장)
-        """
+        """첫 번째 이벤트만 반환한다."""
         events = self.generate_events_one()
         if not events:
             raise RuntimeError("generate_events_one() returned empty list")
         return events[0]
 
     def generate_events(self, count: int) -> List[Dict[str, Any]]:
-        """count번 요청 -> 이벤트 평탄화"""
+        """여러 요청의 이벤트를 생성해 평탄화한다."""
         out: List[Dict[str, Any]] = []
         for _ in range(count):
             out.extend(self.generate_events_one())
@@ -338,9 +453,11 @@ class BaseServiceSimulator:
     # ---------- 출력 ----------
 
     def render(self, log: Dict[str, Any]) -> str:
+        """이벤트를 JSON 문자열로 변환한다."""
         return json.dumps(log, ensure_ascii=False)
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
+        """이벤트를 JSON 바이트로 변환한다."""
         return json.dumps(log, ensure_ascii=False).encode("utf-8")
 
 
