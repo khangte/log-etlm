@@ -1,5 +1,45 @@
 services:
 
+  simulator:
+    build:
+      context: .
+      dockerfile: log_simulator/Dockerfile
+    container_name: simulator
+    # cpus: "1.0"
+    # restart: unless-stopped
+    environment:
+      - SIMULATOR_SHARE=1
+      - SIM_EVENT_MODE=domain
+      - TICK_SEC=0.15
+      - LOG_BATCH_SIZE=400
+      - LOOPS_PER_SERVICE=2
+      - QUEUE_MAX_SIZE=4000
+      - QUEUE_LOW_SLEEP_SCALE=1.0
+      - PUBLISHER_WORKERS=3
+      - WORKER_BATCH_SIZE=500
+      - IDLE_WARN_SEC=5
+      - SEND_WARN_SEC=5
+      - KAFKA_BOOTSTRAP=kafka:9092
+      - KAFKA_CLIENT_ID=log-monitoring-simulator
+      - PRODUCER_ACKS=0
+      - PRODUCER_COMPRESSION=none
+      - PRODUCER_ENABLE_IDEMPOTENCE=false
+      - PRODUCER_LINGER_MS=20
+      - PRODUCER_BATCH_NUM_MESSAGES=5000
+      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
+      - PRODUCER_QUEUE_MAX_KBYTES=262144
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./log_simulator:/app/log_simulator:ro
+    networks: [logetlm-net]
+    command: ["python", "-m", "log_simulator.run"]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+
   kafka:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
@@ -13,12 +53,12 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093"
       # 외부 접속 필요 시 localhost → <VM_IP> 로 교체
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       # 단일 브로커 기본값
       # RF=1 (복제 없음. 장애 시 데이터 유실 위험 큼)
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -80,47 +120,6 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
-  simulator:
-    build:
-      context: .
-      dockerfile: log_simulator/Dockerfile
-    container_name: simulator
-    cpus: "1.0"
-    # restart: unless-stopped
-    ports: ["8000:8000"]
-    environment:
-      - SIMULATOR_SHARE=1
-      - LOG_BATCH_SIZE=240
-      - TICK_SEC=0.22
-      - QUEUE_SIZE=4000
-      - LOOPS_PER_SERVICE=4
-      - QUEUE_LOW_SLEEP_SCALE=1.0
-      - PUBLISHER_WORKERS=5
-      - WORKER_BATCH_SIZE=500
-      - SIM_EVENT_MODE=domain
-      - IDLE_WARN_SEC=5
-      - SEND_WARN_SEC=5
-      - KAFKA_BOOTSTRAP=kafka:9092
-      - KAFKA_CLIENT_ID=log-monitoring-simulator
-      - PRODUCER_LINGER_MS=20
-      - PRODUCER_BATCH_NUM_MESSAGES=5000
-      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - PRODUCER_QUEUE_MAX_KBYTES=262144
-      - PRODUCER_ENABLE_IDEMPOTENCE=false
-      - PRODUCER_ACKS=0
-      - PRODUCER_COMPRESSION=none
-    depends_on:
-      kafka:
-        condition: service_healthy
-    volumes:
-      - ./log_simulator:/app/log_simulator:ro
-    networks: [logetlm-net]
-    command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
-
-
   spark-master:
     image: spark:4.0.1-python3
     container_name: spark-master
@@ -168,9 +167,9 @@ services:
       - SPARK_MAX_OFFSETS_PER_TRIGGER=200000
       # ClickHouse sink tuning
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=1
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=30000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=1
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=30000
     ports: ["4040:4040"]   # Spark UI (stream)
     volumes:
       - ./spark_job:/app/spark_job:ro
@@ -241,9 +240,9 @@ services:
     cpus: "2.0"
     # restart: unless-stopped
     environment:
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
       - CLICKHOUSE_USER=log_user
       - CLICKHOUSE_PASSWORD=log_pwd
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     ports:
       - "8123:8123"
       - "9000:9000"

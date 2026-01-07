@@ -9,12 +9,32 @@ from dataclasses import dataclass
 import os
 
 
+def _read_retry_backoff_sec() -> float:
+    raw_ms = os.getenv("RETRY_BACKOFF_MS")
+    if raw_ms is not None:
+        try:
+            return float(raw_ms) / 1000.0
+        except ValueError:
+            return 0.05
+    return float(os.getenv("PUBLISH_RETRY_BACKOFF_SEC", "0.2"))
+
+
+def _read_batch_wait_sec() -> float:
+    raw_ms = os.getenv("BATCH_WAIT_MS", os.getenv("WORKER_BATCH_WAIT_MS", "20"))
+    try:
+        return float(raw_ms) / 1000.0
+    except ValueError:
+        return 0.02
+
+
 @dataclass(frozen=True)
 class SimulatorSettings:
     simulator_share: float = float(os.getenv("SIMULATOR_SHARE", "1.0"))
     log_batch_size: int = int(os.getenv("LOG_BATCH_SIZE", "100"))
     tick_sec: float = float(os.getenv("TICK_SEC", "0.1"))
-    queue_size: int = int(os.getenv("QUEUE_SIZE", "2000"))
+    queue_size: int = int(os.getenv("QUEUE_MAX_SIZE", os.getenv("QUEUE_SIZE", "2000")))
+    overflow_policy: str = os.getenv("OVERFLOW_POLICY", "drop_oldest")
+    queue_metric_interval_sec: float = float(os.getenv("QUEUE_METRIC_INTERVAL_SEC", "1.0"))
     loops_per_service: int = int(os.getenv("LOOPS_PER_SERVICE", "8"))
     queue_warn_ratio: float = float(os.getenv("SIM_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.8")))
     queue_low_watermark_ratio: float = float(os.getenv("QUEUE_LOW_WATERMARK_RATIO", "0.2"))
@@ -35,11 +55,20 @@ class SimulatorSettings:
 @dataclass(frozen=True)
 class PublisherSettings:
     workers: int = int(os.getenv("PUBLISHER_WORKERS", "8"))
+    batch_size: int = int(os.getenv("BATCH_SIZE", os.getenv("WORKER_BATCH_SIZE", "80")))
     worker_batch_size: int = int(os.getenv("WORKER_BATCH_SIZE", "80"))
+    batch_wait_sec: float = _read_batch_wait_sec()
     queue_warn_ratio: float = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.7")))
     idle_warn_sec: float = float(os.getenv("IDLE_WARN_SEC", "0.2"))
     send_warn_sec: float = float(os.getenv("SEND_WARN_SEC", "0.3"))
-    retry_backoff_sec: float = float(os.getenv("PUBLISH_RETRY_BACKOFF_SEC", "0.2"))
+    retry_backoff_sec: float = _read_retry_backoff_sec()
+    retry_max: int = int(os.getenv("RETRY_MAX", "1"))
+
+
+@dataclass(frozen=True)
+class MetricsSettings:
+    interval_sec: float = float(os.getenv("METRICS_INTERVAL_SEC", "10"))
+    queue_size: int = int(os.getenv("METRICS_QUEUE_SIZE", "10000"))
 
 
 @dataclass(frozen=True)
@@ -63,3 +92,4 @@ class ProducerSettings:
 SIMULATOR_SETTINGS = SimulatorSettings()
 PUBLISHER_SETTINGS = PublisherSettings()
 PRODUCER_SETTINGS = ProducerSettings()
+METRICS_SETTINGS = MetricsSettings()
