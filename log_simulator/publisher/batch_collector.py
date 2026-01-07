@@ -16,6 +16,7 @@ def collect_batch(
     batch_wait_sec: float,
     stop_event: Any | None,
 ) -> list[Any] | None:
+    """큐에서 배치를 모아 크기/대기 조건으로 반환한다."""
     try:
         first = publish_queue.get(timeout=0.5)
     except std_queue.Empty:
