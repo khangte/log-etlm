@@ -26,15 +26,33 @@ if not _logger.handlers:
 
 
 def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
-    raw_json = message.value.decode("utf-8", errors="replace")
+    """실패 배치를 DLQ 메시지로 변환한다."""
+    raw_json = ""
     event_id = None
     request_id = None
-    try:
-        payload = json.loads(raw_json)
+    payload = None
+
+    if isinstance(message.value, dict):
+        payload = message.value
         event_id = payload.get("event_id")
         request_id = payload.get("request_id")
-    except Exception:
-        pass
+        raw_json = json.dumps(payload, ensure_ascii=False)
+    elif isinstance(message.value, bytes):
+        raw_json = message.value.decode("utf-8", errors="replace")
+        try:
+            payload = json.loads(raw_json)
+            event_id = payload.get("event_id")
+            request_id = payload.get("request_id")
+        except Exception:
+            pass
+    else:
+        raw_json = str(message.value)
+        try:
+            payload = json.loads(raw_json)
+            event_id = payload.get("event_id")
+            request_id = payload.get("request_id")
+        except Exception:
+            pass
 
     dlq_payload = {
         "error_type": type(error).__name__,
@@ -57,6 +75,7 @@ def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
 
 
 async def publish_dlq_batch(batch: Sequence[BatchMessage], error: Exception) -> None:
+    """DLQ 배치를 비동기로 전송한다."""
     dlq_batch = [build_dlq_message(message, error) for message in batch]
     try:
         await publish_batch_direct(dlq_batch)
@@ -70,6 +89,7 @@ async def publish_dlq_batch(batch: Sequence[BatchMessage], error: Exception) -> 
 
 
 def publish_dlq_batch_sync(batch: Sequence[BatchMessage], error: Exception) -> None:
+    """DLQ 배치를 동기로 전송한다."""
     dlq_batch = [build_dlq_message(message, error) for message in batch]
     try:
         publish_batch_direct_sync(dlq_batch)
