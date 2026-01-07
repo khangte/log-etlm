@@ -7,10 +7,16 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
+
+try:
+    import orjson
+except ImportError:  # pragma: no cover - optional dependency
+    orjson = None
 
 from ..config.settings import PRODUCER_SETTINGS
 from ..models.messages import BatchMessage
@@ -21,6 +27,7 @@ logger = logging.getLogger("log_simulator.producer")
 logger.setLevel(logging.INFO)
 
 def _ensure_logger_handler() -> None:
+    """프로듀서 로거에 기본 핸들러를 연결한다."""
     if logger.handlers:
         return
     handler = logging.StreamHandler()
@@ -33,6 +40,7 @@ _ensure_logger_handler()
 
 
 def _build_producer_config() -> Dict[str, Any]:
+    """프로듀서 설정 값을 딕셔너리로 구성한다."""
     s = PRODUCER_SETTINGS
     return {
         "bootstrap.servers": s.brokers,
@@ -52,9 +60,7 @@ def _build_producer_config() -> Dict[str, Any]:
 _producer: Optional[Producer] = None
 
 def get_producer() -> Producer:
-    """
-    모듈 전역에서 재사용할 단일 Producer 인스턴스를 반환한다.
-    """
+    """모듈 전역에서 재사용할 Producer 인스턴스를 반환한다."""
     global _producer
     if _producer is None:
         _producer = Producer(_build_producer_config())
@@ -77,24 +83,30 @@ def close_producer(timeout: float = 5.0) -> None:
 # 동기 발행 함수 (실제 Kafka I/O)
 # ---------------------------------------------------------------------------
 
-def _to_bytes(value: Optional[bytes | str]) -> Optional[bytes]:
-    # value/key를 bytes로 정규화해 producer에 바로 전달한다.
+def _to_bytes(value: Optional[bytes | str | dict]) -> Optional[bytes]:
+    """value/key를 bytes로 정규화해 producer에 전달한다."""
     if value is None:
         return None
     if isinstance(value, bytes):
         return value
-    return str(value).encode("utf-8")
+    if isinstance(value, str):
+        return value.encode("utf-8")
+    if orjson is not None:
+        return orjson.dumps(value)
+    return json.dumps(value, ensure_ascii=False).encode("utf-8")
 
 def _deliver(
     producer: Producer,
     service: str,
-    value: bytes | str,
+    value: bytes | str | dict,
     key: Optional[bytes | str] = None,
     replicate_error: bool = False,
 ) -> None:
+    """단일 메시지를 Kafka로 전송하고 필요 시 에러 토픽도 복제한다."""
     topic = get_topic(service)
 
     def _delivery_report(err, msg):
+        """Kafka 전송 결과 콜백을 기록한다."""
         if err is not None:
             logger.warning(
                 "Kafka 전송 실패: topic=%s key=%s error=%s",
@@ -128,14 +140,7 @@ async def publish_batch_direct(
     poll_every: int = 1000,
     backoff_sec: float = 0.001,
 ) -> None:
-    """
-    threadpool 없이 event loop에서 바로 produce한다.
-
-    confluent_kafka.Producer.produce()는 비동기 enqueue이며 빠르지만,
-    내부 버퍼가 가득 차면 BufferError가 날 수 있어 poll+backoff로 흡수한다.
-    delivery callback 처리는 이 함수의 poll로만 보장한다.
-    BufferError 외 예외는 호출부에서 처리할 수 있도록 상위로 전달한다.
-    """
+    """이벤트 루프에서 배치를 동기 enqueue하고 poll로 콜백을 처리한다."""
     producer = get_producer()
     backoff_sec = max(backoff_sec, 0.0)
     poll_every = max(int(poll_every), 1)
@@ -174,9 +179,7 @@ def publish_batch_direct_sync(
     poll_every: int = 1000,
     backoff_sec: float = 0.001,
 ) -> None:
-    """
-    동기 발행: 프로세스/스레드 기반 퍼블리셔용 경로.
-    """
+    """프로세스/스레드 기반 퍼블리셔에서 배치를 동기 발행한다."""
     producer = get_producer()
     backoff_sec = max(backoff_sec, 0.0)
     poll_every = max(int(poll_every), 1)
