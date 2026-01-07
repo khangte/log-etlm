@@ -20,6 +20,7 @@ async def run_generator_async(
     metrics_queue: Any | None,
     stop_event: Any | None,
 ) -> None:
+    """시뮬레이터 컨텍스트를 로드해 서비스 루프를 실행한다."""
     context = load_profile_context()
     context.profile["event_mode"] = SIMULATOR_SETTINGS.event_mode
     simulators = build_simulators(context.profile)
