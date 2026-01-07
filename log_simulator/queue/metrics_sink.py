@@ -10,6 +10,7 @@ from typing import Any
 
 
 def emit_metric(metrics_queue: Any | None, name: str, value: float, service: str | None) -> None:
+    """메트릭을 논블로킹으로 큐에 적재한다."""
     if metrics_queue is None:
         return
     try:
