@@ -7,13 +7,13 @@
 대규모 로그 데이터에 대한 **수집, 처리, 모니터링**을 목표로 하는 **PoC(Proof of Concept) 프로젝트**입니다.
 
 - 대용량 이벤트 로그를 실시간으로 수집‧가공‧시각화하는 파이프라인을 검증했습니다.
-- FastAPI 기반 시뮬레이터가 Kafka 로그 토픽에 다양한 서비스 패턴을 발행하면, Spark Structured Streaming 잡이 이를 ClickHouse 분석 테이블로 적재하고 Grafana 대시보드로 노출합니다. 각 컴포넌트는 Docker Compose로 손쉽게 기동할 수 있으며, ClickHouse 초기 스키마와 Grafana 프로비저닝도 자동화되어 있어 부팅 직후부터 엔드투엔드 흐름을 검증할 수 있습니다.
+- 로그 시뮬레이터가 Kafka 로그 토픽에 다양한 서비스 패턴을 발행하면, Spark Structured Streaming 잡이 이를 ClickHouse 분석 테이블로 적재하고 Grafana 대시보드로 노출합니다. 각 컴포넌트는 Docker Compose로 손쉽게 기동할 수 있으며, ClickHouse 초기 스키마와 Grafana 프로비저닝도 자동화되어 있어 부팅 직후부터 엔드투엔드 흐름을 검증할 수 있습니다.
 
 
 ## 목표
 
 - 대규모 로그 스트림의 실시간 제약 하 안정 처리 가능성 검증.
-- FastAPI → Kafka → Spark → ClickHouse → Grafana 엔드투엔드 파이프라인의 성능/지연 목표 충족 여부 확인.
+- Generator/Publisher → Kafka → Spark → ClickHouse → Grafana 엔드투엔드 파이프라인의 성능/지연 목표 충족 여부 확인.
 - 각 단계별 병목 지점 식별 및 개선 방안 도출.
 - 추가: Slack 연동 Watchdog과 Grafana 대시보드 기반 최소 운영 감시 체계 구성 및 실시간 알림/가시성 확보 가능성 검증.
 
@@ -22,7 +22,6 @@
 
 | 아이콘 | 설명 |
 | --- | --- |
-| <img src="https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white"> | FastAPI: log_simulator 시뮬레이터 및 API 엔드포인트 |
 | <img src="https://img.shields.io/badge/ApacheKafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white"> | Apache Kafka + Kafka UI: 로그 수집 버퍼와 모니터링 UI |
 | <img src="https://img.shields.io/badge/ApacheSpark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white"> | Apache Spark 4.0 Structured Streaming: Kafka → ClickHouse 실시간 적재 |
 | <img src="https://img.shields.io/badge/ClickHouse-FFCC01?style=for-the-badge&logo=clickhouse&logoColor=white"> | ClickHouse: OLAP 테이블 로그 저장 |
@@ -38,8 +37,7 @@
 ![시스템아키텍처](images/SystemArchitecture.png)
 
 1. **로그 생성/수집**
-   - `log_simulator/pipeline_builder.py`가 서비스별 트래픽 믹스·시간대 가중치·오류율을 반영한 HTTP 이벤트 생성 파이프라인을 구성.
-   - FastAPI 앱의 `/ping` 헬스체크와 엔진 라이프사이클에 따라 지속 로그 생성.
+   - `log_simulator/generator/generator_runner.py`가 서비스별 트래픽 믹스·시간대 가중치·오류율을 반영한 이벤트 생성 루프를 실행.
 2. **로그 브로커/버퍼링**
    - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.notify`, `logs.error` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
@@ -73,11 +71,10 @@ docker compose up -d kafka kafka-ui
 docker compose up -d spark clickhouse grafana
 
 # 3. 로그 시뮬레이터 기동
-docker compose up -d simulator simulator2
+docker compose up -d simulator
 
 # 4. 상태 점검
 docker compose ps
-curl http://localhost:8000/ping                 # log_simulator FastAPI
 curl http://localhost:4040/api/v1/applications  # Spark UI REST
 
 # 5. (선택) CLI 모니터링
@@ -94,6 +91,10 @@ crontab -e
 
 - 시뮬레이터 부하 프로파일: `log_simulator/profiles/baseline.yaml`
   - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
+- 실행 엔트리포인트:
+  - `python -m log_simulator.run` (multiprocessing 기반 단일 호스트 실행)
+  - `OVERFLOW_POLICY=drop_oldest|drop_newest`, `QUEUE_MAX_SIZE`
+  - `BATCH_WAIT_MS`, `RETRY_MAX`, `RETRY_BACKOFF_MS`
 - Spark 환경 프로파일: `env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
 - 유틸 스크립트 목록
