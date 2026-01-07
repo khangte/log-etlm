@@ -45,6 +45,7 @@ def publisher_worker(
     metrics_queue: Any | None,
     stop_event: Any | None,
 ) -> None:
+    """퍼블리셔 워커 루프를 실행한다."""
     batch_size = max(PUBLISHER_SETTINGS.batch_size, 1)
     batch_wait_sec = max(PUBLISHER_SETTINGS.batch_wait_sec, 0.0)
     retry_max = max(PUBLISHER_SETTINGS.retry_max, 0)
@@ -100,6 +101,7 @@ def run_publisher_workers(
     metrics_queue: Any | None,
     stop_event: Any | None,
 ) -> None:
+    """퍼블리셔 워커 스레드를 실행하고 종료 처리를 한다."""
     workers = max(PUBLISHER_SETTINGS.workers, 1)
     threads = []
     for i in range(workers):
@@ -134,6 +136,7 @@ def _drain_publish_queue(
     stop_event: Any | None,
     drain_timeout_sec: float,
 ) -> None:
+    """종료 전에 남은 배치를 제한 시간 동안 처리한다."""
     if drain_timeout_sec <= 0:
         return
 
@@ -192,6 +195,7 @@ def _send_batch(
     retry_max: int,
     retry_backoff_sec: float,
 ) -> Tuple[int, bool, Exception | None]:
+    """배치를 전송하고 결과를 반환한다."""
     send_start = time.perf_counter()
     send_ok = False
     last_exc: Exception | None = None
@@ -217,6 +221,7 @@ def _emit_publish_metrics(
     svc_counter: Counter,
     send_duration_ms: int,
 ) -> None:
+    """전송 성공 메트릭을 기록한다."""
     for svc, cnt in svc_counter.items():
         emit_metric(metrics_queue, PUBLISHED_TOTAL, cnt, svc)
         emit_metric(metrics_queue, PUBLISH_LATENCY_SUM_MS, send_duration_ms * cnt, svc)
@@ -229,6 +234,7 @@ def _emit_publish_fail_metrics(
     last_exc: Exception | None,
     batch: list[Any],
 ) -> None:
+    """전송 실패 메트릭과 DLQ 전송을 처리한다."""
     if last_exc is not None:
         publish_dlq_batch_sync(batch, last_exc)
     for svc, cnt in svc_counter.items():
@@ -240,6 +246,7 @@ def _emit_queue_wait_metrics(
     batch: list[Any],
     publish_start_ms: int,
 ) -> None:
+    """큐 대기 시간을 메트릭으로 기록한다."""
     wait_sum_by_service: Dict[str, int] = defaultdict(int)
     wait_count_by_service: Dict[str, int] = defaultdict(int)
     for message in batch:
@@ -262,6 +269,7 @@ def _log_queue_backlog(
     publish_queue: Any,
     last_queue_warn_ts: float,
 ) -> float:
+    """큐 적체 상태를 주기적으로 로그로 남긴다."""
     now = time.perf_counter()
     if (now - last_queue_warn_ts) < 5.0:
         return last_queue_warn_ts
