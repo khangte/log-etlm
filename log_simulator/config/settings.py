@@ -10,6 +10,7 @@ import os
 
 
 def _read_retry_backoff_sec() -> float:
+    """재시도 백오프를 초 단위로 읽는다."""
     raw_ms = os.getenv("RETRY_BACKOFF_MS")
     if raw_ms is not None:
         try:
@@ -20,6 +21,7 @@ def _read_retry_backoff_sec() -> float:
 
 
 def _read_batch_wait_sec() -> float:
+    """배치 대기 시간을 초 단위로 읽는다."""
     raw_ms = os.getenv("BATCH_WAIT_MS", os.getenv("WORKER_BATCH_WAIT_MS", "20"))
     try:
         return float(raw_ms) / 1000.0
