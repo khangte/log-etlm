@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame, functions as F
 
-from spark_job.schemas.fact_schema import log_value_schema
+from ..schema import log_value_schema
 
 
 def parse_event(kafka_df: DataFrame) -> DataFrame:

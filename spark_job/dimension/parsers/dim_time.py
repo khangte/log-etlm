@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schemas.dim_schema import DIM_TIME_COLUMNS
+from ..schema import DIM_TIME_COLUMNS
 
 
 def parse_dim_time(fact_df: DataFrame) -> DataFrame:

@@ -5,9 +5,9 @@ from __future__ import annotations
 import os
 from pyspark.sql import DataFrame
 
-from spark_job.transforms.normalize_event import normalize_event
-from spark_job.transforms.parse_event import parse_event
-from spark_job.transforms.validate_event import validate_event
+from ..transforms.normalize_event import normalize_event
+from ..transforms.parse_event import parse_event
+from ..transforms.validate_event import validate_event
 
 
 def parse_fact_event(kafka_df: DataFrame) -> DataFrame:
