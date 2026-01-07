@@ -14,7 +14,13 @@ from typing import Any, Dict
 
 from ..config.settings import METRICS_SETTINGS
 from ..queue.metrics_keys import (
+    BUILD_DURATION_COUNT,
+    BUILD_DURATION_SUM_MS,
     ENQUEUED_TOTAL,
+    ENQUEUE_DURATION_COUNT,
+    ENQUEUE_DURATION_SUM_MS,
+    GEN_DURATION_COUNT,
+    GEN_DURATION_SUM_MS,
     GENERATED_TOTAL,
     OVERFLOW_DROPPED_TOTAL,
     PUBLISHED_TOTAL,
@@ -26,6 +32,7 @@ from ..queue.metrics_keys import (
 
 
 def run_metrics_reporter(metrics_queue: Any, stop_event: Any | None) -> None:
+    """메트릭 큐를 집계해 주기적으로 로그로 출력한다."""
     log = logging.getLogger("log_simulator.metrics")
     log.setLevel(logging.INFO)
     if not log.handlers:
@@ -42,9 +49,11 @@ def run_metrics_reporter(metrics_queue: Any, stop_event: Any | None) -> None:
     idle_rounds = 0
 
     def _sum_metric(name: str) -> int:
+        """이름별 누적 값을 합산한다."""
         return sum(window_counters.get(name, {}).values())
 
     def _svc_breakdown(name: str) -> str:
+        """서비스별 카운터를 보기 좋게 문자열로 만든다."""
         items = window_counters.get(name, {})
         if not items:
             return ""
@@ -63,11 +72,21 @@ def run_metrics_reporter(metrics_queue: Any, stop_event: Any | None) -> None:
             wait_sum = _sum_metric(QUEUE_WAIT_SUM_MS)
             wait_count = _sum_metric(QUEUE_WAIT_COUNT)
             wait_avg = (wait_sum / wait_count) if wait_count > 0 else 0.0
+            gen_ms_sum = _sum_metric(GEN_DURATION_SUM_MS)
+            gen_ms_count = _sum_metric(GEN_DURATION_COUNT)
+            gen_ms_avg = (gen_ms_sum / gen_ms_count) if gen_ms_count > 0 else 0.0
+            build_ms_sum = _sum_metric(BUILD_DURATION_SUM_MS)
+            build_ms_count = _sum_metric(BUILD_DURATION_COUNT)
+            build_ms_avg = (build_ms_sum / build_ms_count) if build_ms_count > 0 else 0.0
+            enq_ms_sum = _sum_metric(ENQUEUE_DURATION_SUM_MS)
+            enq_ms_count = _sum_metric(ENQUEUE_DURATION_COUNT)
+            enq_ms_avg = (enq_ms_sum / enq_ms_count) if enq_ms_count > 0 else 0.0
 
             log.info(
                 "[metrics pid=%d] gen_eps=%.1f enq_eps=%.1f pub_eps=%.1f drop_eps=%.1f "
-                "fail_drop_eps=%.1f queue_depth=%s queue_wait_avg_ms=%.1f gen_by_svc=(%s) "
-                "pub_by_svc=(%s)",
+                "fail_drop_eps=%.1f queue_depth=%s queue_wait_avg_ms=%.1f "
+                "gen_ms_avg=%.1f build_ms_avg=%.1f enqueue_ms_avg=%.1f "
+                "gen_by_svc=(%s) pub_by_svc=(%s)",
                 os.getpid(),
                 gen_total / elapsed if elapsed > 0 else 0.0,
                 enq_total / elapsed if elapsed > 0 else 0.0,
@@ -76,6 +95,9 @@ def run_metrics_reporter(metrics_queue: Any, stop_event: Any | None) -> None:
                 fail_drop_total / elapsed if elapsed > 0 else 0.0,
                 gauges.get("queue_depth", 0),
                 wait_avg,
+                gen_ms_avg,
+                build_ms_avg,
+                enq_ms_avg,
                 _svc_breakdown(GENERATED_TOTAL),
                 _svc_breakdown(PUBLISHED_TOTAL),
             )
