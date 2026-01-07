@@ -11,6 +11,7 @@ from typing import Any, Tuple
 
 
 def queue_maxsize(publish_queue: Any, fallback: int = 0) -> int:
+    """큐 maxsize를 조회하고 없으면 fallback을 사용한다."""
     maxsize = getattr(publish_queue, "maxsize", 0)
     if maxsize:
         return int(maxsize)
@@ -18,6 +19,7 @@ def queue_maxsize(publish_queue: Any, fallback: int = 0) -> int:
 
 
 def queue_qsize(publish_queue: Any) -> int:
+    """큐의 현재 크기를 안전하게 조회한다."""
     try:
         return int(publish_queue.qsize())
     except (NotImplementedError, AttributeError):
@@ -25,6 +27,7 @@ def queue_qsize(publish_queue: Any) -> int:
 
 
 def queue_put_nowait(publish_queue: Any, batch_items: list[Any]) -> None:
+    """큐에 배치를 논블로킹으로 넣는다."""
     if hasattr(publish_queue, "put_nowait"):
         publish_queue.put_nowait(batch_items)
         return
@@ -32,6 +35,7 @@ def queue_put_nowait(publish_queue: Any, batch_items: list[Any]) -> None:
 
 
 def queue_get_nowait(publish_queue: Any) -> Any:
+    """큐에서 항목을 논블로킹으로 꺼낸다."""
     if hasattr(publish_queue, "get_nowait"):
         return publish_queue.get_nowait()
     return publish_queue.get(block=False)
@@ -44,6 +48,7 @@ def enqueue_batch(
     *,
     fallback_maxsize: int = 0,
 ) -> Tuple[int, int]:
+    """배치를 큐에 적재하고 overflow 정책을 적용한다."""
     if not batch_items:
         return 0, 0
 
