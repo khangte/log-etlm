@@ -19,3 +19,10 @@ QUEUE_WAIT_COUNT = "queue_wait_count"
 
 PUBLISH_LATENCY_SUM_MS = "publish_latency_sum_ms"
 PUBLISH_LATENCY_COUNT = "publish_latency_count"
+
+GEN_DURATION_SUM_MS = "gen_duration_sum_ms"
+GEN_DURATION_COUNT = "gen_duration_count"
+BUILD_DURATION_SUM_MS = "build_duration_sum_ms"
+BUILD_DURATION_COUNT = "build_duration_count"
+ENQUEUE_DURATION_SUM_MS = "enqueue_duration_sum_ms"
+ENQUEUE_DURATION_COUNT = "enqueue_duration_count"
