@@ -30,6 +30,7 @@ if not _logger.handlers:
 
 
 def _run_guarded(name: str, target: Callable[..., Any], *args: Any) -> None:
+    """프로세스 타깃을 감싸 예외를 로깅하고 중지 신호를 전파한다."""
     try:
         target(*args)
     except Exception:
@@ -46,10 +47,12 @@ def _run_generator(
     metrics_queue: Any,
     stop_event: Any,
 ) -> None:
+    """제너레이터 루프를 이벤트 루프에서 실행한다."""
     asyncio.run(run_generator_async(publish_queue, metrics_queue, stop_event))
 
 
 def main() -> None:
+    """generator/publisher/metrics 프로세스를 실행하고 감시한다."""
     start_method = os.getenv("SIM_MP_START_METHOD", "spawn")
     ctx = mp.get_context(start_method)
 
@@ -58,6 +61,7 @@ def main() -> None:
     stop_event = ctx.Event()
 
     def _handle_signal(signum, _frame) -> None:
+        """종료 신호를 받아 stop_event를 설정한다."""
         _logger.info("signal received=%s; stopping", signum)
         stop_event.set()
 
