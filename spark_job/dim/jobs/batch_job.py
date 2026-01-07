@@ -1,4 +1,4 @@
-# spark_job/jobs/dim_batch_job.py
+# spark_job/dim/jobs/batch_job.py
 # 하루 1회 배치로 Dimension 테이블을 갱신한다.
 # NOTE: 이 파일은 자동 실행되지 않으며, 수동 또는 크론으로 실행해야 한다.
 
@@ -6,15 +6,15 @@ from __future__ import annotations
 
 import os
 
-from ..dimension import (
+from .. import (
     parse_dim_date,
     parse_dim_service,
     parse_dim_status_code,
     parse_dim_time,
     parse_dim_user,
 )
-from ..spark import build_batch_spark
-from ..warehouse.writer.dim_writer import ClickHouseDimWriter
+from ...spark import build_batch_spark
+from ..writer import ClickHouseDimWriter
 
 def _read_fact_event(spark):
     clickhouse_url = os.getenv(

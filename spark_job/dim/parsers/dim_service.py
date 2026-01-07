@@ -1,10 +1,10 @@
-# spark_job/dimension/dim_service.py
+# spark_job/dim/parsers/dim_service.py
 
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schemas.dim_schema import DIM_SERVICE_COLUMNS
+from ..schema import DIM_SERVICE_COLUMNS
 
 
 def parse_dim_service(fact_df: DataFrame) -> DataFrame:

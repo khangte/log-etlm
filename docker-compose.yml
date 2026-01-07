@@ -250,12 +250,12 @@ services:
       # NOTE: ClickHouse 데이터는 루트(/)가 아니라 /data에 둬야 디스크(루트) 고갈로 ingest가 멈추는 걸 방지할 수 있음
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
-      - ./spark_job/warehouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
-      - ./spark_job/warehouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
-      - ./spark_job/warehouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
-      - ./spark_job/warehouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
-      # - ./spark_job/warehouse/sql/30_dimensions.sql:/docker-entrypoint-initdb.d/30_dimensions.sql:ro
-      - ./spark_job/warehouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
+      - ./spark_job/clickhouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
+      - ./spark_job/clickhouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
+      - ./spark_job/clickhouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
+      - ./spark_job/clickhouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
+      # - ./spark_job/clickhouse/sql/30_dimensions.sql:/docker-entrypoint-initdb.d/30_dimensions.sql:ro
+      - ./spark_job/clickhouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]

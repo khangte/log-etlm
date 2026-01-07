@@ -45,8 +45,8 @@
    - `spark_job/main.py`가 Structured Streaming으로 `logs.*` 패턴 구독, `fact_event.parse_fact_event()`로 스키마 정규화 수행.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
-   - `spark_job/warehouse/writer/fact_writer.py` → `spark_job/warehouse/sink.py`의 `write_to_clickhouse()`가 ClickHouse `analytics.fact_event` 테이블에 JDBC append 수행.
-   - 초기 스키마는 `spark_job/warehouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
+   - `spark_job/fact/writer.py` → `spark_job/clickhouse/sink.py`의 `write_to_clickhouse()`가 ClickHouse `analytics.fact_event` 테이블에 JDBC append 수행.
+   - 초기 스키마는 `spark_job/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
    - `monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.

@@ -1,4 +1,4 @@
-# spark_job/jobs/event_ingest_job.py
+# spark_job/fact/jobs/ingest_job.py
 # spark-submit 진입점
 # Kafka logs.* 토픽에서 데이터를 읽고 ClickHouse로 적재한다.
 
@@ -10,17 +10,17 @@ import time
 from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQueryException
 
-from ..dlq.dlq_builder import build_dlq_df
-from ..schemas.dlq_schema import DLQ_VALUE_SCHEMA
-from ..spark import build_streaming_spark
+from ...dlq.builders.builder import build_dlq_df
+from ...dlq.schema import DLQ_VALUE_SCHEMA
+from ...spark import build_streaming_spark
 from ..transforms.normalize_event import normalize_event
 from ..transforms.parse_event import parse_event
 from ..transforms.validate_event import validate_event
-from ..warehouse.writer.fact_writer import (
+from ..writer import (
     ClickHouseStreamWriter,
     FACT_EVENT_CHECKPOINT_DIR,
 )
-from ..warehouse.writer.dlq_writer import ClickHouseDlqWriter
+from ...dlq.writer import ClickHouseDlqWriter
 
 writer = ClickHouseStreamWriter()
 dlq_writer = ClickHouseDlqWriter()

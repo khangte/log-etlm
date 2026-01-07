@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame, functions as F
 
-from spark_job.schemas.fact_schema import FACT_EVENT_COLUMNS
+from .schema import FACT_EVENT_COLUMNS
 
 
 def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> DataFrame:
