@@ -9,20 +9,18 @@ import asyncio
 import logging
 import time
 import random
-import math
 from typing import Any, Dict, List, Tuple
 
 from ..config.timeband import current_hour_kst, pick_multiplier
 from ..config.settings import SIMULATOR_SETTINGS
-from ..queue.metrics_keys import (
-    ENQUEUED_TOTAL,
-    GENERATED_TOTAL,
-    OVERFLOW_DROPPED_TOTAL,
-    QUEUE_DEPTH,
+from ..queue.queue_adapter import queue_maxsize, queue_qsize
+from .loop_helpers import (
+    compute_batch_size,
+    enqueue_batch_events,
+    maybe_emit_queue_depth,
+    maybe_log_behind_target,
 )
-from ..queue.metrics_sink import emit_metric
-from ..queue.queue_adapter import enqueue_batch, queue_maxsize, queue_qsize
-from .batch_builder import apply_created_ms, build_batch_items
+from .queue_throttle import apply_queue_throttle
 
 # 서비스 루프 기본 설정
 LOG_BATCH_SIZE = SIMULATOR_SETTINGS.log_batch_size
@@ -96,37 +94,21 @@ async def _service_stream_loop(
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
-        carry += scaled_eps * dt_actual
-        if carry > max_batch_size:
-            carry = float(max_batch_size)
-        batch_size = int(math.floor(carry))
-        if batch_size > max_batch_size:
-            batch_size = max_batch_size
-        carry -= batch_size
-
-        enqueue_duration = 0.0
-        if batch_size > 0:
-            events = simulator.generate_events(batch_size)  # batch_size = 요청 수
-            created_ms = int(time.time() * 1000)
-            apply_created_ms(events, created_ms)
-
-            enqueue_start = time.perf_counter()
-            enqueued_ms = int(time.time() * 1000)
-            batch_items = build_batch_items(service, simulator, events, enqueued_ms)
-
-            if batch_items:
-                emit_metric(metrics_queue, GENERATED_TOTAL, len(batch_items), service)
-                enqueued, dropped = enqueue_batch(
-                    publish_queue=publish_queue,
-                    batch_items=batch_items,
-                    overflow_policy=overflow_policy,
-                    fallback_maxsize=QUEUE_SIZE,
-                )
-                if enqueued:
-                    emit_metric(metrics_queue, ENQUEUED_TOTAL, enqueued, service)
-                if dropped:
-                    emit_metric(metrics_queue, OVERFLOW_DROPPED_TOTAL, dropped, service)
-                enqueue_duration = time.perf_counter() - enqueue_start
+        batch_size, carry = compute_batch_size(
+            carry=carry,
+            scaled_eps=scaled_eps,
+            dt_actual=dt_actual,
+            max_batch_size=max_batch_size,
+        )
+        enqueue_duration = enqueue_batch_events(
+            service=service,
+            simulator=simulator,
+            batch_size=batch_size,
+            publish_queue=publish_queue,
+            metrics_queue=metrics_queue,
+            overflow_policy=overflow_policy,
+            queue_size=QUEUE_SIZE,
+        )
 
         desired_period = tick_sec
         elapsed = time.perf_counter() - loop_start
@@ -138,107 +120,57 @@ async def _service_stream_loop(
         queue_depth = queue_qsize(publish_queue)
         queue_capacity = queue_maxsize(publish_queue, fallback=QUEUE_SIZE)
 
-        if QUEUE_METRIC_INTERVAL_SEC > 0:
-            now_metric_ts = time.perf_counter()
-            if (now_metric_ts - last_queue_metric_ts) >= QUEUE_METRIC_INTERVAL_SEC:
-                emit_metric(metrics_queue, QUEUE_DEPTH, queue_depth, None)
-                last_queue_metric_ts = now_metric_ts
+        last_queue_metric_ts = maybe_emit_queue_depth(
+            metrics_queue=metrics_queue,
+            queue_depth=queue_depth,
+            interval_sec=QUEUE_METRIC_INTERVAL_SEC,
+            last_metric_ts=last_queue_metric_ts,
+        )
+        last_behind_log_ts = maybe_log_behind_target(
+            logger=_logger,
+            loop_start=loop_start,
+            last_log_ts=last_behind_log_ts,
+            log_every_sec=behind_log_every_sec,
+            service=service,
+            target_eps=effective_eps,
+            batch_size=batch_size,
+            elapsed=elapsed,
+            desired_period=desired_period,
+            enqueue_duration=enqueue_duration,
+            queue_depth=queue_depth,
+        )
 
-        if elapsed >= desired_period:
-            should_log = True
-            if behind_log_every_sec > 0:
-                should_log = (loop_start - last_behind_log_ts) >= behind_log_every_sec
-            if should_log:
-                last_behind_log_ts = loop_start
-            _logger.info(
-                "[simulator] behind target service=%s target_eps=%.1f batch=%d "
-                "duration=%.4fs target_interval=%.4fs enqueue=%.4fs queue=%d",
-                service,
-                effective_eps,
-                batch_size,
-                elapsed,
-                desired_period,
-                enqueue_duration,
-                queue_depth,
-            )
-
-        if queue_capacity and queue_capacity > 0:
-            fill_ratio = queue_depth / queue_capacity
-            if fill_ratio >= QUEUE_THROTTLE_RATIO:
-                throttle_scale = QUEUE_SOFT_SCALE_MIN
-                throttle_started_at = time.perf_counter()
-                # 큐 포화 시 강한 스로틀로 급격한 버스트를 막는다.
-                _logger.info(
-                    "[simulator] throttling service=%s queue=%d/%d (%.0f%%)",
-                    service,
-                    queue_depth,
-                    queue_capacity,
-                    fill_ratio * 100,
-                )
-
-                while True:
-                    if stop_event is not None and stop_event.is_set():
-                        return
-                    await asyncio.sleep(QUEUE_THROTTLE_SLEEP)
-                    queue_depth = queue_qsize(publish_queue)
-                    fill_ratio = queue_depth / queue_capacity
-                    if fill_ratio <= QUEUE_RESUME_RATIO:
-                        _logger.info(
-                            "[simulator] throttle release service=%s queue=%d/%d (%.0f%%)",
-                            service,
-                            queue_depth,
-                            queue_capacity,
-                            fill_ratio * 100,
-                        )
-                        throttle_duration = time.perf_counter() - throttle_started_at
-                        _logger.info(
-                            "[simulator] throttle duration service=%s duration=%.3fs",
-                            service,
-                            throttle_duration,
-                        )
-                        break
-                continue
-            if fill_ratio >= QUEUE_SOFT_THROTTLE_RATIO:
-                new_scale = max(QUEUE_SOFT_SCALE_MIN, throttle_scale - QUEUE_SOFT_SCALE_STEP)
-                if new_scale < throttle_scale:
-                    # 큐가 차오르면 생성 속도를 점진적으로 낮춘다.
-                    throttle_scale = new_scale
-                    _logger.info(
-                        "[simulator] soft throttle service=%s scale=%.2f queue=%d/%d (%.0f%%)",
-                        service,
-                        throttle_scale,
-                        queue_depth,
-                        queue_capacity,
-                        fill_ratio * 100,
-                    )
-            elif fill_ratio <= QUEUE_SOFT_RESUME_RATIO:
-                new_scale = min(QUEUE_SOFT_SCALE_MAX, throttle_scale + QUEUE_SOFT_SCALE_STEP)
-                if new_scale > throttle_scale:
-                    throttle_scale = new_scale
-                    _logger.info(
-                        "[simulator] soft throttle release service=%s scale=%.2f queue=%d/%d (%.0f%%)",
-                        service,
-                        throttle_scale,
-                        queue_depth,
-                        queue_capacity,
-                        fill_ratio * 100,
-                    )
-            if sleep_time > 0 and fill_ratio <= QUEUE_LOW_WATERMARK_RATIO:
-                # 큐가 비어있을 땐 sleep을 줄여 목표 EPS를 더 잘 맞춘다.
-                sleep_time *= QUEUE_LOW_SLEEP_SCALE
-            if fill_ratio >= QUEUE_WARN_RATIO:
-                _logger.info(
-                    "[simulator] queue backlog service=%s queue=%d/%d (%.0f%%)",
-                    service,
-                    queue_depth,
-                    queue_capacity,
-                    fill_ratio * 100,
-                )
+        throttle_scale, sleep_time, throttle_action = await apply_queue_throttle(
+            publish_queue=publish_queue,
+            queue_depth=queue_depth,
+            queue_capacity=queue_capacity,
+            throttle_scale=throttle_scale,
+            sleep_time=sleep_time,
+            stop_event=stop_event,
+            logger=_logger,
+            service=service,
+            queue_throttle_ratio=QUEUE_THROTTLE_RATIO,
+            queue_resume_ratio=QUEUE_RESUME_RATIO,
+            queue_throttle_sleep=QUEUE_THROTTLE_SLEEP,
+            queue_soft_throttle_ratio=QUEUE_SOFT_THROTTLE_RATIO,
+            queue_soft_resume_ratio=QUEUE_SOFT_RESUME_RATIO,
+            queue_soft_scale_step=QUEUE_SOFT_SCALE_STEP,
+            queue_soft_scale_min=QUEUE_SOFT_SCALE_MIN,
+            queue_soft_scale_max=QUEUE_SOFT_SCALE_MAX,
+            queue_low_watermark_ratio=QUEUE_LOW_WATERMARK_RATIO,
+            queue_low_sleep_scale=QUEUE_LOW_SLEEP_SCALE,
+            queue_warn_ratio=QUEUE_WARN_RATIO,
+        )
+        if throttle_action == "exit":
+            return
+        if throttle_action == "continue":
+            continue
 
         await asyncio.sleep(max(0.0, sleep_time))
 
 
 def _compute_effective_eps(simulator: Any, target_eps: float, multiplier: float) -> float:
+    """타겟 EPS에 시간 가중치를 적용해 유효 EPS를 계산한다."""
     effective_eps = max(target_eps * multiplier, 0.01)
     # NOTE: event_mode 기반 보정(domain/http rate)은 비활성화.
     # mode = getattr(simulator, "event_mode", "all")
