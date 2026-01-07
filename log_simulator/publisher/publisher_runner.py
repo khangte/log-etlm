@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 import logging
+import queue as std_queue
 import threading
 import time
 from typing import Any, Dict, Tuple
