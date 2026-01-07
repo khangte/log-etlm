@@ -20,12 +20,14 @@ PROFILES_FILE = CONFIG_DIR / "profiles.yml"
 
 
 def load_routes() -> Dict[str, Any]:
+    """routes.yml에서 라우트 설정을 로드한다."""
     with ROUTES_FILE.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data.get("routes", {})
 
 
 def load_profile() -> Dict[str, Any]:
+    """profiles.yml에서 시뮬레이터 프로파일을 로드한다."""
     with PROFILES_FILE.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data
@@ -47,9 +49,7 @@ class ProfileContext:
 
 
 def load_profile_context() -> ProfileContext:
-    """
-    프로파일 파일명을 기준으로 실행에 필요한 기본 컨텍스트를 로드한다.
-    """
+    """프로파일을 읽어 실행 컨텍스트를 구성한다."""
     profile = load_profile()
 
     total_eps = float(profile.get("eps", 10000))
