@@ -17,4 +17,5 @@ TOPICS: Dict[str, str] = {
 
 
 def get_topic(service: str) -> str:
+    """서비스에 대응하는 토픽을 반환한다."""
     return TOPICS.get(service, "logs.error")
