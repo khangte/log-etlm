@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # 파일명 : log_simulator/requirements.txt
-# 목적   : FastAPI 앱 + 시뮬레이터가 필요로 하는 파이썬 패키지 목록
+# 목적   : log_simulator 실행에 필요한 파이썬 패키지 목록
 # 비고   :
 #   - PyYAML: profiles/routes 로딩
 #   - confluent-kafka: Kafka 프로듀서
@@ -8,7 +8,5 @@
 #   - 버전은 안정 버전 권장. 특정 조직 규정에 맞춰 핀(PIN) 가능.
 # -----------------------------------------------------------------------------
 
-fastapi==0.116.1               # Python 비동기 웹 프레임워크 (API 서버 핵심)
-uvicorn[standard]==0.35.0      # ASGI 서버 (FastAPI 앱 실행 시 사용, standard 옵션은 성능 향상 추가 패키지 포함)
 PyYAML>=6.0.1,<7.0
 confluent-kafka>=2.5,<3.0      # Kafka 드라이버

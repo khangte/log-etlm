@@ -1,11 +1,11 @@
 # -----------------------------------------------------------------------------
 # 파일명 : log_simulator/Dockerfile
-# 목적   : log_simulator FastAPI 시뮬레이터(uvicorn + generator)를 컨테이너로 실행하는 이미지 정의
+# 목적   : log_simulator multiprocessing 실행을 위한 이미지 정의
 # 특징   :
 #   - Python 3.11 slim 기반
 #   - tzdata 설치(ZoneInfo에서 Asia/Seoul 사용)
-#   - requirements 설치 후 log_simulator 패키지를 복사해 FastAPI 앱/시뮬레이터 포함
-#   - 기본 CMD는 uvicorn log_simulator.main:app
+#   - requirements 설치 후 log_simulator 패키지를 복사해 run.py 실행 가능
+#   - 실행은 run.py 엔트리포인트 사용
 # -----------------------------------------------------------------------------
 
 FROM python:3.11-slim AS runtime

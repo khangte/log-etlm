@@ -15,3 +15,4 @@ class BatchMessage:
     value: bytes
     key: Optional[bytes]
     replicate_error: bool
+    enqueued_ms: Optional[int] = None
