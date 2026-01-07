@@ -114,7 +114,74 @@ def run_publisher_workers(
     for t in threads:
         t.join()
 
-    close_producer(5)
+    if stop_event is not None and stop_event.is_set():
+        drain_timeout = max(SIMULATOR_SETTINGS.shutdown_drain_timeout_sec, 0.0)
+        _drain_publish_queue(
+            publish_queue=publish_queue,
+            metrics_queue=metrics_queue,
+            stop_event=stop_event,
+            drain_timeout_sec=drain_timeout,
+        )
+
+    flush_timeout = max(SIMULATOR_SETTINGS.shutdown_drain_timeout_sec, 5.0)
+    close_producer(flush_timeout)
+
+
+def _drain_publish_queue(
+    publish_queue: Any,
+    metrics_queue: Any | None,
+    stop_event: Any | None,
+    drain_timeout_sec: float,
+) -> None:
+    if drain_timeout_sec <= 0:
+        return
+
+    deadline = time.perf_counter() + drain_timeout_sec
+    drained = 0
+    while time.perf_counter() < deadline:
+        try:
+            batch = publish_queue.get(timeout=0.2)
+        except std_queue.Empty:
+            if stop_event is not None and stop_event.is_set():
+                break
+            continue
+
+        if batch is None:
+            break
+        if not batch:
+            continue
+
+        svc_counter = Counter(message.service for message in batch)
+        publish_start_ms = int(time.time() * 1000)
+        send_duration_ms, send_ok, last_exc = _send_batch(
+            batch=batch,
+            svc_counter=svc_counter,
+            metrics_queue=metrics_queue,
+            retry_max=max(PUBLISHER_SETTINGS.retry_max, 0),
+            retry_backoff_sec=max(PUBLISHER_SETTINGS.retry_backoff_sec, 0.0),
+        )
+        if send_ok:
+            _emit_publish_metrics(
+                metrics_queue=metrics_queue,
+                svc_counter=svc_counter,
+                send_duration_ms=send_duration_ms,
+            )
+        else:
+            _emit_publish_fail_metrics(
+                metrics_queue=metrics_queue,
+                svc_counter=svc_counter,
+                last_exc=last_exc,
+                batch=batch,
+            )
+        _emit_queue_wait_metrics(
+            metrics_queue=metrics_queue,
+            batch=batch,
+            publish_start_ms=publish_start_ms,
+        )
+        drained += len(batch)
+
+    if drained > 0:
+        _logger.info("[publisher] drained messages=%d before shutdown", drained)
 
 
 def _send_batch(
