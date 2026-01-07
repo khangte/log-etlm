@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame, functions as F
 
-from spark_job.schemas.dlq_schema import FACT_EVENT_DLQ_COLUMNS
+from ..schema import FACT_EVENT_DLQ_COLUMNS
 
 
 def build_dlq_df(bad_df: DataFrame) -> DataFrame:

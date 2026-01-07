@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from spark_job.schemas.dim_schema import DIM_USER_COLUMNS
+from ..schema import DIM_USER_COLUMNS
 
 
 def parse_dim_user(fact_df: DataFrame) -> DataFrame:

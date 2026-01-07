@@ -6,15 +6,16 @@ from __future__ import annotations
 
 import os
 
-from ..dimension import (
+from .. import (
     parse_dim_date,
     parse_dim_service,
     parse_dim_status_code,
     parse_dim_time,
     parse_dim_user,
 )
-from ..spark import build_batch_spark
-from ..warehouse.writer.dim_writer import ClickHouseDimWriter
+from ...spark import build_batch_spark
+from ..writer import ClickHouseDimWriter
+
 
 def _read_fact_event(spark):
     clickhouse_url = os.getenv(
