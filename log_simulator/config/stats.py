@@ -28,15 +28,7 @@ async def stats_reporter(
     interval_sec: float = 10.0,
     logger: logging.Logger | None = None,
 ) -> None:
-    """
-    stats 큐를 소비해 터미널에 throughput 로그를 출력한다.
-
-    Args:
-        stats_queue: publisher가 put_nowait 하는 (service, count) 큐
-        services: 보고 대상 서비스 목록
-        interval_sec: 통계 집계 주기(초)
-        logger: 기본 logger 대체용
-    """
+    """통계 큐를 집계해 처리량 로그를 출력한다."""
     log = logger or _logger
 
     loop = asyncio.get_running_loop()
@@ -79,6 +71,7 @@ _tps_counter = defaultdict(int)
 _last_ts = time.time()
 
 def record_tps(service: str):
+    """서비스별 TPS를 1초 단위로 집계해 출력한다."""
     global _last_ts
     _tps_counter[service] += 1
     now = time.time()
