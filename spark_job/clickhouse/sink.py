@@ -44,11 +44,10 @@ def write_to_clickhouse(
         jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE", "50000")
         clickhouse_url = os.getenv(
             "SPARK_CLICKHOUSE_URL",
-            "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0",
-            # async_insert=1 + wait_for_async_insert=0:
-            # - Spark micro-batch에서 INSERT 응답 대기를 줄여 처리량을 올린다.
-            # - 대시보드/분석은 MV 집계 테이블로 보므로, 약간의 지연은 허용 가능.
+            "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
         )
+        # async_insert=1이 이 클러스터에서 ClickHouse "Unknown error 1002"를 발생시켜서,
+        # 비동기 쓰기가 명시적으로 지원될 때까지 동기 파이프라인을 유지합니다.
         clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER", "log_user")
         clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD", "log_pwd")
 
