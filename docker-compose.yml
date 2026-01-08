@@ -7,7 +7,8 @@ services:
     container_name: simulator
     cpus: "1.0"
     # restart: unless-stopped
-    ports: ["8000:8000"]
+    ports: 
+      - "8000:8000"
     environment:
       - SIMULATOR_SHARE=1
       - SIM_EVENT_MODE=domain
@@ -46,7 +47,8 @@ services:
     container_name: kafka
     cpus: "1.0"
     # restart: unless-stopped
-    ports: ["29092:29092"]
+    ports: 
+      - "29092:29092"
     environment:
       # KRaft 필수
       CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"
@@ -105,7 +107,8 @@ services:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
     # restart: unless-stopped
-    ports: ["8080:8080"]
+    ports: 
+      - "8080:8080"
     environment:
       # 클러스터 설정: 내부 브로커 주소 사용
       - KAFKA_CLUSTERS_0_NAME=local
@@ -116,9 +119,6 @@ services:
       kafka:
         condition: service_healthy
     networks: [logetlm-net]
-    logging:
-      driver: json-file
-      options: { max-size: "10m", max-file: "5" }
 
 
   spark-master:
@@ -150,6 +150,8 @@ services:
     container_name: spark
     # restart: unless-stopped
     user: "1000:185"
+    ports: 
+      - "4040:4040"   # Spark UI (stream)
     environment:
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -167,11 +169,10 @@ services:
       # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
       # ClickHouse sink tuning (override as needed)
-      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=1&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=2
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
-    ports: ["4040:4040"]   # Spark UI (stream)
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
@@ -195,6 +196,7 @@ services:
 
   spark-worker-1:
     image: spark:4.0.1-python3
+    container_name: spark-worker-1
     cpus: "1.5"
     # restart: unless-stopped
     user: "185:185"
@@ -216,6 +218,7 @@ services:
 
   spark-worker-2:
     image: spark:4.0.1-python3
+    container_name: spark-worker-2
     cpus: "1.5"
     # restart: unless-stopped
     user: "185:185"
@@ -269,11 +272,37 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
+  ch-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest    
+    container_name: ch-ui
+    # restart: always
+    ports:
+      - "5521:5521"
+    environment:
+      # Core ClickHouse Configuration
+      VITE_CLICKHOUSE_URL: "http://localhost:8123"
+      VITE_CLICKHOUSE_USER: "log_user"
+      VITE_CLICKHOUSE_PASS: "log_pwd"
+      
+      # Optional: Advanced Features
+      VITE_CLICKHOUSE_USE_ADVANCED: "false"
+      VITE_CLICKHOUSE_CUSTOM_PATH: ""
+      VITE_CLICKHOUSE_REQUEST_TIMEOUT: "30000"
+      
+      # Optional: Reverse Proxy Support
+      VITE_BASE_PATH: "/"
+    depends_on:
+      - clickhouse
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
     # restart: unless-stopped
-    ports: ["3000:3000"]
+    ports: 
+      - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
