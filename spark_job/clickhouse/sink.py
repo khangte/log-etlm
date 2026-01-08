@@ -2,6 +2,35 @@ import os
 import traceback
 
 
+def _apply_partitioning(df, target_partitions: str | None):
+    if not target_partitions or not target_partitions.strip():
+        return df
+    try:
+        n = int(target_partitions)
+    except ValueError:
+        return df
+
+    allow_repartition = os.getenv("SPARK_CLICKHOUSE_ALLOW_REPARTITION", "false").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "y",
+    )
+    current = df.rdd.getNumPartitions()
+    if n < current:
+        # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
+        return df.coalesce(n)
+    if n > current:
+        if allow_repartition:
+            # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
+            return df.repartition(n)
+        print(
+            "[ℹ️ clickhouse sink] repartition 비활성: "
+            "SPARK_CLICKHOUSE_ALLOW_REPARTITION=true로 켜세요."
+        )
+    return df
+
+
 def write_to_clickhouse(
     df,
     table_name,
@@ -12,12 +41,6 @@ def write_to_clickhouse(
 
     try:
         target_partitions = os.getenv("SPARK_CLICKHOUSE_WRITE_PARTITIONS")
-        allow_repartition = os.getenv("SPARK_CLICKHOUSE_ALLOW_REPARTITION", "false").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "y",
-        )
         jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE", "50000")
         clickhouse_url = os.getenv(
             "SPARK_CLICKHOUSE_URL",
@@ -29,22 +52,7 @@ def write_to_clickhouse(
         clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER", "log_user")
         clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD", "log_pwd")
 
-        out_df = df
-        if target_partitions and target_partitions.strip():
-            n = int(target_partitions)
-            current = out_df.rdd.getNumPartitions()
-            if n < current:
-                # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
-                out_df = out_df.coalesce(n)
-            elif n > current:
-                if allow_repartition:
-                    # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
-                    out_df = out_df.repartition(n)
-                else:
-                    print(
-                        "[ℹ️ clickhouse sink] repartition 비활성: "
-                        "SPARK_CLICKHOUSE_ALLOW_REPARTITION=true로 켜세요."
-                    )
+        out_df = _apply_partitioning(df, target_partitions)
 
         writer = (
             out_df.write
