@@ -268,6 +268,32 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
+  ch-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest    
+    container_name: ch-ui
+    # restart: always
+    ports:
+      - "5521:5521"
+    environment:
+      # Core ClickHouse Configuration
+      VITE_CLICKHOUSE_URL: "http://localhost:8123"
+      VITE_CLICKHOUSE_USER: "log_user"
+      VITE_CLICKHOUSE_PASS: "log_pwd"
+      
+      # Optional: Advanced Features
+      VITE_CLICKHOUSE_USE_ADVANCED: "false"
+      VITE_CLICKHOUSE_CUSTOM_PATH: ""
+      VITE_CLICKHOUSE_REQUEST_TIMEOUT: "30000"
+      
+      # Optional: Reverse Proxy Support
+      VITE_BASE_PATH: "/"
+    depends_on:
+      - clickhouse
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+      
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
