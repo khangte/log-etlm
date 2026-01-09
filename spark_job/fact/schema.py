@@ -16,23 +16,13 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("ts",  T.LongType(),    True),
         T.StructField("svc", T.StringType(),  True),
         T.StructField("rid", T.StringType(),  True),
-        T.StructField("met", T.StringType(),  True),
-        T.StructField("path", T.StringType(), True),
-        T.StructField("st",  T.IntegerType(), True),
-        T.StructField("lat", T.IntegerType(), True),
         T.StructField("res", T.StringType(),  True),
         T.StructField("uid", T.StringType(),  True),
         T.StructField("oid", T.StringType(),  True),
         T.StructField("pid", T.StringType(),  True),
         T.StructField("rc",  T.StringType(),  True),
-        T.StructField("grp", T.StringType(),  True),
         T.StructField("amt", T.DoubleType(),  True),
-        T.StructField("lvl", T.StringType(),  True),
 
-        # 레거시 호환 필드(기존 이벤트 포맷)
-        T.StructField("timestamp_ms",      T.LongType(),    True),
-        T.StructField("level",             T.StringType(),  True),
-        T.StructField("event",             T.StringType(),  True),
         T.StructField("product_id",        T.IntegerType(), True),
     ]
 )
@@ -57,18 +47,10 @@ fact_event_schema: T.StructType = T.StructType(
 
         # 공통 메타 정보
         T.StructField("service",     T.StringType(), False),
-        T.StructField("api_group",   T.StringType(), False),
         T.StructField("event_name",  T.StringType(), False),
         T.StructField("result",      T.StringType(), False),
         T.StructField("request_id",  T.StringType(), False),
         T.StructField("event_id",    T.StringType(), False),
-        T.StructField("method",      T.StringType(), True),
-        T.StructField("route_template", T.StringType(), True),
-        T.StructField("path",        T.StringType(), True),
-        T.StructField("status_code", T.IntegerType(), True),
-        T.StructField("duration_ms", T.IntegerType(), True),
-        T.StructField("level",       T.StringType(), True),
-        T.StructField("event",       T.StringType(),  True),  # 레거시 호환
 
         # 비즈니스 필드(서비스별로 있을 수도/없을 수도 있음)
         T.StructField("user_id",           T.StringType(),  True),
@@ -107,20 +89,10 @@ FACT_EVENT_COLUMNS: list[str] = [
 
     # 3) 분류 메타
     "service",
-    "api_group",
     "event_name",
     "result",
-    "level",
-    "event",
 
-    # 4) HTTP/요청 정보
-    "method",
-    "route_template",
-    "path",
-    "status_code",
-    "duration_ms",
-
-    # 5) 비즈니스 필드
+    # 4) 비즈니스 필드
     "user_id",
     "order_id",
     "payment_id",
@@ -128,11 +100,11 @@ FACT_EVENT_COLUMNS: list[str] = [
     "product_id",
     "amount",
 
-    # 6) Kafka 메타(재처리/포렌식 핵심)
+    # 5) Kafka 메타(재처리/포렌식 핵심)
     "topic",
     "kafka_partition",
     "kafka_offset",
 
-    # 7) 원문
+    # 6) 원문
     "raw_json",
 ]
