@@ -2,7 +2,7 @@
 # 파일명 : log_simulator/simulator/base.py
 # 목적   : 서비스별 시뮬레이터가 공통으로 사용하는 베이스 클래스/유틸 정의(최적화 버전)
 # 설명   : 라우트/메서드 선택, 에러율 처리, request_id/event_id 생성, UTC ms 생성,
-#          공통 이벤트 생성(HTTP/도메인), 렌더링 등을 제공
+#          도메인 이벤트 생성, 렌더링 등을 제공
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -36,9 +36,8 @@ class BaseServiceSimulator:
         "profile",              # 프로파일 설정 딕셔너리
         "error_rate",           # 서비스별 에러율
         "domain_event_policy",  # 도메인 이벤트 정책
-        "event_mode",           # all|domain|http
+        "event_mode",           # all|domain
         "domain_event_rate",    # 도메인 이벤트 추정 비율
-        "http_event_rate",      # HTTP 이벤트 추정 비율
         "_rng",                 # 인스턴스 전용 RNG
         "_route_prefix_sums",   # 라우트 가중치 누적합
         "_route_total_weight",  # 라우트 가중치 합계
@@ -59,7 +58,7 @@ class BaseServiceSimulator:
         self.routes = routes
         self.profile = profile
         mode = str(profile.get("event_mode", "all")).lower()
-        if mode not in ("all", "domain", "http"):
+        if mode not in ("all", "domain"):
             mode = "domain"
         self.event_mode = mode
 
@@ -118,7 +117,6 @@ class BaseServiceSimulator:
         self._route_prefix_sums = prefix
         self._route_total_weight = total
         self.domain_event_rate = self._estimate_domain_event_rate()
-        self.http_event_rate = self._estimate_http_event_rate()
         self._profile_enabled = os.getenv("SIM_GEN_PROFILE", "0").strip().lower() in ( # 현재는 비활성화
             "1",
             "true",
@@ -270,41 +268,35 @@ class BaseServiceSimulator:
             return methods[0]
         return methods[self._rng.randrange(0, len(methods))]
 
-    def sample_duration_ms(self) -> int:
-        """응답 지연 시간을 샘플링한다."""
-        return self._rng.randint(5, 300)
-
     def _is_err(self) -> bool:
         """에러 여부를 확률로 결정한다."""
         return self._rng.random() < self.error_rate
 
     def _should_emit_domain_event(self, method: str, route: Dict[str, Any], is_err: bool) -> bool:
         """도메인 이벤트 발행 여부를 판단한다."""
-        if not route.get("domain_events"):
-            # domain_events가 없으면 api_group 기반 fallback만 허용한다.
-            if not route.get("api_group"):
-                return False
         if method == "GET" and not self.domain_event_policy["emit_for_get_routes"]:
             return False
         if is_err and not self.domain_event_policy["emit_on_fail"]:
             return False
         return True
 
-    def _domain_event_name(self, route: Dict[str, Any], is_err: bool) -> Optional[str]:
+    def _fallback_event_name(self, route: Dict[str, Any], method: str) -> str:
+        path = str(route.get("path", "")).strip().lower()
+        if path.startswith("/"):
+            path = path[1:]
+        for ch in ("/", "-", "{", "}"):
+            path = path.replace(ch, "_")
+        path = path.strip("_") or "unknown"
+        return f"{self.service}_{method.lower()}_{path}"
+
+    def _domain_event_name(self, route: Dict[str, Any], method: str, is_err: bool) -> Optional[str]:
         """도메인 이벤트명을 결정한다."""
         de = route.get("domain_events")
-        if not isinstance(de, dict):
-            api_group = route.get("api_group")
-            return api_group
-        name = de.get("fail" if is_err else "success")
-        if name:
-            return name
-        api_group = route.get("api_group")
-        return api_group
-
-    def _estimate_http_event_rate(self) -> float:
-        """HTTP 이벤트 비율 추정값을 반환한다."""
-        return 1.0 if self.event_mode in ("all", "http") else 0.0
+        if isinstance(de, dict):
+            name = de.get("fail" if is_err else "success")
+            if name:
+                return name
+        return self._fallback_event_name(route, method)
 
     def _estimate_domain_event_rate(self) -> float:
         """도메인 이벤트 비율 추정값을 계산한다."""
@@ -319,9 +311,6 @@ class BaseServiceSimulator:
 
         for route in self.routes:
             de = route.get("domain_events")
-            has_domain_event = isinstance(de, dict) or bool(route.get("api_group"))
-            if not has_domain_event:
-                continue
             methods = route.get("methods") or ["GET"]
             if not isinstance(methods, list) or not methods:
                 methods = ["GET"]
@@ -335,55 +324,12 @@ class BaseServiceSimulator:
 
         return rate
 
-    def _emit_http_event(self) -> bool:
-        """HTTP 이벤트 발행 여부를 반환한다."""
-        return self.event_mode in ("all", "http")
-
     def _emit_domain_event(self) -> bool:
         """도메인 이벤트 발행 여부를 반환한다."""
         return self.event_mode in ("all", "domain")
 
 
     # ---------- 공통 이벤트 생성 ----------
-
-    def make_http_event(
-        self,
-        *,
-        ts_ms: int,
-        request_id: str,
-        method: str,
-        path: str,
-        status_code: int,
-        duration_ms: int,
-        user_id: Optional[str] = None,
-        order_id: Optional[str] = None,
-        payment_id: Optional[str] = None,
-        api_group: Optional[str] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """HTTP 이벤트 페이로드를 생성한다."""
-        ev: Dict[str, Any] = {
-            "eid": self.generate_event_id(),
-            "evt": "http_request_completed",
-            "ts": ts_ms,
-            "svc": self.service,
-            "rid": request_id,
-            "met": method,
-            "path": path,
-            "st": int(status_code),
-            "lat": int(duration_ms),
-        }
-        if api_group:
-            ev["grp"] = api_group
-        if user_id:
-            ev["uid"] = user_id
-        if order_id:
-            ev["oid"] = order_id
-        if payment_id:
-            ev["pid"] = payment_id
-        if extra:
-            ev.update(extra)
-        return ev
 
     def make_domain_event(
         self,
@@ -397,8 +343,6 @@ class BaseServiceSimulator:
         payment_id: Optional[str] = None,
         reason_code: Optional[str] = None,
         amount: Optional[float] = None,
-        api_group: Optional[str] = None,
-        path: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """도메인 이벤트 페이로드를 생성한다."""
@@ -410,10 +354,6 @@ class BaseServiceSimulator:
             "rid": request_id,
             "res": result,
         }
-        if api_group:
-            ev["grp"] = api_group
-        if path:
-            ev["path"] = path
         if user_id:
             ev["uid"] = user_id
         if order_id:
