@@ -9,16 +9,6 @@ CREATE TABLE IF NOT EXISTS analytics.dim_service
 ENGINE = MergeTree
 ORDER BY service;
 
-CREATE TABLE IF NOT EXISTS analytics.dim_status_code
-(
-    status_code  Int32,
-    status_class String,
-    is_error     UInt8,
-    description  Nullable(String)
-)
-ENGINE = MergeTree
-ORDER BY status_code;
-
 CREATE TABLE IF NOT EXISTS analytics.dim_date
 (
     date         Date,
