@@ -45,7 +45,4 @@ def _is_err_event(ev: dict) -> bool:
     result = ev.get("res") or ev.get("result")
     if result is not None:
         return (result == "fail")
-    status_code = ev.get("st") or ev.get("status_code")
-    if isinstance(status_code, int):
-        return status_code >= 500
     return False
