@@ -16,12 +16,6 @@ class AuthSimulator(BaseServiceSimulator):
         "INTERNAL_ERROR",
     ]
 
-    def _pick_status_code(self, is_err: bool) -> int:
-        """응답 상태 코드를 선택한다."""
-        if is_err:
-            return self._rng.choice([401, 403, 429, 500])
-        return self._rng.choice([200, 200, 204])
-
     def _pick_reason_code(self) -> str:
         """에러 사유 코드를 선택한다."""
         return self._rng.choice(self.AUTH_REASON_CODES)
@@ -45,27 +39,12 @@ class AuthSimulator(BaseServiceSimulator):
             t_ids = time.perf_counter()
 
         is_err = self._is_err()
-        status_code = self._pick_status_code(is_err)
-        duration_ms = self.sample_duration_ms()
         if profile:
             t_rand = time.perf_counter()
 
         events: List[Dict[str, Any]] = []
-        if self._emit_http_event():
-            http_ev = self.make_http_event(
-                ts_ms=now_ms,
-                request_id=request_id,
-                method=method,
-                path=route["path"],
-                status_code=status_code,
-                duration_ms=duration_ms,
-                user_id=user_id,
-                api_group=route.get("api_group"),
-            )
-            events.append(http_ev)
-
         if self._emit_domain_event() and self._should_emit_domain_event(method, route, is_err):
-            dom_name = self._domain_event_name(route, is_err)
+            dom_name = self._domain_event_name(route, method, is_err)
             if dom_name:
                 dom_ev = self.make_domain_event(
                     ts_ms=now_ms,
@@ -74,8 +53,6 @@ class AuthSimulator(BaseServiceSimulator):
                     result="fail" if is_err else "success",
                     reason_code=self._pick_reason_code() if is_err else None,
                     user_id=user_id,
-                    api_group=route.get("api_group"),
-                    path=route["path"],
                 )
                 events.append(dom_ev)
 
