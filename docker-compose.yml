@@ -36,11 +36,10 @@ services:
     volumes:
       - ./log_simulator:/app/log_simulator:ro
     networks: [logetlm-net]
-    command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    command: ["python", "-m", "log_simulator.run"]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
-
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1

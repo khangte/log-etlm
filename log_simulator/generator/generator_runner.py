@@ -9,7 +9,7 @@ import asyncio
 from typing import Any
 
 from ..config.profile_route_settings import load_profile_context
-from ..config.settings import SIMULATOR_SETTINGS
+from .settings import SIMULATOR_SETTINGS
 from .eps_allocation import compute_service_eps
 from ..simulator.build_simulators import build_simulators
 from .generator_pipeline import create_service_tasks

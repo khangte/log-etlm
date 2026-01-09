@@ -10,12 +10,11 @@ import time
 from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQueryException
 
-from ...dlq.builders.builder import build_dlq_df
-from ...dlq.schema import DLQ_VALUE_SCHEMA
+from ...dlq import build_error_dlq_df, build_topic_dlq_df
 from ...spark import build_streaming_spark
-from ..transforms.normalize_event import normalize_event
-from ..transforms.parse_event import parse_event
-from ..transforms.validate_event import validate_event
+from ..normalization import normalize_event
+from ..parsing import parse_event
+from ..validation import validate_event
 from ..writer import (
     ClickHouseStreamWriter,
     FACT_EVENT_CHECKPOINT_DIR,
@@ -92,31 +91,10 @@ def run_event_ingest() -> None:
         parsed = parse_event(event_source)
         good_df, bad_df = validate_event(parsed)
         event_df = normalize_event(good_df, store_raw_json=store_raw_json)
-        parse_error_dlq_df = build_dlq_df(bad_df)
+        parse_error_dlq_df = build_error_dlq_df(bad_df)
 
-        dlq_parsed = (
-            dlq_source.selectExpr(
-                "CAST(value AS STRING) AS raw_json",
-                "topic",
-                "timestamp AS kafka_ts",
-            )
-            .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
-        )
-        dlq_df = (
-            dlq_parsed.select(
-                F.col("kafka_ts").alias("ingest_ts"),
-                F.current_timestamp().alias("processed_ts"),
-                F.col("json.service").alias("service"),
-                F.col("json.event_id").alias("event_id"),
-                F.col("json.request_id").alias("request_id"),
-                F.coalesce(F.col("json.source_topic"), F.col("topic")).alias("source_topic"),
-                F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
-                F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
-                F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
-                F.coalesce(F.col("json.raw_json"), F.col("raw_json")).alias("raw_json"),
-            )
-        )
-        dlq_df = parse_error_dlq_df.unionByName(dlq_df)
+        dlq_topics_df = build_topic_dlq_df(dlq_source)
+        dlq_df = parse_error_dlq_df.unionByName(dlq_topics_df)
 
         # 4) ClickHouse analytics.fact_event로 스트리밍 적재
         writer.write_fact_event_stream(event_df)

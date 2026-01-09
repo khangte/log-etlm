@@ -34,23 +34,23 @@ def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
 
     if isinstance(message.value, dict):
         payload = message.value
-        event_id = payload.get("event_id")
-        request_id = payload.get("request_id")
+        event_id = payload.get("event_id") or payload.get("eid")
+        request_id = payload.get("request_id") or payload.get("rid")
         raw_json = json.dumps(payload, ensure_ascii=False)
     elif isinstance(message.value, bytes):
         raw_json = message.value.decode("utf-8", errors="replace")
         try:
             payload = json.loads(raw_json)
-            event_id = payload.get("event_id")
-            request_id = payload.get("request_id")
+            event_id = payload.get("event_id") or payload.get("eid")
+            request_id = payload.get("request_id") or payload.get("rid")
         except Exception:
             pass
     else:
         raw_json = str(message.value)
         try:
             payload = json.loads(raw_json)
-            event_id = payload.get("event_id")
-            request_id = payload.get("request_id")
+            event_id = payload.get("event_id") or payload.get("eid")
+            request_id = payload.get("request_id") or payload.get("rid")
         except Exception:
             pass
 

@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
     process_ms   Nullable(Int32),
 
     service        LowCardinality(String),
-    domain         LowCardinality(String),
     api_group      LowCardinality(String),
     event_name     LowCardinality(String),
     result         LowCardinality(String),

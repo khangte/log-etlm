@@ -1,19 +1,19 @@
-# spark_job/fact/parsers/fact_event.py
+"""Fact event dataframe builder."""
 
 from __future__ import annotations
 
 import os
 from pyspark.sql import DataFrame
 
-from ..transforms.normalize_event import normalize_event
-from ..transforms.parse_event import parse_event
-from ..transforms.validate_event import validate_event
+from .normalization import normalize_event
+from .parsing import parse_event
+from .validation import validate_event
 
 
-def parse_fact_event(kafka_df: DataFrame) -> DataFrame:
+def build_fact_dataframe(kafka_df: DataFrame) -> DataFrame:
     """
     Kafka에서 읽어온 DF(key, value, topic, timestamp_ms, ...)를
-    analytics.fact_event 스키마에 맞는 DF로 변환한다.
+    ClickHouse `analytics.fact_event` 스키마에 맞는 DF로 변환한다.
     IO(write)는 하지 않고 변환만 담당.
     """
     store_raw_json = os.getenv("SPARK_STORE_RAW_JSON", "false").strip().lower() in (

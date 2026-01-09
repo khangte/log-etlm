@@ -83,7 +83,7 @@ class OrderSimulator(BaseServiceSimulator):
                 ts_ms=now_ms,
                 request_id=request_id,
                 method=method,
-                route_template=route["path"],
+                path=route["path"],
                 status_code=status_code,
                 duration_ms=duration_ms,
                 user_id=user_id,
@@ -113,7 +113,7 @@ class OrderSimulator(BaseServiceSimulator):
                     user_id=user_id,
                     order_id=order_id,
                     api_group=route.get("api_group"),
-                    route_template=route["path"],
+                    path=route["path"],
                     extra={
                         "timestamp_ms": now_ms,   # 레거시 호환
                         "product_id": product_id,

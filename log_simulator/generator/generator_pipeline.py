@@ -12,7 +12,7 @@ import random
 from typing import Any, Dict, List, Tuple
 
 from ..config.timeband import current_hour_kst, pick_multiplier
-from ..config.settings import SIMULATOR_SETTINGS
+from .settings import SIMULATOR_SETTINGS
 from ..queue.queue_adapter import queue_maxsize, queue_qsize
 from .loop_helpers import (
     compute_batch_size,

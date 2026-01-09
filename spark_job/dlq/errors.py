@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame, functions as F
 
-from ..schema import FACT_EVENT_DLQ_COLUMNS
+from .schema import FACT_EVENT_DLQ_COLUMNS
 
 
-def build_dlq_df(bad_df: DataFrame) -> DataFrame:
+def build_error_dlq_df(bad_df: DataFrame) -> DataFrame:
     """
-    bad_df + error info -> dlq_df 생성.
+    개별 Spark bad_df를 ClickHouse DLQ 컬럼 스키마로 매핑한다.
     """
     dlq_df = (
         bad_df.select(

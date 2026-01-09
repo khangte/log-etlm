@@ -1,10 +1,10 @@
-# spark_job/dim/parsers/dim_status_code.py
+# spark_job/dim/dim_status_code.py
 
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from ..schema import DIM_STATUS_CODE_COLUMNS
+from .schema import DIM_STATUS_CODE_COLUMNS
 
 
 def parse_dim_status_code(fact_df: DataFrame) -> DataFrame:

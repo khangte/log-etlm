@@ -26,7 +26,7 @@ def build_batch_items(
     for ev in events:
         ev["enqueued_ms"] = enqueued_ms
         payload = ev
-        request_id = ev.get("request_id")
+        request_id = ev.get("rid") or ev.get("request_id")
         key = str(request_id).encode("utf-8") if request_id else None
         batch_items.append(
             BatchMessage(
@@ -42,10 +42,10 @@ def build_batch_items(
 
 def _is_err_event(ev: dict) -> bool:
     """이벤트 실패 여부를 판단한다."""
-    result = ev.get("result")
+    result = ev.get("res") or ev.get("result")
     if result is not None:
         return (result == "fail")
-    status_code = ev.get("status_code")
+    status_code = ev.get("st") or ev.get("status_code")
     if isinstance(status_code, int):
         return status_code >= 500
     return False

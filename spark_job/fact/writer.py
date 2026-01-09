@@ -1,3 +1,5 @@
+"""ClickHouse fact stream writer."""
+
 from __future__ import annotations
 
 from pyspark.sql import DataFrame

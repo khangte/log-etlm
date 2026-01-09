@@ -13,7 +13,7 @@ import signal
 import time
 from typing import Any, Callable
 
-from .config.settings import SIMULATOR_SETTINGS
+from .generator.settings import SIMULATOR_SETTINGS
 from .generator.generator_runner import run_generator_async
 from .publisher.metrics_reporter import run_metrics_reporter
 from .publisher.publisher_runner import run_publisher_workers

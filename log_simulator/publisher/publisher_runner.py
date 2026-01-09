@@ -12,7 +12,8 @@ import threading
 import time
 from typing import Any, Dict, Tuple
 
-from ..config.settings import PUBLISHER_SETTINGS, SIMULATOR_SETTINGS
+from ..generator.settings import SIMULATOR_SETTINGS
+from .settings import PUBLISHER_SETTINGS
 from .batch_collector import collect_batch
 from .dlq import publish_dlq_batch_sync
 from ..queue.metrics_keys import (

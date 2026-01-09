@@ -168,7 +168,7 @@ class BaseServiceSimulator:
             self._profile_id_ms += (time.perf_counter() - started) * 1000.0
             self._profile_id_count += 1
             return "evt_" + value
-        return "evt_" + self._rand_hex(32)
+        return "evt_" + self._rand_hex(16)
 
     def generate_user_id(self) -> str:
         """사용자 ID를 생성한다."""
@@ -352,7 +352,7 @@ class BaseServiceSimulator:
         ts_ms: int,
         request_id: str,
         method: str,
-        route_template: str,
+        path: str,
         status_code: int,
         duration_ms: int,
         user_id: Optional[str] = None,
@@ -363,25 +363,24 @@ class BaseServiceSimulator:
     ) -> Dict[str, Any]:
         """HTTP 이벤트 페이로드를 생성한다."""
         ev: Dict[str, Any] = {
-            "event_id": self.generate_event_id(),
-            "event_name": "http_request_completed",
-            "domain": "http",
-            "ts_ms": ts_ms,
-            "service": self.service,
-            "request_id": request_id,
-            "method": method,
-            "route_template": route_template,
-            "status_code": int(status_code),
-            "duration_ms": int(duration_ms),
+            "eid": self.generate_event_id(),
+            "evt": "http_request_completed",
+            "ts": ts_ms,
+            "svc": self.service,
+            "rid": request_id,
+            "met": method,
+            "path": path,
+            "st": int(status_code),
+            "lat": int(duration_ms),
         }
         if api_group:
-            ev["api_group"] = api_group
+            ev["grp"] = api_group
         if user_id:
-            ev["user_id"] = user_id
+            ev["uid"] = user_id
         if order_id:
-            ev["order_id"] = order_id
+            ev["oid"] = order_id
         if payment_id:
-            ev["payment_id"] = payment_id
+            ev["pid"] = payment_id
         if extra:
             ev.update(extra)
         return ev
@@ -399,33 +398,32 @@ class BaseServiceSimulator:
         reason_code: Optional[str] = None,
         amount: Optional[float] = None,
         api_group: Optional[str] = None,
-        route_template: Optional[str] = None,
+        path: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """도메인 이벤트 페이로드를 생성한다."""
         ev: Dict[str, Any] = {
-            "event_id": self.generate_event_id(),
-            "event_name": event_name,
-            "domain": self.domain,
-            "ts_ms": ts_ms,
-            "service": self.service,
-            "request_id": request_id,
-            "result": result,
+            "eid": self.generate_event_id(),
+            "evt": event_name,
+            "ts": ts_ms,
+            "svc": self.service,
+            "rid": request_id,
+            "res": result,
         }
         if api_group:
-            ev["api_group"] = api_group
-        if route_template:
-            ev["route_template"] = route_template
+            ev["grp"] = api_group
+        if path:
+            ev["path"] = path
         if user_id:
-            ev["user_id"] = user_id
+            ev["uid"] = user_id
         if order_id:
-            ev["order_id"] = order_id
+            ev["oid"] = order_id
         if payment_id:
-            ev["payment_id"] = payment_id
+            ev["pid"] = payment_id
         if reason_code:
-            ev["reason_code"] = reason_code
+            ev["rc"] = reason_code
         if amount is not None:
-            ev["amount"] = float(amount)
+            ev["amt"] = float(amount)
         if extra:
             ev.update(extra)
         return ev

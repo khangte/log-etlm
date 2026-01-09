@@ -13,6 +13,7 @@ TOPICS: Dict[str, str] = {
     "order": "logs.event",
     "payment": "logs.event",
     "dlq": "logs.dlq",
+    "error": "logs.error",
 }
 
 

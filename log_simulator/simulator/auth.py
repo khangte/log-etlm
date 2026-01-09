@@ -56,7 +56,7 @@ class AuthSimulator(BaseServiceSimulator):
                 ts_ms=now_ms,
                 request_id=request_id,
                 method=method,
-                route_template=route["path"],
+                path=route["path"],
                 status_code=status_code,
                 duration_ms=duration_ms,
                 user_id=user_id,
@@ -75,7 +75,7 @@ class AuthSimulator(BaseServiceSimulator):
                     reason_code=self._pick_reason_code() if is_err else None,
                     user_id=user_id,
                     api_group=route.get("api_group"),
-                    route_template=route["path"],
+                    path=route["path"],
                 )
                 events.append(dom_ev)
 

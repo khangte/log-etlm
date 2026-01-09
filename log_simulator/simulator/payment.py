@@ -87,7 +87,7 @@ class PaymentSimulator(BaseServiceSimulator):
                 ts_ms=now_ms,
                 request_id=request_id,
                 method=method,
-                route_template=route["path"],
+                path=route["path"],
                 status_code=status_code,
                 duration_ms=duration_ms,
                 user_id=user_id,
@@ -116,7 +116,7 @@ class PaymentSimulator(BaseServiceSimulator):
                     payment_id=payment_id,
                     amount=amount,
                     api_group=route.get("api_group"),
-                    route_template=route["path"],
+                    path=route["path"],
                     extra={
                         "timestamp_ms": now_ms,  # 레거시 호환
                     },

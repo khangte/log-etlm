@@ -18,7 +18,7 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     orjson = None
 
-from ..config.settings import PRODUCER_SETTINGS
+from .settings import PRODUCER_SETTINGS
 from ..models.messages import BatchMessage
 from .topic import get_topic
 

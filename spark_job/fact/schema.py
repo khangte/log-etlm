@@ -10,29 +10,28 @@ CLICKHOUSE_DB: str = "analytics"
 
 log_value_schema: T.StructType = T.StructType(
     [
-        # v2 이벤트 필드(현재 simulator 기준)
-        T.StructField("event_id",       T.StringType(),  True),
-        T.StructField("event_name",     T.StringType(),  True),
-        T.StructField("domain",         T.StringType(),  True),
-        T.StructField("ts_ms",          T.LongType(),    True),
-        T.StructField("service",        T.StringType(),  True),
-        T.StructField("request_id",     T.StringType(),  True),
-        T.StructField("method",         T.StringType(),  True),
-        T.StructField("route_template", T.StringType(),  True),
-        T.StructField("status_code",    T.IntegerType(), True),
-        T.StructField("duration_ms",    T.IntegerType(), True),
-        T.StructField("result",         T.StringType(),  True),
-        T.StructField("user_id",        T.StringType(),  True),
-        T.StructField("order_id",       T.StringType(),  True),
-        T.StructField("payment_id",     T.StringType(),  True),
-        T.StructField("reason_code",    T.StringType(),  True),
-        T.StructField("api_group",      T.StringType(),  True),
-        T.StructField("amount",         T.IntegerType(), True),
+        # v2 축약 필드(simulator 최신 포맷)
+        T.StructField("eid", T.StringType(),  True),
+        T.StructField("evt", T.StringType(),  True),
+        T.StructField("ts",  T.LongType(),    True),
+        T.StructField("svc", T.StringType(),  True),
+        T.StructField("rid", T.StringType(),  True),
+        T.StructField("met", T.StringType(),  True),
+        T.StructField("path", T.StringType(), True),
+        T.StructField("st",  T.IntegerType(), True),
+        T.StructField("lat", T.IntegerType(), True),
+        T.StructField("res", T.StringType(),  True),
+        T.StructField("uid", T.StringType(),  True),
+        T.StructField("oid", T.StringType(),  True),
+        T.StructField("pid", T.StringType(),  True),
+        T.StructField("rc",  T.StringType(),  True),
+        T.StructField("grp", T.StringType(),  True),
+        T.StructField("amt", T.DoubleType(),  True),
+        T.StructField("lvl", T.StringType(),  True),
 
         # 레거시 호환 필드(기존 이벤트 포맷)
         T.StructField("timestamp_ms",      T.LongType(),    True),
         T.StructField("level",             T.StringType(),  True),
-        T.StructField("path",              T.StringType(),  True),
         T.StructField("event",             T.StringType(),  True),
         T.StructField("product_id",        T.IntegerType(), True),
     ]
@@ -58,7 +57,6 @@ fact_event_schema: T.StructType = T.StructType(
 
         # 공통 메타 정보
         T.StructField("service",     T.StringType(), False),
-        T.StructField("domain",      T.StringType(), False),
         T.StructField("api_group",   T.StringType(), False),
         T.StructField("event_name",  T.StringType(), False),
         T.StructField("result",      T.StringType(), False),
@@ -109,7 +107,6 @@ FACT_EVENT_COLUMNS: list[str] = [
 
     # 3) 분류 메타
     "service",
-    "domain",
     "api_group",
     "event_name",
     "result",

@@ -1,10 +1,10 @@
-# spark_job/dim/parsers/dim_time.py
+# spark_job/dim/dim_time.py
 
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from ..schema import DIM_TIME_COLUMNS
+from .schema import DIM_TIME_COLUMNS
 
 
 def parse_dim_time(fact_df: DataFrame) -> DataFrame:

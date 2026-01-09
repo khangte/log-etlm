@@ -12,7 +12,7 @@ import queue as std_queue
 import time
 from typing import Any, Dict
 
-from ..config.settings import METRICS_SETTINGS
+from ..queue.settings import METRICS_SETTINGS
 from ..queue.metrics_keys import (
     BUILD_DURATION_COUNT,
     BUILD_DURATION_SUM_MS,

@@ -1,10 +1,10 @@
-# spark_job/dim/parsers/dim_date.py
+# spark_job/dim/dim_date.py
 
 from __future__ import annotations
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
-from ..schema import DIM_DATE_COLUMNS
+from .schema import DIM_DATE_COLUMNS
 
 
 def parse_dim_date(fact_df: DataFrame) -> DataFrame:
