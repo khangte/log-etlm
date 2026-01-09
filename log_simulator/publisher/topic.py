@@ -9,9 +9,9 @@ from typing import Dict
 
 
 TOPICS: Dict[str, str] = {
-    "auth": "logs.event",
-    "order": "logs.event",
-    "payment": "logs.event",
+    "auth": "logs.auth",
+    "order": "logs.order",
+    "payment": "logs.payment",
     "dlq": "logs.dlq",
     "error": "logs.error",
 }
