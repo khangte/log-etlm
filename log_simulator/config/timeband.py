@@ -61,15 +61,8 @@ def current_hour_kst(now: datetime | None = None) -> int:
 
 
 def pick_multiplier(bands: List[Band], hour_kst: int, mode: str = "uniform") -> float:
-    """현재 시간대에 맞는 multiplier를 선택한다."""
+    """현재 시간대에 맞는 multiplier를 균등 확률로 선택한다."""
     for b in bands:
         if b.contains(hour_kst):
-            if mode == "mid":
-                return (b.w_min + b.w_max) / 2.0
-            if mode == "low":
-                return b.w_min
-            if mode == "high":
-                return b.w_max
-            # uniform
             return random.uniform(b.w_min, b.w_max)
     return 1.0  # 매칭되는 band가 없으면 1.0
