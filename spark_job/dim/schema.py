@@ -37,15 +37,6 @@ DIM_SERVICE_SCHEMA = T.StructType(
     ]
 )
 
-DIM_STATUS_CODE_SCHEMA = T.StructType(
-    [
-        T.StructField("status_code",  T.IntegerType(), False),
-        T.StructField("status_class", T.StringType(),  False),
-        T.StructField("is_error",     T.IntegerType(), False),
-        T.StructField("description",  T.StringType(),  True),
-    ]
-)
-
 DIM_USER_SCHEMA = T.StructType(
     [
         T.StructField("user_id",     T.StringType(), False),
@@ -76,13 +67,6 @@ DIM_SERVICE_COLUMNS: list[str] = [
     "service",
     "service_group",
     "is_active",
-    "description",
-]
-
-DIM_STATUS_CODE_COLUMNS: list[str] = [
-    "status_code",
-    "status_class",
-    "is_error",
     "description",
 ]
 
