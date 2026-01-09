@@ -6,7 +6,7 @@ SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     service,
     uniqCombined64State(event_id) AS total_state,
-    uniqCombined64StateIf(event_id, status_code >= 500) AS errors_state
+    uniqCombined64StateIf(event_id, result = 'fail') AS errors_state
 FROM analytics.fact_event
 GROUP BY bucket, service;
 
