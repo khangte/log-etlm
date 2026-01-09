@@ -9,7 +9,6 @@ import os
 from .. import (
     parse_dim_date,
     parse_dim_service,
-    parse_dim_status_code,
     parse_dim_time,
     parse_dim_user,
 )
@@ -27,7 +26,7 @@ def _read_fact_event(spark):
 
     # 최근 N일 데이터만 읽어서 dim을 갱신한다.
     query = f"""(
-        SELECT event_ts, service, status_code, user_id
+        SELECT event_ts, service, user_id
         FROM analytics.fact_event
         WHERE event_ts >= now() - INTERVAL {lookback_days} DAY
     ) AS fact"""
@@ -53,14 +52,12 @@ def run_dim_batch() -> None:
     dim_date_df = parse_dim_date(fact_df)
     dim_time_df = parse_dim_time(fact_df)
     dim_service_df = parse_dim_service(fact_df)
-    dim_status_df = parse_dim_status_code(fact_df)
     dim_user_df = parse_dim_user(fact_df)
 
     writer = ClickHouseDimWriter()
     writer.write_dim_date(dim_date_df)
     writer.write_dim_time(dim_time_df)
     writer.write_dim_service(dim_service_df)
-    writer.write_dim_status(dim_status_df)
     writer.write_dim_user(dim_user_df)
 
     spark.stop()
