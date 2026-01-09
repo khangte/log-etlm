@@ -12,8 +12,8 @@ services:
     environment:
       - SIMULATOR_SHARE=1
       - SIM_EVENT_MODE=domain
-      - TICK_SEC=0.22
-      - LOG_BATCH_SIZE=240
+      - TICK_SEC=0.20
+      - LOG_BATCH_SIZE=220
       - LOOPS_PER_SERVICE=4
       - QUEUE_SIZE=4000
       - QUEUE_LOW_SLEEP_SCALE=1.0
