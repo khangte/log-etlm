@@ -9,18 +9,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
     process_ms   Nullable(Int32),
 
     service        LowCardinality(String),
-    api_group      LowCardinality(String),
     event_name     LowCardinality(String),
     result         LowCardinality(String),
     request_id     String,
     event_id       String,
-    method         LowCardinality(String),
-    route_template LowCardinality(String),
-    path           String CODEC(ZSTD(3)),
-    status_code    Int32,
-    duration_ms    Nullable(UInt32),
-    level          LowCardinality(String),
-    event          String,
 
     user_id     Nullable(String),
     order_id    Nullable(String),
