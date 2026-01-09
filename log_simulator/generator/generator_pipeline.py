@@ -90,7 +90,7 @@ async def _service_stream_loop(
         hour = current_hour_kst()
 
         multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
-        effective_eps = _compute_effective_eps(simulator, target_eps, multiplier)
+        effective_eps = max(target_eps * multiplier, 0.01)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
@@ -167,24 +167,6 @@ async def _service_stream_loop(
             continue
 
         await asyncio.sleep(max(0.0, sleep_time))
-
-
-def _compute_effective_eps(simulator: Any, target_eps: float, multiplier: float) -> float:
-    """타겟 EPS에 시간 가중치를 적용해 유효 EPS를 계산한다."""
-    effective_eps = max(target_eps * multiplier, 0.01)
-    # NOTE: event_mode 기반 보정(domain/http rate)은 비활성화.
-    # mode = getattr(simulator, "event_mode", "all")
-    # if mode == "domain":
-    #     domain_rate = float(getattr(simulator, "domain_event_rate", 1.0))
-    #     if domain_rate <= 0:
-    #         domain_rate = 1.0
-    #     effective_eps = max(effective_eps / max(domain_rate, 0.01), 0.01)
-    # elif mode == "http":
-    #     http_rate = float(getattr(simulator, "http_event_rate", 1.0))
-    #     if http_rate <= 0:
-    #         http_rate = 1.0
-    #     effective_eps = max(effective_eps / max(http_rate, 0.01), 0.01)
-    return effective_eps
 
 
 def create_service_tasks(
