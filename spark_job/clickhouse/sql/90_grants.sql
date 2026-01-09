@@ -8,7 +8,6 @@ GRANT SELECT ON analytics.fact_event TO grafana_user;
 GRANT SELECT ON analytics.fact_event_dlq TO grafana_user;
 
 -- GRANT SELECT ON analytics.dim_service TO grafana_user;
--- GRANT SELECT ON analytics.dim_status_code TO grafana_user;
 -- GRANT SELECT ON analytics.dim_date TO grafana_user;
 -- GRANT SELECT ON analytics.dim_time TO grafana_user;
 -- GRANT SELECT ON analytics.dim_user TO grafana_user;
