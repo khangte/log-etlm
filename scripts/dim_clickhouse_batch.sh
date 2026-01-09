@@ -12,7 +12,6 @@ if [ "$RESET" = "1" ]; then
 TRUNCATE TABLE analytics.dim_date;
 TRUNCATE TABLE analytics.dim_time;
 TRUNCATE TABLE analytics.dim_service;
-TRUNCATE TABLE analytics.dim_status_code;
 TRUNCATE TABLE analytics.dim_user;
 SQL
 fi
@@ -66,32 +65,6 @@ FROM (
   WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND service IS NOT NULL
   GROUP BY service
-);
-
-INSERT INTO analytics.dim_status_code
-SELECT
-  status_code,
-  concat(toString(intDiv(status_code, 100)), 'xx') AS status_class,
-  if(status_code BETWEEN 500 AND 599, 1, 0) AS is_error,
-  multiIf(status_code = 200, 'OK',
-          status_code = 201, 'Created',
-          status_code = 204, 'No Content',
-          status_code = 400, 'Bad Request',
-          status_code = 401, 'Unauthorized',
-          status_code = 403, 'Forbidden',
-          status_code = 404, 'Not Found',
-          status_code = 422, 'Unprocessable Entity',
-          status_code = 429, 'Too Many Requests',
-          status_code = 500, 'Internal Server Error',
-          status_code = 502, 'Bad Gateway',
-          status_code = 503, 'Service Unavailable',
-          'Unknown') AS description
-FROM (
-  SELECT status_code
-  FROM analytics.fact_event
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
-    AND status_code IS NOT NULL
-  GROUP BY status_code
 );
 
 INSERT INTO analytics.dim_user
