@@ -2,9 +2,7 @@
 # 파일명 : log_simulator/simulator/order.py
 # 목적   : 주문 도메인의 주요 API 패턴 기반 이벤트 생성(개선 버전)
 # 설명   :
-#   - 요청 1건당 이벤트 1~2개 생성
-#       1) http_request_completed (항상)
-#       2) order 도메인 이벤트(POST 중심, 설정에 따라 GET도 가능)
+#   - 요청 1건당 order 도메인 이벤트 생성(POST 중심, 설정에 따라 GET도 가능)
 #   - 도메인 이벤트명은 routes.yml의 domain_events.success/fail를 사용
 #   - 실패 시 reason_code를 정규화 코드로 기록
 # -----------------------------------------------------------------------------
@@ -27,13 +25,6 @@ class OrderSimulator(BaseServiceSimulator):
         "CONFLICT",
         "INTERNAL_ERROR",
     )
-
-    def _pick_status_code(self, is_err: bool) -> int:
-        """응답 상태 코드를 선택한다."""
-        # 기존 분포 유지: 실패(500/422/409), 성공(200/201/204)
-        if is_err:
-            return self._rng.choice([500, 422, 409])
-        return self._rng.choice([200, 201, 204])
 
     def _pick_reason_code(self) -> str:
         """에러 사유 코드를 선택한다."""
@@ -69,36 +60,15 @@ class OrderSimulator(BaseServiceSimulator):
             t_ids = time.perf_counter()
 
         is_err = self._is_err()
-        status_code = self._pick_status_code(is_err)
-        duration_ms = self.sample_duration_ms()
         product_id = int(self._rng.randint(100000, 999999))
         if profile:
             t_rand = time.perf_counter()
 
         # 공통 엔티티 필드(주문은 user/product가 의미있음)
         events: List[Dict[str, Any]] = []
-        if self._emit_http_event():
-            # 1) HTTP 이벤트(조건부)
-            http_ev = self.make_http_event(
-                ts_ms=now_ms,
-                request_id=request_id,
-                method=method,
-                path=route["path"],
-                status_code=status_code,
-                duration_ms=duration_ms,
-                user_id=user_id,
-                order_id=order_id,
-                api_group=route.get("api_group"),
-                extra={
-                    "timestamp_ms": now_ms,   # 레거시 호환
-                    "product_id": product_id,
-                },
-            )
-            events.append(http_ev)
-
-        # 2) 도메인 이벤트(조건부)
+        # 도메인 이벤트(조건부)
         if self._emit_domain_event() and self._should_emit_domain_event(method, route, is_err):
-            dom_name = self._domain_event_name(route, is_err)
+            dom_name = self._domain_event_name(route, method, is_err)
             if dom_name:
                 # 주문 생성(POST /v2/orders) 같은 경우는 order_id가 없으면 만들어 주는 편이 좋음
                 if method == "POST" and route["path"] == "/v2/orders" and not order_id:
@@ -112,10 +82,7 @@ class OrderSimulator(BaseServiceSimulator):
                     reason_code=self._pick_reason_code() if is_err else None,
                     user_id=user_id,
                     order_id=order_id,
-                    api_group=route.get("api_group"),
-                    path=route["path"],
                     extra={
-                        "timestamp_ms": now_ms,   # 레거시 호환
                         "product_id": product_id,
                     },
                 )
