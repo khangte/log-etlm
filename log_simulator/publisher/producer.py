@@ -50,7 +50,7 @@ def _build_producer_config() -> Dict[str, Any]:
         "max.in.flight.requests.per.connection": 5,
         "compression.type": s.compression_type,
         "linger.ms": s.linger_ms,
-        "batch.num.messages": s.batch_num_messages,
+        "batch.size": s.batch_size,
         "queue.buffering.max.kbytes": s.queue_buffering_max_kbytes,
         "queue.buffering.max.messages": s.queue_buffering_max_messages,
         "partitioner": "murmur2_random",
