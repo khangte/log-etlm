@@ -10,26 +10,60 @@ services:
     ports: 
       - "8000:8000"
     environment:
+      # generator
       - SIMULATOR_SHARE=1
       - SIM_EVENT_MODE=domain
-      - TICK_SEC=0.20
       - LOG_BATCH_SIZE=220
+      - TICK_SEC=0.20
       - LOOPS_PER_SERVICE=4
+      - SIM_BEHIND_LOG_EVERY_SEC=5.0
+      - SIM_DRAIN_TIMEOUT_SEC=5.0
+      - SIM_GEN_PROFILE=0
+      - SIM_GEN_PROFILE_EVERY=500
+      # queue/backpressure
       - QUEUE_SIZE=4000
+      - QUEUE_MAX_SIZE=4000
+      - OVERFLOW_POLICY=drop_oldest
+      - QUEUE_METRIC_INTERVAL_SEC=1.0
+      - SIM_QUEUE_WARN_RATIO=0.8
+      - QUEUE_WARN_RATIO=0.7
+      - QUEUE_LOW_WATERMARK_RATIO=0.2
       - QUEUE_LOW_SLEEP_SCALE=1.0
+      - QUEUE_THROTTLE_RATIO=0.9
+      - QUEUE_RESUME_RATIO=0.75
+      - QUEUE_THROTTLE_SLEEP=0.05
+      - QUEUE_SOFT_THROTTLE_RATIO=0.85
+      - QUEUE_SOFT_RESUME_RATIO=0.7
+      - QUEUE_SOFT_SCALE_STEP=0.1
+      - QUEUE_SOFT_SCALE_MIN=0.2
+      - QUEUE_SOFT_SCALE_MAX=1.0
+      # metrics
+      - METRICS_INTERVAL_SEC=10
+      - METRICS_QUEUE_SIZE=10000
+      # publisher
       - PUBLISHER_WORKERS=5
       - WORKER_BATCH_SIZE=500
+      - BATCH_SIZE=500
+      - WORKER_BATCH_WAIT_MS=20
+      - BATCH_WAIT_MS=20
+      - PUBLISH_QUEUE_WARN_RATIO=0.7
       - IDLE_WARN_SEC=5
       - SEND_WARN_SEC=5
+      - RETRY_MAX=1
+      - RETRY_BACKOFF_MS=200
+      - PUBLISH_RETRY_BACKOFF_SEC=0.2
+      # producer
       - KAFKA_BOOTSTRAP=kafka:9092
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - PRODUCER_ACKS=0
       - PRODUCER_COMPRESSION=none
       - PRODUCER_ENABLE_IDEMPOTENCE=false
       - PRODUCER_LINGER_MS=20
-      - PRODUCER_BATCH_NUM_MESSAGES=5000
+      - PRODUCER_BATCH_SIZE=16384
       - PRODUCER_QUEUE_MAX_MESSAGES=2000000
       - PRODUCER_QUEUE_MAX_KBYTES=262144
+      # runtime
+      - SIM_MP_START_METHOD=spawn
     depends_on:
       kafka:
         condition: service_healthy
@@ -152,9 +186,10 @@ services:
     ports: 
       - "4040:4040"   # Spark UI (stream)
     environment:
+      # core
       - KAFKA_BOOTSTRAP=kafka:9092
       - SPARK_MASTER_URL=spark://spark-master:7077
-      # Spark Streaming ingest tuning
+      # streaming ingest
       # Kafka startingOffsets: latest | earliest | (topic별 JSON 문자열)
       - SPARK_STARTING_OFFSETS=latest
       # 체크포인트 손상 시(예: Incomplete log file) 자동 초기화 후 latest부터 재시작 (실시간 우선)
@@ -167,11 +202,15 @@ services:
       # 너무 크게 잡으면 배치가 커져 처리시간(dt)이 늘면서 오히려 EPS가 떨어질 수 있음.
       # env/*.env.example 템플릿을 --env-file로 주면 아래 기본값을 프로파일로 쉽게 교체할 수 있음.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
-      # ClickHouse sink tuning (override as needed)
+      # ClickHouse sink
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
+      - SPARK_CLICKHOUSE_USER=log_user
+      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=2
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
+      # dim batch
+      - DIM_BATCH_LOOKBACK_DAYS=1
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
