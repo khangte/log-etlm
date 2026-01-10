@@ -1,63 +1,63 @@
 routes:
   auth:
-    - path: "/v2/auth/signup"
+    - path: "/api/auth/signup"
       methods: ["POST"]
       weight: 2
       domain_events: { success: "auth_signup_succeeded", fail: "auth_signup_failed" }
 
-    - path: "/v2/auth/login"
+    - path: "/api/auth/login"
       methods: ["POST"]
       weight: 2
       domain_events: { success: "auth_login_succeeded", fail: "auth_login_failed" }
 
-    - path: "/v2/auth/token/refresh"
+    - path: "/api/auth/token/refresh"
       methods: ["POST"]
       weight: 4
       domain_events: { success: "auth_token_refresh_succeeded", fail: "auth_token_refresh_failed" }
 
-    - path: "/v2/auth/logout"
+    - path: "/api/auth/logout"
       methods: ["POST"]
       weight: 2
       domain_events: { success: "auth_logout_succeeded", fail: "auth_logout_failed" }
 
   order:
-    - path: "/v2/orders"
+    - path: "/api/orders"
       methods: ["POST"]
       weight: 3
       domain_events: { success: "order_created", fail: "order_create_failed" }
 
-    - path: "/v2/orders"
+    - path: "/api/orders"
       methods: ["GET"]
       weight: 4
       domain_events: null
 
-    - path: "/v2/orders/{order_id}"
+    - path: "/api/orders/{order_id}"
       methods: ["GET"]
       weight: 2
       domain_events: null
 
-    - path: "/v2/orders/{order_id}/cancel"
+    - path: "/api/orders/{order_id}/cancel"
       methods: ["POST"]
       weight: 1
       domain_events: { success: "order_cancelled", fail: "order_cancel_failed" }
 
   payment:
-    - path: "/v2/payments"
+    - path: "/api/payments"
       methods: ["POST"]
       weight: 4
       domain_events: { success: "payment_created", fail: "payment_create_failed" }
 
-    - path: "/v2/payments/{payment_id}/confirm"
+    - path: "/api/payments/{payment_id}/confirm"
       methods: ["POST"]
       weight: 2
       domain_events: { success: "payment_confirm_succeeded", fail: "payment_confirm_failed" }
 
-    - path: "/v2/payments/{payment_id}"
+    - path: "/api/payments/{payment_id}"
       methods: ["GET"]
       weight: 3
       domain_events: null
 
-    - path: "/v2/payments/{payment_id}/refund"
+    - path: "/api/payments/{payment_id}/refund"
       methods: ["POST"]
       weight: 1
       domain_events: { success: "payment_refunded", fail: "payment_refund_failed" }
