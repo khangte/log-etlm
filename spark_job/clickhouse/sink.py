@@ -3,12 +3,12 @@ import traceback
 
 
 def _apply_partitioning(df, target_partitions: str | None):
-    # if not target_partitions or not target_partitions.strip():
-    #     return df
-    # try:
-    #     n = int(target_partitions)
-    # except ValueError:
-    #     return df
+    if not target_partitions or not target_partitions.strip():
+        return df
+    try:
+        n = int(target_partitions)
+    except ValueError:
+        return df
 
     # allow_repartition = os.getenv("SPARK_CLICKHOUSE_ALLOW_REPARTITION", "false").strip().lower() in (
     #     "1",
