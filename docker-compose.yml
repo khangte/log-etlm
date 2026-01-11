@@ -172,7 +172,7 @@ services:
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=2
-      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
+      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=true
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
