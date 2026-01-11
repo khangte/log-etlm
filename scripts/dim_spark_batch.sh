@@ -8,7 +8,4 @@ cd /home/kang/log-etlm
 exec 9>/tmp/dim_batch.lock
 flock -n 9 || exit 0
 
-# 필요 시 기간 조절
-export DIM_BATCH_LOOKBACK_DAYS=1
-
 docker compose run --rm spark-batch
