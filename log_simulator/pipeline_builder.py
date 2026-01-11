@@ -9,8 +9,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Dict, List, Tuple
 
-from .simulator_pipeline import create_service_tasks
-from .kafka_pipeline import create_publisher_tasks
+from .simulator.task_builder import create_simulator_tasks
+from .publisher.worker_pipeline import create_publisher_workers
 from .models.messages import BatchMessage
 
 
@@ -30,7 +30,7 @@ def assemble_pipeline(
     bands: List[Any],
 ) -> Pipeline:
     """큐/태스크를 조립해 반환한다."""
-    publish_queue, service_tasks = create_service_tasks(
+    publish_queue, service_tasks = create_simulator_tasks(
         simulators=simulators,
         base_eps=base_eps,
         service_eps=service_eps,
@@ -39,7 +39,7 @@ def assemble_pipeline(
 
     # 퍼블리셔가 stats를 넣고 리포터가 소비하는 큐.
     stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()
-    publisher_tasks = create_publisher_tasks(
+    publisher_tasks = create_publisher_workers(
         publish_queue=publish_queue,
         stats_queue=stats_queue,
     )
