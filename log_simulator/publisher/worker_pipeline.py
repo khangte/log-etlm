@@ -1,20 +1,25 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_simulator/kafka_pipeline.py
+# 파일명 : log_simulator/publisher/worker_pipeline.py
 # 목적   : 시뮬레이터 큐에서 로그를 읽어 Kafka에 전송하는 워커를 구성
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import asyncio
-from collections import Counter
 import logging
 import time
 from typing import List, Tuple
 
 from .dlq import publish_dlq_batch
-from .producer import publish_batch_direct
-from .models.messages import BatchMessage
-from .config.settings import PUBLISHER_SETTINGS
+from ..producer.client import publish_batch_direct
+from ..models.messages import BatchMessage
+from .settings import PUBLISHER_SETTINGS
+from .worker_helpers import (
+    WorkerMetricsConfig,
+    collect_batch,
+    log_worker_metrics,
+    push_stats,
+)
 
 # 퍼블리셔 기본 설정
 PUBLISHER_WORKERS = PUBLISHER_SETTINGS.workers
@@ -23,9 +28,14 @@ QUEUE_WARN_RATIO = PUBLISHER_SETTINGS.queue_warn_ratio
 IDLE_WARN_SEC = PUBLISHER_SETTINGS.idle_warn_sec
 SEND_WARN_SEC = PUBLISHER_SETTINGS.send_warn_sec
 RETRY_BACKOFF_SEC = PUBLISHER_SETTINGS.retry_backoff_sec
+METRICS_CONFIG = WorkerMetricsConfig(
+    idle_warn_sec=IDLE_WARN_SEC,
+    send_warn_sec=SEND_WARN_SEC,
+    queue_warn_ratio=QUEUE_WARN_RATIO,
+)
 
 
-_logger = logging.getLogger("log_simulator.kafka_pipeline")
+_logger = logging.getLogger("log_simulator.publisher.worker_pipeline")
 _logger.setLevel(logging.INFO)
 if not _logger.handlers:
     handler = logging.StreamHandler()
@@ -42,24 +52,10 @@ async def _publisher_worker(
 ) -> None:
     """큐에 쌓인 로그를 Kafka에 발행."""
     while True:
-        batch: list[BatchMessage] = []
-        consumed_batches = 0
-
-        wait_start = time.perf_counter()
-        first = await publish_queue.get()
-        wait_duration = time.perf_counter() - wait_start
-        consumed_batches += 1
-        batch.extend(first)
-
-        # 여러 배치를 합쳐 전송 오버헤드를 줄인다.
-        while len(batch) < WORKER_BATCH_SIZE:
-            try:
-                # 여러 배치를 합쳐 publish overhead를 줄인다.
-                nxt = publish_queue.get_nowait()
-                consumed_batches += 1
-                batch.extend(nxt)
-            except asyncio.QueueEmpty:
-                break
+        batch, consumed_batches, wait_duration = await collect_batch(
+            publish_queue,
+            WORKER_BATCH_SIZE,
+        )
 
         send_ok = True
         send_start = time.perf_counter()
@@ -80,44 +76,26 @@ async def _publisher_worker(
         queue_depth = publish_queue.qsize()
         queue_capacity = publish_queue.maxsize
 
-        if wait_duration > IDLE_WARN_SEC:
-            _logger.info(
-                "[publisher] idle worker=%d wait=%.3fs queue=%d",
-                worker_id,
-                wait_duration,
-                queue_depth,
-            )
-
-        if send_duration > SEND_WARN_SEC:
-            _logger.info(
-                "[publisher] slow send worker=%d batch=%d duration=%.3fs",
-                worker_id,
-                len(batch),
-                send_duration,
-            )
-
-        if queue_capacity and queue_capacity > 0:
-            fill_ratio = queue_depth / queue_capacity
-            if fill_ratio >= QUEUE_WARN_RATIO:
-                _logger.info(
-                    "[publisher] queue backlog worker=%d queue=%d/%d (%.0f%%)",
-                    worker_id,
-                    queue_depth,
-                    queue_capacity,
-                    fill_ratio * 100,
-                )
+        log_worker_metrics(
+            _logger,
+            config=METRICS_CONFIG,
+            worker_id=worker_id,
+            wait_duration=wait_duration,
+            send_duration=send_duration,
+            batch_size=len(batch),
+            queue_depth=queue_depth,
+            queue_capacity=queue_capacity,
+        )
 
         # 성공한 배치만 stats에 반영해 오탐을 줄인다.
         if send_ok:
-            svc_counter = Counter(message.service for message in batch)
-            for svc, cnt in svc_counter.items():
-                stats_queue.put_nowait((svc, cnt))
+            push_stats(stats_queue, batch)
 
         for _ in range(consumed_batches):
             publish_queue.task_done()
 
 
-def create_publisher_tasks(
+def create_publisher_workers(
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
     worker_count: int = PUBLISHER_WORKERS,
