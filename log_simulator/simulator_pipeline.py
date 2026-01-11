@@ -53,7 +53,6 @@ async def _service_stream_loop(
     target_eps: float,
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     bands: List[Any],
-    weight_mode: str,
     log_batch_size: int,
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
@@ -75,7 +74,7 @@ async def _service_stream_loop(
         prev_ts = now_ts
         hour = current_hour_kst()
 
-        multiplier = pick_multiplier(bands, hour_kst=hour, mode=weight_mode) if bands else 1.0
+        multiplier = pick_multiplier(bands, hour_kst=hour) if bands else 1.0
         effective_eps = max(target_eps * multiplier, 0.01)
         mode = getattr(simulator, "event_mode", "all")
         if mode == "domain":
@@ -243,7 +242,6 @@ def create_service_tasks(
     base_eps: float,
     service_eps: Dict[str, float],
     bands: List[Any],
-    weight_mode: str,
     log_batch_size: int = LOG_BATCH_SIZE,
     queue_size: int = QUEUE_SIZE,
     loops_per_service: int = LOOPS_PER_SERVICE,
@@ -268,7 +266,6 @@ def create_service_tasks(
                     target_eps=per_loop_eps,
                     publish_queue=publish_queue,
                     bands=bands,
-                    weight_mode=weight_mode,
                     log_batch_size=log_batch_size,
                 ),
                 name=f"service-loop-{service}-{idx}",

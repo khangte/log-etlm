@@ -28,7 +28,6 @@ def assemble_pipeline(
     base_eps: float,
     service_eps: Dict[str, float],
     bands: List[Any],
-    weight_mode: str,
 ) -> Pipeline:
     """큐/태스크를 조립해 반환한다."""
     publish_queue, service_tasks = create_service_tasks(
@@ -36,7 +35,6 @@ def assemble_pipeline(
         base_eps=base_eps,
         service_eps=service_eps,
         bands=bands,
-        weight_mode=weight_mode,
     )
 
     # 퍼블리셔가 stats를 넣고 리포터가 소비하는 큐.

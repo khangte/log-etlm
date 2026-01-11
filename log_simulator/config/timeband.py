@@ -2,7 +2,7 @@
 # 파일명 : log_simulator/config/timeband.py
 # 목적   : profiles/*.yaml의 time_weights 설정을 Band 객체로 변환하고 multiplier 계산
 # 사용   : generator가 현재 시각(Asia/Seoul)에 맞는 배수를 선택해 EPS 조절
-# 설명   : range "0-7" + weight [min,max], weight_mode(uniform/mid/low/high) 지원
+# 설명   : range "0-7" + weight [min,max] 형태를 지원
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -72,23 +72,15 @@ def current_hour_kst(now: datetime | None = None) -> int:
     return now.hour
 
 
-def pick_multiplier(bands: List[Band], hour_kst: int, mode: str = "uniform") -> float:
+def pick_multiplier(bands: List[Band], hour_kst: int) -> float:
     """
     현재 시각(KST)에 해당하는 band에서 multiplier를 선택한다.
     Args:
         bands: Band 리스트(load_bands 결과)
         hour_kst: 0~23
-        mode: "uniform" | "mid" | "low" | "high"
     Returns: float: multiplier (기본 1.0)
     """
     for b in bands:
         if b.contains(hour_kst):
-            if mode == "mid":
-                return (b.w_min + b.w_max) / 2.0
-            if mode == "low":
-                return b.w_min
-            if mode == "high":
-                return b.w_max
-            # uniform
             return random.uniform(b.w_min, b.w_max)
     return 1.0  # 매칭되는 band가 없으면 1.0
