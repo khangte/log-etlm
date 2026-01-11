@@ -13,6 +13,7 @@ from confluent_kafka import Producer
 
 from .config.settings import PRODUCER_SETTINGS
 from .models.messages import BatchMessage
+from .topic import get_topic
 
 import logging
 logger = logging.getLogger("log_simulator.producer")
@@ -28,17 +29,6 @@ def _ensure_logger_handler() -> None:
     logger.addHandler(handler)
 
 _ensure_logger_handler()
-
-
-TOPICS: Dict[str, str] = {
-    "auth": "logs.event",
-    "order": "logs.event",
-    "payment": "logs.event",
-    "dlq": "logs.dlq",
-}
-
-def get_topic(service: str) -> str:
-    return TOPICS.get(service, "logs.event")
 
 
 def build_producer_config() -> Dict[str, Any]:

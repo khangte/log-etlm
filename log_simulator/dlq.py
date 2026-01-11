@@ -11,7 +11,8 @@ import time
 from typing import Sequence
 
 from .models.messages import BatchMessage
-from .producer import get_topic, publish_batch_direct
+from .producer import publish_batch_direct
+from .topic import get_topic
 
 
 _logger = logging.getLogger("log_simulator.dlq")
