@@ -29,7 +29,6 @@ class SimulatorSettings:
     queue_soft_scale_max: float = float(os.getenv("QUEUE_SOFT_SCALE_MAX", "1.0"))
     behind_log_every_sec: float = float(os.getenv("SIM_BEHIND_LOG_EVERY_SEC", "5.0"))
     shutdown_drain_timeout_sec: float = float(os.getenv("SIM_DRAIN_TIMEOUT_SEC", "5.0"))
-    event_mode: str = os.getenv("SIM_EVENT_MODE", "domain")  # all | domain | http
 
 
 @dataclass(frozen=True)

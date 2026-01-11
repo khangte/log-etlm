@@ -2,7 +2,7 @@
 # 파일명 : log_simulator/simulator/base.py
 # 목적   : 서비스별 시뮬레이터가 공통으로 사용하는 베이스 클래스/유틸 정의(최적화 버전)
 # 설명   : 라우트/메서드 선택, 에러율 처리, request_id/event_id 생성, UTC ms 생성,
-#          공통 이벤트 생성(HTTP/도메인), 렌더링 등을 제공
+#          공통 이벤트 생성(도메인), 렌더링 등을 제공
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -32,9 +32,7 @@ class BaseServiceSimulator:
         "profile",
         "error_rate",
         "domain_event_policy",
-        "event_mode",
         "domain_event_rate",
-        "http_event_rate",
         "_rng",
         "_route_prefix_sums",
         "_route_total_weight",
@@ -48,10 +46,6 @@ class BaseServiceSimulator:
 
         self.routes = routes
         self.profile = profile
-        mode = str(profile.get("event_mode", "all")).lower()
-        if mode not in ("all", "domain", "http"):
-            mode = "domain"
-        self.event_mode = mode
 
         # error_rate: dict면 서비스 키 우선, 아니면 공통값
         er = profile.get("error_rate", 0.01)
@@ -108,7 +102,6 @@ class BaseServiceSimulator:
         self._route_prefix_sums = prefix
         self._route_total_weight = total
         self.domain_event_rate = self._estimate_domain_event_rate()
-        self.http_event_rate = self._estimate_http_event_rate()
 
 
     # ---------- 공통 유틸 ----------
@@ -183,9 +176,6 @@ class BaseServiceSimulator:
             return None
         return de.get("fail" if is_err else "success")
 
-    def _estimate_http_event_rate(self) -> float:
-        return 1.0 if self.event_mode in ("all", "http") else 0.0
-
     def _estimate_domain_event_rate(self) -> float:
         total_weight = float(self._route_total_weight or 0)
         if total_weight <= 0:
@@ -213,53 +203,7 @@ class BaseServiceSimulator:
 
         return rate
 
-    def _emit_http_event(self) -> bool:
-        return self.event_mode in ("all", "http")
-
-    def _emit_domain_event(self) -> bool:
-        return self.event_mode in ("all", "domain")
-
-
     # ---------- 공통 이벤트 생성 ----------
-
-    def make_http_event(
-        self,
-        *,
-        ts_ms: int,
-        request_id: str,
-        method: str,
-        route_template: str,
-        status_code: int,
-        duration_ms: int,
-        user_id: Optional[str] = None,
-        order_id: Optional[str] = None,
-        payment_id: Optional[str] = None,
-        api_group: Optional[str] = None,
-        extra: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        ev: Dict[str, Any] = {
-            "event_id": self.generate_event_id(),
-            "event_name": "http_request_completed",
-            "domain": "http",
-            "ts_ms": ts_ms,
-            "service": self.service,
-            "request_id": request_id,
-            "method": method,
-            "route_template": route_template,
-            "status_code": int(status_code),
-            "duration_ms": int(duration_ms),
-        }
-        if api_group:
-            ev["api_group"] = api_group
-        if user_id:
-            ev["user_id"] = user_id
-        if order_id:
-            ev["order_id"] = order_id
-        if payment_id:
-            ev["payment_id"] = payment_id
-        if extra:
-            ev.update(extra)
-        return ev
 
     def make_domain_event(
         self,

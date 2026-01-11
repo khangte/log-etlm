@@ -4,11 +4,11 @@ from typing import Dict
 
 
 TOPICS: Dict[str, str] = {
-    "auth": "logs.event",
-    "order": "logs.event",
-    "payment": "logs.event",
+    "auth": "logs.auth",
+    "order": "logs.order",
+    "payment": "logs.payment",
     "dlq": "logs.dlq",
 }
 
 def get_topic(service: str) -> str:
-    return TOPICS.get(service, "logs.event")
+    return TOPICS.get(service, f"logs.{service}")

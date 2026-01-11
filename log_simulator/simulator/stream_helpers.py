@@ -12,20 +12,12 @@ from typing import Any
 from ..models.messages import BatchMessage
 from .settings import QueueThrottleConfig
 
-def adjust_eps_for_event_mode(simulator: Any, eps: float) -> float:
-    """Adjust EPS based on simulator event mode and rates."""
-    mode = getattr(simulator, "event_mode", "all")
-    if mode == "domain":
-        domain_rate = float(getattr(simulator, "domain_event_rate", 1.0))
-        if domain_rate <= 0:
-            domain_rate = 1.0
-        return max(eps / max(domain_rate, 0.01), 0.01)
-    if mode == "http":
-        http_rate = float(getattr(simulator, "http_event_rate", 1.0))
-        if http_rate <= 0:
-            http_rate = 1.0
-        return max(eps / max(http_rate, 0.01), 0.01)
-    return max(eps, 0.01)
+def adjust_eps_for_domain_rate(simulator: Any, eps: float) -> float:
+    """Adjust EPS based on domain event rate."""
+    domain_rate = float(getattr(simulator, "domain_event_rate", 1.0))
+    if domain_rate <= 0:
+        domain_rate = 1.0
+    return max(eps / max(domain_rate, 0.01), 0.01)
 
 
 def _is_error_event(ev: dict) -> bool:

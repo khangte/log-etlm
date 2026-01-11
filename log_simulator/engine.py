@@ -34,7 +34,6 @@ class SimulatorEngine:
 
         # 프로파일/정책을 읽고 파이프라인을 한 번에 조립한다.
         context = load_profile_context()
-        context.profile["event_mode"] = SIMULATOR_SETTINGS.event_mode
         simulators = build_simulators(context.profile)
         base_eps, service_eps = allocate_service_eps(
             total_eps=context.total_eps,

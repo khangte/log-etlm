@@ -16,7 +16,7 @@ from ..config.timeband import current_hour_kst, pick_multiplier
 from .settings import QUEUE_CONFIG, SIMULATOR_SETTINGS
 from ..models.messages import BatchMessage
 from .stream_helpers import (
-    adjust_eps_for_event_mode,
+    adjust_eps_for_domain_rate,
     apply_queue_backpressure,
     build_batch_messages,
     log_behind,
@@ -67,7 +67,7 @@ async def run_simulator_loop(
         hour = current_hour_kst()
 
         multiplier = pick_multiplier(bands, hour_kst=hour) if bands else 1.0
-        effective_eps = adjust_eps_for_event_mode(simulator, target_eps * multiplier)
+        effective_eps = adjust_eps_for_domain_rate(simulator, target_eps * multiplier)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
