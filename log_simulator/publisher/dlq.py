@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_simulator/dlq.py
+# 파일명 : log_simulator/publisher/dlq.py
 # 목적   : 전송 실패 배치를 DLQ 메시지로 변환/전송
 # -----------------------------------------------------------------------------
 
@@ -10,9 +10,9 @@ import logging
 import time
 from typing import Sequence
 
-from .models.messages import BatchMessage
-from .producer import publish_batch_direct
-from .topic import get_topic
+from ..models.messages import BatchMessage
+from ..producer.client import publish_batch_direct
+from ..producer.topic import get_topic
 
 
 _logger = logging.getLogger("log_simulator.dlq")
