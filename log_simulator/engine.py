@@ -47,7 +47,6 @@ class SimulatorEngine:
             base_eps=base_eps,
             service_eps=service_eps,
             bands=context.bands,
-            weight_mode=context.weight_mode,
         )
 
         # stats 리포터는 백그라운드 태스크로 붙여 throughput 로그를 남긴다.

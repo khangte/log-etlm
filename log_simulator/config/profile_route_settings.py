@@ -37,7 +37,6 @@ class ProfileContext:
 
     total_eps: float
     mix: Dict[str, Any]
-    weight_mode: str
     bands: List[Band]
 
     error_rate: Dict[str, float]
@@ -54,7 +53,6 @@ def load_profile_context() -> ProfileContext:
 
     total_eps = float(profile.get("eps", 10000))
     mix = profile.get("mix", {})
-    weight_mode = str(profile.get("weight_mode", "uniform"))
     bands = load_bands(profile.get("time_weights", []))
     error_rate = profile.get("error_rate", {})
     funnel = profile.get("funnel", {})
@@ -65,7 +63,6 @@ def load_profile_context() -> ProfileContext:
         profile=profile,
         total_eps=total_eps,
         mix=mix,
-        weight_mode=weight_mode,
         bands=bands,
         error_rate=error_rate,
         funnel=funnel,

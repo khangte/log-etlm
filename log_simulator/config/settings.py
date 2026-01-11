@@ -16,7 +16,7 @@ class SimulatorSettings:
     tick_sec: float = float(os.getenv("TICK_SEC", "0.1"))
     queue_size: int = int(os.getenv("QUEUE_SIZE", "2000"))
     loops_per_service: int = int(os.getenv("LOOPS_PER_SERVICE", "8"))
-    queue_warn_ratio: float = float(os.getenv("SIM_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.8")))
+    queue_warn_ratio: float = float(os.getenv("SIM_QUEUE_WARN_RATIO", "0.8"))
     queue_low_watermark_ratio: float = float(os.getenv("QUEUE_LOW_WATERMARK_RATIO", "0.2"))
     queue_low_sleep_scale: float = float(os.getenv("QUEUE_LOW_SLEEP_SCALE", "0.3"))
     queue_throttle_ratio: float = float(os.getenv("QUEUE_THROTTLE_RATIO", "0.9"))
@@ -36,7 +36,7 @@ class SimulatorSettings:
 class PublisherSettings:
     workers: int = int(os.getenv("PUBLISHER_WORKERS", "8"))
     worker_batch_size: int = int(os.getenv("WORKER_BATCH_SIZE", "80"))
-    queue_warn_ratio: float = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO", os.getenv("QUEUE_WARN_RATIO", "0.7")))
+    queue_warn_ratio: float = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO", "0.7"))
     idle_warn_sec: float = float(os.getenv("IDLE_WARN_SEC", "0.2"))
     send_warn_sec: float = float(os.getenv("SEND_WARN_SEC", "0.3"))
     retry_backoff_sec: float = float(os.getenv("PUBLISH_RETRY_BACKOFF_SEC", "0.2"))
