@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_simulator/producer.py
+# 파일명 : log_simulator/producer/client.py
 # 목적   : confluent-kafka Producer 래퍼(단일 publish_batch_direct 경로)
 # 설명   : bootstrap/batching/idempotence 설정과 서비스명→토픽 맵 제공, poll 책임을 단일화
 # -----------------------------------------------------------------------------
@@ -11,8 +11,8 @@ from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
 
-from .config.settings import PRODUCER_SETTINGS
-from .models.messages import BatchMessage
+from .settings import PRODUCER_SETTINGS
+from ..models.messages import BatchMessage
 from .topic import get_topic
 
 import logging
