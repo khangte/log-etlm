@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# 파일명 : log_simulator/rate_policy.py
+# 파일명 : log_simulator/simulator/eps_policy.py
 # 목적   : EPS 분배 정책만 담당
 # -----------------------------------------------------------------------------
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 
-def compute_service_eps(
+def allocate_service_eps(
     total_eps: float,
     mix: Dict[str, float],
     services: List[str],

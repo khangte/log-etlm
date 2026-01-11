@@ -10,12 +10,12 @@ import asyncio
 import logging
 
 from .config.profile_route_settings import load_profile_context
-from .config.settings import SIMULATOR_SETTINGS
+from .simulator.settings import SIMULATOR_SETTINGS
 from .config.stats import stats_reporter
 from .pipeline_builder import Pipeline, assemble_pipeline
-from .producer import close_producer
-from .rate_policy import compute_service_eps
-from .simulator.build_simulators import build_simulators
+from .producer.client import close_producer
+from .simulator.eps_policy import allocate_service_eps
+from .simulator.simulators_builder import build_simulators
 
 
 logger = logging.getLogger("log_simulator.engine")
@@ -36,7 +36,7 @@ class SimulatorEngine:
         context = load_profile_context()
         context.profile["event_mode"] = SIMULATOR_SETTINGS.event_mode
         simulators = build_simulators(context.profile)
-        base_eps, service_eps = compute_service_eps(
+        base_eps, service_eps = allocate_service_eps(
             total_eps=context.total_eps,
             mix=context.mix,
             services=list(simulators.keys()),
