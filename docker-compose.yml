@@ -73,9 +73,9 @@ services:
       # min_isr=1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      # 파티션 수
-      KAFKA_NUM_PARTITIONS: 8
+      # 토픽은 수동 생성(서비스 비중에 맞게 파티션 지정)
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      # KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
       # ★ 로그/메타데이터 경로 (메타데이터 경로를 명시적으로 지정)
       KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
