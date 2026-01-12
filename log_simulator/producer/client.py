@@ -20,6 +20,7 @@ logger = logging.getLogger("log_simulator.producer")
 logger.setLevel(logging.INFO)
 
 def _ensure_logger_handler() -> None:
+    """모듈 로거에 기본 스트림 핸들러를 한 번만 연결한다."""
     if logger.handlers:
         return
     handler = logging.StreamHandler()
@@ -32,6 +33,7 @@ _ensure_logger_handler()
 
 
 def build_producer_config() -> Dict[str, Any]:
+    """설정값을 기반으로 Kafka producer 구성을 생성한다."""
     s = PRODUCER_SETTINGS
     return {
         "bootstrap.servers": s.brokers,
@@ -77,6 +79,7 @@ def close_producer(timeout: float = 5.0) -> None:
 # ---------------------------------------------------------------------------
 
 def _to_bytes(value: Optional[bytes | str]) -> Optional[bytes]:
+    """Kafka produce()에 맞게 값/키를 bytes로 정규화한다."""
     # value/key를 bytes로 정규화해 producer에 바로 전달한다.
     if value is None:
         return None
@@ -91,6 +94,7 @@ def _deliver(
     key: Optional[bytes | str] = None,
     replicate_error: bool = False,
 ) -> None:
+    """서비스 토픽에 1건 발행하고, 필요하면 error 토픽에도 복제한다."""
     topic = get_topic(service)
 
     def _delivery_report(err, msg):
