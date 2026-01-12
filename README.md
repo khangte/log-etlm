@@ -69,11 +69,20 @@
 # 1. Kafka + Kafka UI 우선 기동
 docker compose up -d kafka kafka-ui
 
+# 1-1. 도메인별 토픽 생성(수동)
+# mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 총 8 파티션 기준
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1
+
 # 2. Spark, ClickHouse, Grafana 파이프라인 기동
-docker compose up -d spark clickhouse grafana
+docker compose up -d spark clickhouse ch-ui grafana
 
 # 3. 로그 시뮬레이터 기동
-docker compose up -d simulator simulator2
+docker compose up -d simulator
 
 # 4. 상태 점검
 docker compose ps
@@ -89,6 +98,34 @@ python monitor/docker_watchdog.py
 crontab -e
 */10 * * * * /home/kang/log-etlm/scripts/autoswitch_spark_env.sh >> /home/kang/log-etlm/logs/autoswitch.log 2>&1
 ```
+
+
+## Kafka 토픽 파티션 분배(도메인 기준)
+
+`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`이므로 토픽을 수동 생성한다.
+
+예시(mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 기준 총 8 파티션 유지):
+
+```bash
+# 토픽 생성
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
+
+# DLQ/ERROR/UNKNOWN은 낮게 유지
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1
+
+# 확인
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.auth
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.order
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.payment
+```
+
+파티션 증설은 `--alter --partitions N`으로 가능하지만 줄이기는 불가하므로,
+필요 시 토픽 삭제 후 재생성한다.
+
 
 ## 프로파일 & 튜닝 포인트
 
