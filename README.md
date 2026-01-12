@@ -38,17 +38,17 @@
 ![시스템아키텍처](images/SystemArchitecture.png)
 
 1. **로그 생성/수집**
-   - `log_simulator/pipeline_builder.py`가 서비스별 트래픽 믹스·시간대 가중치·오류율을 반영한 HTTP 이벤트 생성 파이프라인을 구성.
-   - FastAPI 앱의 `/ping` 헬스체크와 엔진 라이프사이클에 따라 지속 로그 생성.
+   - `log_simulator/engine.py`가 `log_simulator/config/profiles.yml`, `log_simulator/config/routes.yml`을 읽어 서비스별 시뮬레이터/퍼블리셔 파이프라인을 구성.
+   - FastAPI 앱(`log_simulator/main.py`)의 lifespan에서 엔진을 시작/중지하며 로그를 생성.
 2. **로그 브로커/버퍼링**
-   - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.notify`, `logs.error` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
+   - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.dlq`, `logs.error`, `logs.unknown` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
 3. **로그 실시간 처리**
-   - `spark_job/main.py`가 Structured Streaming으로 `logs.*` 패턴 구독, `fact_event.parse_fact_event()`로 스키마 정규화 수행.
+   - `spark_job/main.py` → `spark_job/fact/jobs/ingest_job.py`가 Structured Streaming으로 `logs.*`를 구독하고 `parse_event`/`validate_event`/`normalize_event`로 스키마 정규화 수행.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
-   - `spark_job/warehouse/writer/fact_writer.py` → `spark_job/warehouse/sink.py`의 `write_to_clickhouse()`가 ClickHouse `analytics.fact_event` 테이블에 JDBC append 수행.
-   - 초기 스키마는 `spark_job/warehouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
+   - `spark_job/fact/writer.py`, `spark_job/dlq/writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
+   - 초기 스키마는 `spark_job/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
    - `monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.
@@ -129,8 +129,9 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ## 프로파일 & 튜닝 포인트
 
-- 시뮬레이터 부하 프로파일: `log_simulator/profiles/baseline.yaml`
+- 시뮬레이터 부하 프로파일: `log_simulator/config/profiles.yml`
   - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
+- 라우트/도메인 이벤트 설정: `log_simulator/config/routes.yml`
 - Spark 환경 프로파일: `env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
 - 유틸 스크립트 목록
