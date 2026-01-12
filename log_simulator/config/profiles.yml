@@ -1,9 +1,9 @@
 eps: 5000
 
 mix:  # 서비스별 트래픽 비중(합계 1.0)
-  auth: 0.34
-  order: 0.33
-  payment: 0.33
+  auth: 0.5
+  order: 0.3
+  payment: 0.2
 
 # time_weights:  # 시간대별 가중치 범위(베이스 EPS × weight 중 임의 선택)
 #   - { range: "0-5",   weight: [0.25, 0.45] }  # 새벽 : 저부하
