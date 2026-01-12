@@ -98,6 +98,7 @@ def _deliver(
     topic = get_topic(service)
 
     def _delivery_report(err, msg):
+        """전송 결과 콜백으로 에러를 로그로 남긴다."""
         if err is not None:
             logger.warning(
                 "Kafka 전송 실패: topic=%s key=%s error=%s",

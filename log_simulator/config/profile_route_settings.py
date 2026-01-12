@@ -20,12 +20,14 @@ PROFILES_FILE = CONFIG_DIR / "profiles.yml"
 
 
 def load_routes() -> Dict[str, Any]:
+    """routes.yml을 읽어 라우트 설정을 반환한다."""
     with ROUTES_FILE.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data.get("routes", {})
 
 
 def load_profile() -> Dict[str, Any]:
+    """profiles.yml을 읽어 시뮬레이터 프로파일을 반환한다."""
     with PROFILES_FILE.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}
     return data

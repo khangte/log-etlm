@@ -18,6 +18,7 @@ from ..writer import ClickHouseDimWriter
 
 
 def _read_fact_event(spark):
+    """ClickHouse에서 최근 N일 fact_event를 읽어온다."""
     clickhouse_url = os.getenv(
         "SPARK_CLICKHOUSE_URL",
         "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
@@ -46,6 +47,7 @@ def _read_fact_event(spark):
 
 
 def run_dim_batch() -> None:
+    """Dimension 테이블을 배치로 갱신한다."""
     spark = build_batch_spark()
     spark.sparkContext.setLogLevel("INFO")
 

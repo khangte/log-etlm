@@ -25,6 +25,7 @@ class OrderSimulator(BaseServiceSimulator):
     )
 
     def _pick_reason_code(self) -> str:
+        """주문 실패 원인 코드를 무작위로 선택한다."""
         return self._rng.choice(list(self.ORDER_REASON_CODES))
 
     def _infer_ids_for_route(self, route_path: str) -> Dict[str, Optional[str]]:
@@ -39,6 +40,7 @@ class OrderSimulator(BaseServiceSimulator):
         return {"order_id": order_id}
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
+        """요청 1건에 대한 도메인 이벤트 리스트를 생성한다."""
         route = self.pick_route()
         method = self.pick_method(route)
 

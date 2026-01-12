@@ -14,9 +14,11 @@ class AuthSimulator(BaseServiceSimulator):
     ]
 
     def _pick_reason_code(self) -> str:
+        """인증 실패 원인 코드를 무작위로 선택한다."""
         return self._rng.choice(self.AUTH_REASON_CODES)
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
+        """요청 1건에 대한 도메인 이벤트 리스트를 생성한다."""
         route = self.pick_route()
         method = self.pick_method(route)
 

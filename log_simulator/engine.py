@@ -23,12 +23,14 @@ logger = logging.getLogger("log_simulator.engine")
 
 class SimulatorEngine:
     def __init__(self) -> None:
+        """시뮬레이터 엔진 상태를 초기화한다."""
         self._started = False
         self._tasks: list[asyncio.Task] = []
         self._pipe: Pipeline | None = None
         self._stats_task: asyncio.Task | None = None
 
     async def start(self) -> None:
+        """시뮬레이터 파이프라인과 통계 리포터를 시작한다."""
         if self._started:
             return
 
@@ -60,11 +62,13 @@ class SimulatorEngine:
         self._started = True
 
     async def wait(self) -> None:
+        """실행 중인 태스크가 끝날 때까지 대기한다."""
         if not self._tasks:
             return
         await asyncio.gather(*self._tasks)
 
     async def stop(self) -> None:
+        """시뮬레이터 태스크를 종료하고 리소스를 정리한다."""
         if not self._started:
             return
         if self._pipe:

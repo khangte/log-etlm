@@ -39,6 +39,7 @@ class BaseServiceSimulator:
     )
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
+        """라우트/프로파일을 초기화하고 가중치 전처리를 수행한다."""
         if not isinstance(routes, list):
             raise ValueError("routes must be a list")
         if not isinstance(profile, dict):
@@ -108,25 +109,27 @@ class BaseServiceSimulator:
 
     @staticmethod
     def now_utc_ms() -> int:
-        """현재 UTC epoch ms (빠른 구현)"""
+        """UTC 기준 epoch ms를 반환한다."""
         return time.time_ns() // 1_000_000
 
     def generate_request_id(self) -> str:
-        """req_ + 12 hex"""
+        """req_ 접두어와 12자리 16진수로 ID를 만든다."""
         return "req_" + uuid.uuid4().hex[:12]
 
     def generate_event_id(self) -> str:
-        """evt_ + 32 hex"""
+        """evt_ 접두어와 32자리 16진수로 ID를 만든다."""
         return "evt_" + uuid.uuid4().hex
 
     def generate_user_id(self) -> str:
-        """간단 user id(8 hex)"""
+        """간단한 사용자 ID(8자리 16진수)를 만든다."""
         return uuid.uuid4().hex[:8]
 
     def generate_order_id(self) -> str:
+        """주문 ID를 생성한다."""
         return "o_" + uuid.uuid4().hex[:12]
 
     def generate_payment_id(self) -> str:
+        """결제 ID를 생성한다."""
         return "p_" + uuid.uuid4().hex[:12]
 
     # ---------- route/method 선택 ----------
@@ -149,19 +152,22 @@ class BaseServiceSimulator:
         return self._rng.choices(routes, weights=weights, k=1)[0]
 
     def pick_method(self, route: Dict[str, Any]) -> str:
+        """라우트에서 요청 메서드를 선택한다."""
         methods = route.get("methods") or ["GET"]
         if len(methods) == 1:
             return methods[0]
         return methods[self._rng.randrange(0, len(methods))]
 
     def sample_duration_ms(self) -> int:
-        """간단 지연 샘플(override는 나중에)"""
+        """간단한 지연 샘플을 생성한다(필요 시 오버라이드)."""
         return self._rng.randint(5, 300)
 
     def _is_err(self) -> bool:
+        """오류 발생 여부를 확률로 판단한다."""
         return self._rng.random() < self.error_rate
 
     def _should_emit_domain_event(self, method: str, route: Dict[str, Any], is_err: bool) -> bool:
+        """도메인 이벤트 생성 여부를 정책과 조건으로 판단한다."""
         if not route.get("domain_events"):
             return False
         if method == "GET" and not self.domain_event_policy["emit_for_get_routes"]:
@@ -171,12 +177,14 @@ class BaseServiceSimulator:
         return True
 
     def _domain_event_name(self, route: Dict[str, Any], is_err: bool) -> Optional[str]:
+        """성공/실패에 맞는 도메인 이벤트명을 반환한다."""
         de = route.get("domain_events")
         if not isinstance(de, dict):
             return None
         return de.get("fail" if is_err else "success")
 
     def _estimate_domain_event_rate(self) -> float:
+        """도메인 이벤트 발생 비율을 추정한다."""
         total_weight = float(self._route_total_weight or 0)
         if total_weight <= 0:
             return 0.0
@@ -221,6 +229,7 @@ class BaseServiceSimulator:
         route_template: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """도메인 이벤트 페이로드를 생성한다."""
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": event_name,
@@ -251,7 +260,7 @@ class BaseServiceSimulator:
     # ---------- 생성 템플릿 ----------
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
-        """요청 1건 -> 이벤트 리스트(서브클래스 구현)"""
+        """요청 1건에 대한 이벤트 리스트를 생성한다(서브클래스 구현)."""
         raise NotImplementedError
 
     def generate_log_one(self) -> Dict[str, Any]:
@@ -265,7 +274,7 @@ class BaseServiceSimulator:
         return events[0]
 
     def generate_events(self, count: int) -> List[Dict[str, Any]]:
-        """count번 요청 -> 이벤트 평탄화"""
+        """count회 요청을 이벤트로 평탄화한다."""
         out: List[Dict[str, Any]] = []
         for _ in range(count):
             out.extend(self.generate_events_one())
@@ -274,9 +283,11 @@ class BaseServiceSimulator:
     # ---------- 출력 ----------
 
     def render(self, log: Dict[str, Any]) -> str:
+        """로그 dict를 JSON 문자열로 렌더링한다."""
         return json.dumps(log, ensure_ascii=False)
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
+        """로그 dict를 JSON 바이트로 렌더링한다."""
         return json.dumps(log, ensure_ascii=False).encode("utf-8")
 
 

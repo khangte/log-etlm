@@ -32,8 +32,8 @@ class Band:
 def _parse_range(r: str) -> Tuple[int, int]:
     """
     "8-11" 같은 범위를 (8, 11)로 파싱.
-    Args: r: "start-end" 형태 문자열(0~23 범위)
-    Returns: (start, end)
+    인자: r: "start-end" 형태 문자열(0~23 범위)
+    반환: (start, end)
     """
     s, e = r.split("-")
     return int(s), int(e)
@@ -42,8 +42,8 @@ def _parse_range(r: str) -> Tuple[int, int]:
 def load_bands(raw_bands: List[Dict]) -> List[Band]:
     """
     프로파일의 time_weights 배열을 Band 리스트로 변환한다.
-    Args: raw_bands: [{range:"0-7", weight:[0.2,0.4]}, ...]
-    Returns: List[Band]: 사용 가능한 band 목록
+    인자: raw_bands: [{range:"0-7", weight:[0.2,0.4]}, ...]
+    반환: List[Band]: 사용 가능한 band 목록
     """
     bands: List[Band] = []
     for item in raw_bands or []:
@@ -58,8 +58,8 @@ def load_bands(raw_bands: List[Dict]) -> List[Band]:
 def current_hour_kst(now: datetime | None = None) -> int:
     """
     현재 KST(Asia/Seoul) 시간의 시(hour)를 반환.
-    Args: now: 테스트/주입용 시각(UTC 또는 naive). None이면 현재 시각 사용.
-    Returns: int: 0 ~ 23
+    인자: now: 테스트/주입용 시각(UTC 또는 naive). None이면 현재 시각 사용.
+    반환: int: 0 ~ 23
     """
     if now is None:
         now = datetime.now(tz=KST)
@@ -74,11 +74,11 @@ def current_hour_kst(now: datetime | None = None) -> int:
 
 def pick_multiplier(bands: List[Band], hour_kst: int) -> float:
     """
-    현재 시각(KST)에 해당하는 band에서 multiplier를 선택한다.
-    Args:
+    현재 시각(KST)에 해당하는 band에서 배수를 선택한다.
+    인자:
         bands: Band 리스트(load_bands 결과)
         hour_kst: 0~23
-    Returns: float: multiplier (기본 1.0)
+    반환: float: 배수 (기본 1.0)
     """
     for b in bands:
         if b.contains(hour_kst):

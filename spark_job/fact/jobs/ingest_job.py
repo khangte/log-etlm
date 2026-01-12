@@ -55,6 +55,7 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
 
 
 def run_event_ingest() -> None:
+    """Kafka 스트림을 읽어 fact_event 및 DLQ 테이블로 적재한다."""
     spark = None
     try:
         # 1) Spark 세션 생성

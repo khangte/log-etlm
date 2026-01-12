@@ -12,6 +12,7 @@ TOPICS: Dict[str, str] = {
 }
 
 def get_topic(service: str) -> str:
+    """서비스 이름에 대응하는 Kafka 토픽명을 반환한다."""
     if not service:
         return TOPICS["unknown"]
     return TOPICS.get(service, f"logs.{service}")

@@ -29,9 +29,9 @@ async def stats_reporter(
     logger: logging.Logger | None = None,
 ) -> None:
     """
-    stats 큐를 소비해 터미널에 throughput 로그를 출력한다.
+    stats 큐를 소비해 터미널에 처리량 로그를 출력한다.
 
-    Args:
+    인자:
         stats_queue: publisher가 put_nowait 하는 (service, count) 큐
         services: 보고 대상 서비스 목록
         interval_sec: 통계 집계 주기(초)
@@ -79,6 +79,7 @@ _tps_counter = defaultdict(int)
 _last_ts = time.time()
 
 def record_tps(service: str):
+    """서비스별 TPS를 초 단위로 간단히 출력한다."""
     global _last_ts
     _tps_counter[service] += 1
     now = time.time()

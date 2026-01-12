@@ -10,9 +10,11 @@ class _ClickHouseDialect(JdbcDialect):
     """ClickHouse 고유 타입을 Spark SQL 타입으로 매핑."""
 
     def canHandle(self, url: str) -> bool:  # noqa: N802 (Spark interface)
+        """ClickHouse JDBC URL인지 판별한다."""
         return bool(url) and url.lower().startswith("jdbc:clickhouse")
 
     def getCatalystType(self, sqlType, typeName, size, md):  # noqa: N802
+        """ClickHouse 타입명을 Spark SQL 타입으로 변환한다."""
         if not typeName:
             return None
 

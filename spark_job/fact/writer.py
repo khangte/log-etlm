@@ -13,6 +13,7 @@ FACT_EVENT_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event"
 
 class ClickHouseStreamWriter(ClickHouseStreamWriterBase):
     def write_fact_event_stream(self, df: DataFrame):
+        """fact_event 스트림을 ClickHouse로 적재한다."""
         return self.write_stream(
             df,
             FACT_EVENT_TABLE,

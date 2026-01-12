@@ -12,6 +12,7 @@ from .sink import write_to_clickhouse
 
 class ClickHouseStreamWriterBase:
     def __init__(self, foreach_writer=write_to_clickhouse):
+        """스트리밍 foreachBatch에 사용할 writer를 설정한다."""
         self._foreach_writer = foreach_writer
 
     def write_stream(
@@ -24,7 +25,9 @@ class ClickHouseStreamWriterBase:
         query_name: str | None = None,
         deduplicate_keys: list[str] | None = None,
     ):
+        """스트리밍 DataFrame을 ClickHouse로 적재한다."""
         def _foreach(batch_df: DataFrame, batch_id: int):
+            """마이크로배치 단위로 중복 제거 후 쓰기를 수행한다."""
             out_df = batch_df
             if deduplicate_keys:
                 # Drop duplicates per micro-batch to reduce ClickHouse duplicates.
@@ -44,6 +47,7 @@ class ClickHouseStreamWriterBase:
 
 class ClickHouseBatchWriterBase:
     def __init__(self, batch_writer=write_to_clickhouse):
+        """배치 쓰기에 사용할 writer를 설정한다."""
         self._batch_writer = batch_writer
 
     def write_batch(
@@ -53,6 +57,7 @@ class ClickHouseBatchWriterBase:
         *,
         deduplicate_keys: list[str] | None = None,
     ):
+        """배치 DataFrame을 ClickHouse로 적재한다."""
         out_df = df
         if deduplicate_keys:
             out_df = out_df.dropDuplicates(deduplicate_keys)

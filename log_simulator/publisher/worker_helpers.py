@@ -25,7 +25,7 @@ async def collect_batch(
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     max_batch_size: int,
 ) -> tuple[list[BatchMessage], int, float]:
-    """Collect batches from the queue until max size or queue is empty."""
+    """큐에서 배치를 모아 최대 크기까지 수집한다."""
     batch: list[BatchMessage] = []
     consumed_batches = 0
     wait_start = time.perf_counter()
@@ -55,7 +55,7 @@ def log_worker_metrics(
     queue_depth: int,
     queue_capacity: int,
 ) -> None:
-    """Log idle/slow/backlog metrics for the worker."""
+    """퍼블리셔 워커의 대기/지연/백로그 상황을 로그로 남긴다."""
     if wait_duration > config.idle_warn_sec:
         logger.info(
             "[publisher] idle worker=%d wait=%.3fs queue=%d",
@@ -88,7 +88,7 @@ def push_stats(
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
     batch: list[BatchMessage],
 ) -> None:
-    """Push per-service counts into stats queue."""
+    """서비스별 건수를 stats 큐에 집계한다."""
     svc_counter = Counter(message.service for message in batch)
     for svc, cnt in svc_counter.items():
         stats_queue.put_nowait((svc, cnt))
