@@ -45,3 +45,14 @@ WHERE event_ts IS NOT NULL
   AND processed_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_dlq_1m
+TO analytics.fact_event_dlq_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    coalesce(source_topic, 'unknown') AS fail_stage,
+    error_type AS fail_reason,
+    count() AS cnt
+FROM analytics.fact_event_dlq
+GROUP BY bucket, fail_stage, fail_reason;
