@@ -1,4 +1,4 @@
-# spark_job/dimension/__init__.py
+# spark_job/dimension/parsers/__init__.py
 
 from .dim_date import parse_dim_date
 from .dim_service import parse_dim_service
