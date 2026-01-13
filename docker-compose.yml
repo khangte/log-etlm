@@ -162,12 +162,14 @@ services:
       - KAFKA_BOOTSTRAP=kafka:9092
       # Spark Streaming ingest tuning
       # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=20000
+      - SPARK_DLQ_ENABLED=true
       # ClickHouse sink tuning (override as needed)
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=2
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=30000
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=6
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=true
+      - SPARK_PROGRESS_LOG_PATH=/data/log-etlm/spark-events/spark_progress.log
     volumes:
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
