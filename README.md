@@ -44,10 +44,10 @@
    - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.dlq`, `logs.error`, `logs.unknown` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
 3. **로그 실시간 처리**
-   - `spark_job/main.py` → `spark_job/fact/jobs/ingest_job.py`가 Structured Streaming으로 `logs.*`를 구독하고 `parse_event`/`validate_event`/`normalize_event`로 스키마 정규화 수행.
+   - `spark_job/main.py`가 `spark_job/fact/jobs/fact_event_stream.py`, `spark_job/dlq/jobs/fact_event_dlq_stream.py`를 기동하고 각 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
-   - `spark_job/fact/writer.py`, `spark_job/dlq/writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
+   - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
    - 초기 스키마는 `spark_job/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
@@ -134,6 +134,8 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 라우트/도메인 이벤트 설정: `log_simulator/config/routes.yml`
 - Spark 환경 프로파일: `env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
+- 스트림 분리 설정: `docker-compose.yml`
+  - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_FACT_GROUP_ID`, `SPARK_DLQ_GROUP_ID`, `SPARK_DLQ_MODE`(kafka|direct)
 - 유틸 스크립트 목록
   - `scripts/apply_spark_env.sh`: 프로파일 적용 후 Spark 컨테이너 재기동
   - `scripts/current_spark_env.sh`: 현재 적용된 Spark 프로파일 확인
@@ -146,6 +148,14 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - process: `ingest_ts → processed_ts` (Spark 처리 지연)
 - sink: `processed_ts → stored_ts` (Spark → ClickHouse 적재 지연)
 - end-to-end: `event_ts → stored_ts` (전체 지연)
+- DLQ: `analytics.fact_event_dlq_1m` (fail_stage=source_topic, fail_reason=error_type, cnt)
+
+## Grafana용 기본 집계 쿼리
+
+- 정상 EPS(서비스별): `analytics.fact_event_agg_1m`
+- 토픽 EPS: `analytics.fact_event_topic_1m`
+- E2E 지연: `analytics.fact_event_latency_1m`
+- DLQ TopN: `analytics.fact_event_dlq_1m` (fail_stage, fail_reason 기준)
 
 
 ## 결과 기록
