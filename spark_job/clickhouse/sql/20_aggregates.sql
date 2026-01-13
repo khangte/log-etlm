@@ -47,3 +47,16 @@ ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
 TTL bucket + INTERVAL 1 DAY;
+
+-- DLQ aggregates (ingest_ts basis)
+CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_1m
+(
+    bucket      DateTime,
+    fail_stage  LowCardinality(String),
+    fail_reason LowCardinality(String),
+    cnt         UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, fail_stage, fail_reason)
+TTL bucket + INTERVAL 7 DAY;
