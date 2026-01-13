@@ -11,8 +11,9 @@ from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQueryException
 
 from ...dlq.builders.builder import build_dlq_df
-from ...dlq.schema import DLQ_VALUE_SCHEMA
+from ...dlq.schema import DLQ_VALUE_SCHEMA, FACT_EVENT_DLQ_COLUMNS
 from ...spark import build_streaming_spark
+from ...progress_logger import start_progress_logger
 from ..transforms.normalize_event import normalize_event
 from ..transforms.parse_event import parse_event
 from ..transforms.validate_event import validate_event
@@ -54,9 +55,19 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
     os.makedirs(checkpoint_dir, exist_ok=True)
 
 
+def _align_dlq_columns(df):
+    """DLQ 스키마 컬럼을 누락 없이 맞춘다."""
+    for col_name in FACT_EVENT_DLQ_COLUMNS:
+        if col_name not in df.columns:
+            df = df.withColumn(col_name, F.lit(None))
+    return df.select(*FACT_EVENT_DLQ_COLUMNS)
+
+
 def run_event_ingest() -> None:
     """Kafka 스트림을 읽어 fact_event 및 DLQ 테이블로 적재한다."""
     spark = None
+    progress_stop = None
+    progress_thread = None
     try:
         # 1) Spark 세션 생성
         spark = build_streaming_spark(master=os.getenv("SPARK_MASTER_URL"))
@@ -93,35 +104,70 @@ def run_event_ingest() -> None:
         parsed = parse_event(event_source)
         good_df, bad_df = validate_event(parsed)
         event_df = normalize_event(good_df, store_raw_json=store_raw_json)
-        parse_error_dlq_df = build_dlq_df(bad_df)
 
-        dlq_parsed = (
-            dlq_source.selectExpr(
-                "CAST(value AS STRING) AS raw_json",
-                "topic",
-                "timestamp AS kafka_ts",
-            )
-            .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
+        dlq_enabled = os.getenv("SPARK_DLQ_ENABLED", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
         )
-        dlq_df = (
-            dlq_parsed.select(
-                F.col("kafka_ts").alias("ingest_ts"),
-                F.current_timestamp().alias("processed_ts"),
-                F.col("json.service").alias("service"),
-                F.col("json.event_id").alias("event_id"),
-                F.col("json.request_id").alias("request_id"),
-                F.coalesce(F.col("json.source_topic"), F.col("topic")).alias("source_topic"),
-                F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
-                F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
-                F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
-                F.coalesce(F.col("json.raw_json"), F.col("raw_json")).alias("raw_json"),
+        parse_error_dlq_df = None
+        if dlq_enabled:
+            parse_error_dlq_df = _align_dlq_columns(build_dlq_df(bad_df))
+
+        dlq_df = None
+        if dlq_enabled:
+            dlq_parsed = (
+                dlq_source.selectExpr(
+                    "CAST(value AS STRING) AS raw_json",
+                    "topic",
+                    "timestamp AS kafka_ts",
+                )
+                .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
             )
-        )
-        dlq_df = parse_error_dlq_df.unionByName(dlq_df)
+            dlq_df = _align_dlq_columns(
+                dlq_parsed.select(
+                    F.col("kafka_ts").alias("ingest_ts"),
+                    F.current_timestamp().alias("processed_ts"),
+                    F.col("json.service").alias("service"),
+                    F.col("json.event_id").alias("event_id"),
+                    F.col("json.request_id").alias("request_id"),
+                    F.coalesce(F.col("json.source_topic"), F.col("topic")).alias("source_topic"),
+                    F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
+                    F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
+                    F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
+                    F.coalesce(F.col("json.raw_json"), F.col("raw_json")).alias("raw_json"),
+                )
+            )
+            if parse_error_dlq_df is not None:
+                dlq_df = parse_error_dlq_df.unionByName(dlq_df)
 
         # 4) ClickHouse analytics.fact_event로 스트리밍 적재
-        writer.write_fact_event_stream(event_df)
-        dlq_writer.write_dlq_stream(dlq_df)
+        fact_query = writer.write_fact_event_stream(event_df)
+        dlq_query = None
+        if dlq_enabled and dlq_df is not None:
+            dlq_query = dlq_writer.write_dlq_stream(dlq_df)
+
+        progress_enabled = os.getenv("SPARK_PROGRESS_LOG_ENABLED", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
+        progress_log_path = os.getenv(
+            "SPARK_PROGRESS_LOG_PATH",
+            "/data/log-etlm/spark-events/spark_progress.log",
+        )
+        progress_interval = float(os.getenv("SPARK_PROGRESS_LOG_INTERVAL_SEC", "5"))
+        if progress_enabled:
+            progress_queries = [fact_query]
+            if dlq_query is not None:
+                progress_queries.append(dlq_query)
+            progress_stop, progress_thread = start_progress_logger(
+                progress_queries,
+                interval_sec=max(progress_interval, 1.0),
+                log_path=progress_log_path,
+            )
 
         try:
             spark.streams.awaitAnyTermination()
@@ -137,4 +183,8 @@ def run_event_ingest() -> None:
     finally:
         if spark:
             print("[ℹ️ SparkSession] 세션 종료.")
+            if progress_stop:
+                progress_stop.set()
+                if progress_thread:
+                    progress_thread.join(timeout=2.0)
             spark.stop()
