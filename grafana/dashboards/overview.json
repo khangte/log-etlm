@@ -203,76 +203,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "event_ts 대비 ingest_ts 평균 지연(초)입니다. (1분 집계)",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "Lag (sec)",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "lineWidth": 2,
-            "showPoints": "auto",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "s"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 9
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  if(cnt = 0, 0, sum_lag / cnt) AS lag_sec\nFROM analytics.fact_event_lag_1m\nWHERE $__timeFilter(bucket)\nORDER BY time ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "Spark 처리 지연 (avg)",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "stored_ts 기준 end-to-end p95 지연(ms)입니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
@@ -376,7 +306,7 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
         "y": 18
       },
       "id": 21,
@@ -406,6 +336,76 @@
         }
       ],
       "title": "DLQ EPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "fact_event 원본 기준 end-to-end p95 지연입니다. (10초 버킷)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "p95 (ms)",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 23,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  toStartOfInterval(stored_ts, INTERVAL 10 second) AS time,\n  quantileTDigest(0.95)(dateDiff('millisecond', event_ts, stored_ts)) AS p95_ms\nFROM analytics.fact_event\nWHERE $__timeFilter(stored_ts)\nGROUP BY time\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "End-to-End 지연 p95 (raw)",
       "type": "timeseries"
     }
   ],
