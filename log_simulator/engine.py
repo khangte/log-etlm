@@ -29,6 +29,7 @@ class SimulatorEngine:
         self._stats_task: asyncio.Task | None = None
 
     async def start(self) -> None:
+        """start 처리를 수행한다."""
         if self._started:
             return
 
@@ -61,11 +62,13 @@ class SimulatorEngine:
         self._started = True
 
     async def wait(self) -> None:
+        """wait 처리를 수행한다."""
         if not self._tasks:
             return
         await asyncio.gather(*self._tasks)
 
     async def stop(self) -> None:
+        """stop 처리를 수행한다."""
         if not self._started:
             return
         if self._pipe:
