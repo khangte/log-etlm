@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 
-from ..clickhouse.writer_base import ClickHouseBatchWriterBase
+from ...clickhouse.writer_base import ClickHouseBatchWriterBase
 
 DIM_DATE_TABLE = "analytics.dim_date"
 DIM_TIME_TABLE = "analytics.dim_time"

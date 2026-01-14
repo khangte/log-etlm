@@ -14,7 +14,7 @@ from .. import (
     parse_dim_user,
 )
 from ...spark import build_batch_spark
-from ..writer import ClickHouseDimWriter
+from ..writers.dim_writer import ClickHouseDimWriter
 
 
 def _read_fact_event(spark):
