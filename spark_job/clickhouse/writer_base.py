@@ -42,10 +42,21 @@ class ClickHouseStreamWriterBase:
         output_mode: str = "append",
         query_name: str | None = None,
         deduplicate_keys: list[str] | None = None,
+        skip_empty: bool = False,
     ):
         """Structured Streaming을 ClickHouse로 적재한다."""
         def _foreach(batch_df: DataFrame, batch_id: int):
+            """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
+            if skip_empty and batch_df.rdd.isEmpty():
+                elapsed = time.perf_counter() - start_time
+                line = (
+                    "[spark batch] "
+                    f"table={table_name} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
+                )
+                print(line)
+                _append_batch_log(line)
+                return
             out_df = batch_df
             if deduplicate_keys:
                 # Drop duplicates per micro-batch to reduce ClickHouse duplicates.
