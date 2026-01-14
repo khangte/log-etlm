@@ -215,6 +215,7 @@ async def grafana_health_probe() -> None:
 
 
 async def main() -> None:
+    """main 처리를 수행한다."""
     tasks = [
         asyncio.create_task(watch_events()),
         asyncio.create_task(check_health_loop()),
