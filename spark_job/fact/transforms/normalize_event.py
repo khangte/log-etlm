@@ -10,6 +10,7 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
     parsed struct -> fact_event 컬럼 표준화.
     """
     def _ms_diff(end_col: str, start_col: str) -> F.Column:
+        """ms_diff 처리를 수행한다."""
         end_ts = F.col(end_col)
         start_ts = F.col(start_col)
         diff_ms = (end_ts.cast("double") - start_ts.cast("double")) * F.lit(1000)
