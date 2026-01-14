@@ -12,13 +12,13 @@ from pyspark.sql.streaming import StreamingQueryException
 from ...dlq.transforms.build_dlq_stream import build_dlq_stream_df
 from ...spark import build_streaming_spark
 from ..parsers.fact_event import parse_fact_event_with_errors
-from ..writer import (
-    ClickHouseStreamWriter,
+from ..writers.fact_writer import (
+    ClickHouseFactWriter,
     FACT_EVENT_CHECKPOINT_DIR,
 )
-from ...dlq.writer import ClickHouseDlqWriter
+from ...dlq.writers.dlq_writer import ClickHouseDlqWriter
 
-writer = ClickHouseStreamWriter()
+writer = ClickHouseFactWriter()
 dlq_writer = ClickHouseDlqWriter()
 
 

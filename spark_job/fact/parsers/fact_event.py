@@ -26,10 +26,3 @@ def parse_fact_event_with_errors(kafka_df: DataFrame) -> tuple[DataFrame, DataFr
     event_df = normalize_event(good_df, store_raw_json=store_raw_json)
     return event_df, bad_df
 
-
-def parse_fact_event(kafka_df: DataFrame) -> DataFrame:
-    """
-    Kafka에서 읽어온 DF를 analytics.fact_event 스키마로 변환한다.
-    """
-    event_df, _bad_df = parse_fact_event_with_errors(kafka_df)
-    return event_df
