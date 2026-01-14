@@ -3,6 +3,7 @@ import traceback
 
 
 def _apply_partitioning(df, target_partitions: str | None):
+    """apply_partitioning 처리를 수행한다."""
     if not target_partitions or not target_partitions.strip():
         return df
     try:
@@ -37,6 +38,7 @@ def write_to_clickhouse(
     batch_id: int | None = None,
     mode: str = "append",
 ):
+    """write_to_clickhouse 처리를 수행한다."""
     cached = False
 
     try:
