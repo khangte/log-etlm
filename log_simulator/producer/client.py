@@ -20,6 +20,7 @@ logger = logging.getLogger("log_simulator.producer")
 logger.setLevel(logging.INFO)
 
 def _ensure_logger_handler() -> None:
+    """ensure_logger_handler 처리를 수행한다."""
     if logger.handlers:
         return
     handler = logging.StreamHandler()
@@ -32,6 +33,7 @@ _ensure_logger_handler()
 
 
 def build_producer_config() -> Dict[str, Any]:
+    """build_producer_config 처리를 수행한다."""
     s = PRODUCER_SETTINGS
     return {
         "bootstrap.servers": s.brokers,
@@ -78,6 +80,7 @@ def close_producer(timeout: float = 5.0) -> None:
 
 def _to_bytes(value: Optional[bytes | str]) -> Optional[bytes]:
     # value/key를 bytes로 정규화해 producer에 바로 전달한다.
+    """to_bytes 처리를 수행한다."""
     if value is None:
         return None
     if isinstance(value, bytes):
@@ -91,9 +94,11 @@ def _deliver(
     key: Optional[bytes | str] = None,
     replicate_error: bool = False,
 ) -> None:
+    """deliver 처리를 수행한다."""
     topic = get_topic(service)
 
     def _delivery_report(err, msg):
+        """delivery_report 처리를 수행한다."""
         if err is not None:
             logger.warning(
                 "Kafka 전송 실패: topic=%s key=%s error=%s",
