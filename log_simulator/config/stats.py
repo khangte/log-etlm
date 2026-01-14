@@ -79,6 +79,7 @@ _tps_counter = defaultdict(int)
 _last_ts = time.time()
 
 def record_tps(service: str):
+    """record_tps 처리를 수행한다."""
     global _last_ts
     _tps_counter[service] += 1
     now = time.time()
