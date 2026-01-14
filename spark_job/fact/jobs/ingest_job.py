@@ -51,6 +51,7 @@ def _maybe_reset_checkpoint(checkpoint_dir: str) -> None:
 
 
 def run_event_ingest() -> None:
+    """run_event_ingest 처리를 수행한다."""
     spark = None
     try:
         # 1) Spark 세션 생성
@@ -70,8 +71,15 @@ def run_event_ingest() -> None:
             "logs.auth,logs.order,logs.payment",
         )
         dlq_topic = os.getenv("SPARK_DLQ_TOPIC", "logs.dlq")
+        enable_dlq_stream = os.getenv("SPARK_ENABLE_DLQ_STREAM", "true").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
 
         def _build_kafka_stream(topics: str):
+            """build_kafka_stream 처리를 수행한다."""
             return (
                 spark.readStream.format("kafka")
                 .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP"))
@@ -83,18 +91,20 @@ def run_event_ingest() -> None:
             )
 
         event_kafka_df = _build_kafka_stream(fact_topics)
-        dlq_kafka_df = _build_kafka_stream(dlq_topic)
 
         # 3) Kafka raw DF → fact_event 스키마로 파싱
         event_source = event_kafka_df
-        dlq_source = dlq_kafka_df
 
         event_df, bad_df = parse_fact_event_with_errors(event_source)
-        dlq_df = build_dlq_stream_df(dlq_source, bad_df)
 
         # 4) ClickHouse analytics.fact_event로 스트리밍 적재
         writer.write_fact_event_stream(event_df)
-        dlq_writer.write_dlq_stream(dlq_df)
+        if enable_dlq_stream:
+            dlq_source = _build_kafka_stream(dlq_topic)
+            dlq_df = build_dlq_stream_df(dlq_source, bad_df)
+            dlq_writer.write_dlq_stream(dlq_df)
+        else:
+            print("[ℹ️ spark] DLQ 스트림 비활성화: bad_df는 저장하지 않음")
 
         try:
             spark.streams.awaitAnyTermination()
