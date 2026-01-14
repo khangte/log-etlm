@@ -12,6 +12,7 @@ TOPICS: Dict[str, str] = {
 }
 
 def get_topic(service: str) -> str:
+    """get_topic 처리를 수행한다."""
     if not service:
         return "logs.unknown"
     return TOPICS.get(service, f"logs.{service}")
