@@ -14,6 +14,7 @@ from .engine import engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """lifespan 처리를 수행한다."""
     await engine.start()
     try:
         yield
@@ -26,4 +27,5 @@ app = FastAPI(lifespan=lifespan)
 
 @app.get("/ping")
 async def ping():
+    """ping 처리를 수행한다."""
     return {"status": "ok"}
