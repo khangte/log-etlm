@@ -14,14 +14,17 @@ class AuthSimulator(BaseServiceSimulator):
     ]
 
     def _pick_status_code(self, is_err: bool) -> int:
+        """pick_status_code 처리를 수행한다."""
         if is_err:
             return self._rng.choice([401, 403, 429, 500])
         return self._rng.choice([200, 200, 204])
 
     def _pick_reason_code(self) -> str:
+        """pick_reason_code 처리를 수행한다."""
         return self._rng.choice(self.AUTH_REASON_CODES)
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
+        """generate_events_one 처리를 수행한다."""
         route = self.pick_route()
         method = self.pick_method(route)
 
