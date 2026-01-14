@@ -161,6 +161,10 @@ services:
       - SPARK_MASTER_URL=spark://spark-master:7077
       - KAFKA_BOOTSTRAP=kafka:9092
       # Spark Streaming ingest tuning
+      - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
+      - SPARK_DLQ_TOPIC=logs.dlq
+      - SPARK_STARTING_OFFSETS=latest
+      - SPARK_STORE_RAW_JSON=false
       # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
       # ClickHouse sink tuning (override as needed)
