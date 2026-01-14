@@ -26,6 +26,7 @@ if not _logger.handlers:
 
 
 def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
+    """build_dlq_message 처리를 수행한다."""
     raw_json = message.value.decode("utf-8", errors="replace")
     event_id = None
     request_id = None
@@ -57,6 +58,7 @@ def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
 
 
 async def publish_dlq_batch(batch: Sequence[BatchMessage], error: Exception) -> None:
+    """publish_dlq_batch 처리를 수행한다."""
     dlq_batch = [build_dlq_message(message, error) for message in batch]
     try:
         await publish_batch_direct(dlq_batch)
