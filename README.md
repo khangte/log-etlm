@@ -45,7 +45,8 @@
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
 3. **로그 실시간 처리**
    - `spark_job/main.py`가 `spark_job/fact/jobs/ingest_job.py`를 실행하고, fact/DLQ 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
-   - fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
+- fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
+- DLQ 스트리밍을 끄려면 `SPARK_ENABLE_DLQ_STREAM=false`.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
    - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
@@ -133,7 +134,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - Spark 환경 프로파일: `env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
 - 스트림 분리 설정: `docker-compose.yml`
-  - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
+  - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 파일 경로 지정 가능
 - 유틸 스크립트 목록
   - `scripts/apply_spark_env.sh`: 프로파일 적용 후 Spark 컨테이너 재기동
