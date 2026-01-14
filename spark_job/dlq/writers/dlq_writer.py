@@ -13,9 +13,11 @@ FACT_EVENT_DLQ_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event_dlq
 
 class ClickHouseDlqWriter(ClickHouseStreamWriterBase):
     def write_dlq_stream(self, df: DataFrame):
+        """write_dlq_stream 처리를 수행한다."""
         return self.write_stream(
             df,
             FACT_EVENT_DLQ_TABLE,
             FACT_EVENT_DLQ_CHECKPOINT_DIR,
             query_name="fact_event_dlq_stream",
+            skip_empty=True,
         )
