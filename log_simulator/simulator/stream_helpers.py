@@ -13,7 +13,7 @@ from ..models.messages import BatchMessage
 from .settings import QueueThrottleConfig
 
 def adjust_eps_for_event_mode(simulator: Any, eps: float) -> float:
-    """Adjust EPS based on simulator event mode and rates."""
+    """adjust_eps_for_event_mode 처리를 수행한다."""
     mode = getattr(simulator, "event_mode", "all")
     if mode == "domain":
         domain_rate = float(getattr(simulator, "domain_event_rate", 1.0))
@@ -29,7 +29,7 @@ def adjust_eps_for_event_mode(simulator: Any, eps: float) -> float:
 
 
 def _is_error_event(ev: dict) -> bool:
-    """Return True if the event should be treated as an error."""
+    """is_error_event 처리를 수행한다."""
     r = ev.get("result")
     if r is not None:
         return r == "fail"
@@ -44,7 +44,7 @@ def build_batch_messages(
     service: str,
     events: list[dict],
 ) -> list[BatchMessage]:
-    """Build BatchMessage list from simulator events."""
+    """build_batch_messages 처리를 수행한다."""
     batch_items: list[BatchMessage] = []
     for ev in events:
         payload = simulator.render_bytes(ev)
@@ -75,7 +75,7 @@ def log_behind(
     last_behind_log_ts: float,
     behind_log_every_sec: float,
 ) -> float:
-    """Log lag when behind schedule and return updated timestamp."""
+    """log_behind 처리를 수행한다."""
     if elapsed < desired_period:
         return last_behind_log_ts
 
@@ -108,7 +108,7 @@ def _apply_soft_throttle(
     queue_capacity: int,
     fill_ratio: float,
 ) -> float:
-    """Adjust throttle scale with soft throttling rules."""
+    """apply_soft_throttle 처리를 수행한다."""
     if fill_ratio >= config.soft_throttle_ratio:
         new_scale = max(config.soft_scale_min, throttle_scale - config.soft_scale_step)
         if new_scale < throttle_scale:
@@ -147,7 +147,7 @@ async def apply_queue_backpressure(
     queue_depth: int,
     queue_capacity: int,
 ) -> tuple[float, float, bool]:
-    """Apply queue backpressure and return (throttle_scale, sleep_time, throttled)."""
+    """apply_queue_backpressure 처리를 수행한다."""
     if not queue_capacity or queue_capacity <= 0:
         return throttle_scale, sleep_time, False
 
