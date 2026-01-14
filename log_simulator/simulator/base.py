@@ -310,16 +310,6 @@ class BaseServiceSimulator:
         """요청 1건 -> 이벤트 리스트(서브클래스 구현)"""
         raise NotImplementedError
 
-    def generate_log_one(self) -> Dict[str, Any]:
-        """
-        레거시 호환: 첫 번째 이벤트만 반환.
-        (가능하면 호출부를 generate_events로 바꾸는 걸 권장)
-        """
-        events = self.generate_events_one()
-        if not events:
-            raise RuntimeError("generate_events_one() returned empty list")
-        return events[0]
-
     def generate_events(self, count: int) -> List[Dict[str, Any]]:
         """count번 요청 -> 이벤트 평탄화"""
         out: List[Dict[str, Any]] = []
@@ -329,7 +319,7 @@ class BaseServiceSimulator:
 
     # ---------- 출력 ----------
 
-    def render(self, log: Dict[str, Any]) -> str:
+    def render(self, log: Dict[str, Any]) -> str:  # 미사용
         return json.dumps(log, ensure_ascii=False)
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
