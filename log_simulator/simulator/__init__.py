@@ -4,9 +4,9 @@
 # 설명   : generator/api 가 REGISTRY를 참조해 각 서비스를 즉시 인스턴스화할 수 있도록 함
 # -----------------------------------------------------------------------------
 
-from .auth import AuthSimulator
-from .order import OrderSimulator
-from .payment import PaymentSimulator
+from .services.auth import AuthSimulator
+from .services.order import OrderSimulator
+from .services.payment import PaymentSimulator
 
 # 서비스명 → 시뮬레이터 클래스 매핑
 REGISTRY = {
