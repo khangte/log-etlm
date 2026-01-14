@@ -7,15 +7,11 @@ from __future__ import annotations
 import os
 import shutil
 import time
-from pyspark.sql import functions as F
 from pyspark.sql.streaming import StreamingQueryException
 
-from ...dlq.builders.builder import build_dlq_df
-from ...dlq.schema import DLQ_VALUE_SCHEMA
+from ...dlq.transforms.build_dlq_stream import build_dlq_stream_df
 from ...spark import build_streaming_spark
-from ..transforms.normalize_event import normalize_event
-from ..transforms.parse_event import parse_event
-from ..transforms.validate_event import validate_event
+from ..parsers.fact_event import parse_fact_event_with_errors
 from ..writer import (
     ClickHouseStreamWriter,
     FACT_EVENT_CHECKPOINT_DIR,
@@ -69,54 +65,32 @@ def run_event_ingest() -> None:
         max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER", "250000")
         starting_offsets = os.getenv("SPARK_STARTING_OFFSETS", "latest")  # "latest" | "earliest" | (토픽별 JSON)
         print(f"[ℹ️ spark] startingOffsets={starting_offsets} (체크포인트가 있으면 무시될 수 있음)")
-        kafka_df = (
-            spark.readStream.format("kafka")
-            .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP"))
-            .option("subscribePattern", "logs.*")
-            .option("startingOffsets", starting_offsets)
-            .option("failOnDataLoss", "false")
-            .option("maxOffsetsPerTrigger", max_offsets_per_trigger)
-            .load()
+        fact_topics = os.getenv(
+            "SPARK_FACT_TOPICS",
+            "logs.auth,logs.order,logs.payment",
         )
+        dlq_topic = os.getenv("SPARK_DLQ_TOPIC", "logs.dlq")
+
+        def _build_kafka_stream(topics: str):
+            return (
+                spark.readStream.format("kafka")
+                .option("kafka.bootstrap.servers", os.getenv("KAFKA_BOOTSTRAP"))
+                .option("subscribe", topics)
+                .option("startingOffsets", starting_offsets)
+                .option("failOnDataLoss", "false")
+                .option("maxOffsetsPerTrigger", max_offsets_per_trigger)
+                .load()
+            )
+
+        event_kafka_df = _build_kafka_stream(fact_topics)
+        dlq_kafka_df = _build_kafka_stream(dlq_topic)
 
         # 3) Kafka raw DF → fact_event 스키마로 파싱
-        store_raw_json = os.getenv("SPARK_STORE_RAW_JSON", "false").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "y",
-        )
-        event_source = kafka_df.where(F.col("topic") != F.lit("logs.dlq"))
-        dlq_source = kafka_df.where(F.col("topic") == F.lit("logs.dlq"))
+        event_source = event_kafka_df
+        dlq_source = dlq_kafka_df
 
-        parsed = parse_event(event_source)
-        good_df, bad_df = validate_event(parsed)
-        event_df = normalize_event(good_df, store_raw_json=store_raw_json)
-        parse_error_dlq_df = build_dlq_df(bad_df)
-
-        dlq_parsed = (
-            dlq_source.selectExpr(
-                "CAST(value AS STRING) AS raw_json",
-                "topic",
-                "timestamp AS kafka_ts",
-            )
-            .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
-        )
-        dlq_df = (
-            dlq_parsed.select(
-                F.col("kafka_ts").alias("ingest_ts"),
-                F.current_timestamp().alias("processed_ts"),
-                F.col("json.service").alias("service"),
-                F.col("json.event_id").alias("event_id"),
-                F.col("json.request_id").alias("request_id"),
-                F.coalesce(F.col("json.source_topic"), F.col("topic")).alias("source_topic"),
-                F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
-                F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
-                F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
-                F.coalesce(F.col("json.raw_json"), F.col("raw_json")).alias("raw_json"),
-            )
-        )
-        dlq_df = parse_error_dlq_df.unionByName(dlq_df)
+        event_df, bad_df = parse_fact_event_with_errors(event_source)
+        dlq_df = build_dlq_stream_df(dlq_source, bad_df)
 
         # 4) ClickHouse analytics.fact_event로 스트리밍 적재
         writer.write_fact_event_stream(event_df)
