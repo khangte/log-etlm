@@ -28,11 +28,13 @@ class PaymentSimulator(BaseServiceSimulator):
 
     def _pick_status_code(self, is_err: bool) -> int:
         # 기존 분포 유지: 실패(400/402/408/500), 성공(200/201/204)
+        """pick_status_code 처리를 수행한다."""
         if is_err:
             return self._rng.choice([400, 402, 408, 500])
         return self._rng.choice([200, 201, 204])
 
     def _pick_reason_code(self) -> str:
+        """pick_reason_code 처리를 수행한다."""
         return self._rng.choice(list(self.PAYMENT_REASON_CODES))
 
     def _infer_ids_for_route(self, route_path: str, method: str) -> Dict[str, Optional[str]]:
@@ -49,6 +51,7 @@ class PaymentSimulator(BaseServiceSimulator):
         return {"payment_id": payment_id}
 
     def generate_events_one(self) -> List[Dict[str, Any]]:
+        """generate_events_one 처리를 수행한다."""
         route = self.pick_route()
         method = self.pick_method(route)
 
