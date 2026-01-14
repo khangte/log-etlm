@@ -18,6 +18,7 @@ from ..writers.dim_writer import ClickHouseDimWriter
 
 
 def _read_fact_event(spark):
+    """read_fact_event 처리를 수행한다."""
     clickhouse_url = os.getenv(
         "SPARK_CLICKHOUSE_URL",
         "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
@@ -46,6 +47,7 @@ def _read_fact_event(spark):
 
 
 def run_dim_batch() -> None:
+    """run_dim_batch 처리를 수행한다."""
     spark = build_batch_spark()
     spark.sparkContext.setLogLevel("INFO")
 
