@@ -3,7 +3,7 @@ from __future__ import annotations
 from pyspark.sql import DataFrame
 
 from .build_dlq import build_dlq_df
-from .parse_dlq import parse_dlq
+from ..parsers.parse_dlq import parse_dlq
 
 
 def build_dlq_stream_df(dlq_source: DataFrame, bad_df: DataFrame) -> DataFrame:

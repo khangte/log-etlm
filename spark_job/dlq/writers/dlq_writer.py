@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pyspark.sql import DataFrame
 
-from ..clickhouse.writer_base import ClickHouseStreamWriterBase
+from ...clickhouse.writer_base import ClickHouseStreamWriterBase
 
 # ClickHouse 테이블 이름
 FACT_EVENT_DLQ_TABLE = "analytics.fact_event_dlq"
