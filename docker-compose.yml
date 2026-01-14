@@ -139,6 +139,7 @@ services:
       - SPARK_MASTER_URL=spark://spark-master:7077
       - KAFKA_BOOTSTRAP=kafka:9092
       # Spark Streaming ingest tuning
+      - SPARK_ENABLE_DLQ_STREAM=true
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_DLQ_TOPIC=logs.dlq
       - SPARK_STARTING_OFFSETS=latest
@@ -193,7 +194,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-      
+
   spark-worker-1:
     image: spark:4.0.1-python3
     container_name: spark-worker-1
