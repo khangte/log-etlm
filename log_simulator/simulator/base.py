@@ -119,11 +119,11 @@ class BaseServiceSimulator:
         return time.time_ns() // 1_000_000
 
     def generate_request_id(self) -> str:
-        """req_ + 12 hex"""
+        """generate_request_id 처리를 수행한다."""
         return "req_" + uuid.uuid4().hex[:12]
 
     def generate_event_id(self) -> str:
-        """evt_ + 32 hex"""
+        """generate_event_id 처리를 수행한다."""
         return "evt_" + uuid.uuid4().hex
 
     def generate_user_id(self) -> str:
@@ -131,9 +131,11 @@ class BaseServiceSimulator:
         return uuid.uuid4().hex[:8]
 
     def generate_order_id(self) -> str:
+        """generate_order_id 처리를 수행한다."""
         return "o_" + uuid.uuid4().hex[:12]
 
     def generate_payment_id(self) -> str:
+        """generate_payment_id 처리를 수행한다."""
         return "p_" + uuid.uuid4().hex[:12]
 
     # ---------- route/method 선택 ----------
@@ -156,6 +158,7 @@ class BaseServiceSimulator:
         return self._rng.choices(routes, weights=weights, k=1)[0]
 
     def pick_method(self, route: Dict[str, Any]) -> str:
+        """pick_method 처리를 수행한다."""
         methods = route.get("methods") or ["GET"]
         if len(methods) == 1:
             return methods[0]
@@ -166,9 +169,11 @@ class BaseServiceSimulator:
         return self._rng.randint(5, 300)
 
     def _is_err(self) -> bool:
+        """is_err 처리를 수행한다."""
         return self._rng.random() < self.error_rate
 
     def _should_emit_domain_event(self, method: str, route: Dict[str, Any], is_err: bool) -> bool:
+        """should_emit_domain_event 처리를 수행한다."""
         if not route.get("domain_events"):
             return False
         if method == "GET" and not self.domain_event_policy["emit_for_get_routes"]:
@@ -178,15 +183,18 @@ class BaseServiceSimulator:
         return True
 
     def _domain_event_name(self, route: Dict[str, Any], is_err: bool) -> Optional[str]:
+        """domain_event_name 처리를 수행한다."""
         de = route.get("domain_events")
         if not isinstance(de, dict):
             return None
         return de.get("fail" if is_err else "success")
 
     def _estimate_http_event_rate(self) -> float:
+        """estimate_http_event_rate 처리를 수행한다."""
         return 1.0 if self.event_mode in ("all", "http") else 0.0
 
     def _estimate_domain_event_rate(self) -> float:
+        """estimate_domain_event_rate 처리를 수행한다."""
         total_weight = float(self._route_total_weight or 0)
         if total_weight <= 0:
             return 0.0
@@ -214,9 +222,11 @@ class BaseServiceSimulator:
         return rate
 
     def _emit_http_event(self) -> bool:
+        """emit_http_event 처리를 수행한다."""
         return self.event_mode in ("all", "http")
 
     def _emit_domain_event(self) -> bool:
+        """emit_domain_event 처리를 수행한다."""
         return self.event_mode in ("all", "domain")
 
 
@@ -237,6 +247,7 @@ class BaseServiceSimulator:
         api_group: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """make_http_event 처리를 수행한다."""
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": "http_request_completed",
@@ -277,6 +288,7 @@ class BaseServiceSimulator:
         route_template: Optional[str] = None,
         extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
+        """make_domain_event 처리를 수행한다."""
         ev: Dict[str, Any] = {
             "event_id": self.generate_event_id(),
             "event_name": event_name,
@@ -320,9 +332,11 @@ class BaseServiceSimulator:
     # ---------- 출력 ----------
 
     def render(self, log: Dict[str, Any]) -> str:  # 미사용
+        """render 처리를 수행한다."""
         return json.dumps(log, ensure_ascii=False)
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
+        """render_bytes 처리를 수행한다."""
         return json.dumps(log, ensure_ascii=False).encode("utf-8")
 
 
