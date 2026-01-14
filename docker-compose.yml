@@ -138,15 +138,15 @@ services:
       # Spark/Kafka connection
       - SPARK_MASTER_URL=spark://spark-master:7077
       - KAFKA_BOOTSTRAP=kafka:9092
+      # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
       # Spark Streaming ingest tuning
-      - SPARK_ENABLE_DLQ_STREAM=true
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
+      - SPARK_ENABLE_DLQ_STREAM=true
       - SPARK_DLQ_TOPIC=logs.dlq
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_STORE_RAW_JSON=false
       - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
-      # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=100000
       # ClickHouse sink tuning (override as needed)
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
