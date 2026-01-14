@@ -14,6 +14,7 @@ def _build_spark_session(
     event_log_enabled: bool,
     event_log_dir: str | None,
 ) -> SparkSession:
+    """build_spark_session 처리를 수행한다."""
     builder = SparkSession.builder.appName(app_name)
     if master:
         builder = builder.master(master)
@@ -39,6 +40,7 @@ def build_streaming_spark(
     master: str | None,
     app_name: str = "LogForge_Spark_Job",
 ) -> SparkSession:
+    """build_streaming_spark 처리를 수행한다."""
     packages = [
         "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1",
         "com.clickhouse:clickhouse-jdbc:0.4.6",
@@ -58,6 +60,7 @@ def build_batch_spark(
     app_name: str = "LogForge_Dim_Batch",
     master: str = "local[*]",
 ) -> SparkSession:
+    """build_batch_spark 처리를 수행한다."""
     packages = [
         "com.clickhouse:clickhouse-jdbc:0.4.6",
     ]
