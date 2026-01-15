@@ -216,3 +216,4 @@ docker_compose_command.md
 *.db
 data/*
 logs/*
+.tmp
