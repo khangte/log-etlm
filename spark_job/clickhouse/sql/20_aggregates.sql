@@ -47,3 +47,29 @@ ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
 TTL bucket + INTERVAL 1 DAY;
+
+-- Service latency aggregates (ingest_ts/event_ts 기준)
+CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
+(
+    bucket        DateTime,
+    service       LowCardinality(String),
+    queue_state   AggregateFunction(quantileTDigest, Float64),
+    publish_state AggregateFunction(quantileTDigest, Float64)
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, service)
+TTL bucket + INTERVAL 1 DAY;
+
+-- DLQ aggregates
+CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_agg_1m
+(
+    bucket     DateTime,
+    service    LowCardinality(String),
+    error_type LowCardinality(String),
+    total      UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, service, error_type)
+TTL bucket + INTERVAL 7 DAY;
