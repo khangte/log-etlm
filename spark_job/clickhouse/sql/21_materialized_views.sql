@@ -45,3 +45,28 @@ WHERE event_ts IS NOT NULL
   AND processed_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1m
+TO analytics.fact_event_latency_service_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    service,
+    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', event_ts, ingest_ts), 0))) AS queue_state,
+    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', ingest_ts, processed_ts), 0))) AS publish_state
+FROM analytics.fact_event
+WHERE event_ts IS NOT NULL
+  AND ingest_ts IS NOT NULL
+  AND processed_ts IS NOT NULL
+GROUP BY bucket, service;
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_dlq_agg_1m
+TO analytics.fact_event_dlq_agg_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    coalesce(service, 'unknown') AS service,
+    coalesce(error_type, 'unknown') AS error_type,
+    count() AS total
+FROM analytics.fact_event_dlq
+GROUP BY bucket, service, error_type;
