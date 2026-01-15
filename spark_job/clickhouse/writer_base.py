@@ -43,6 +43,7 @@ class ClickHouseStreamWriterBase:
         query_name: str | None = None,
         deduplicate_keys: list[str] | None = None,
         skip_empty: bool = False,
+        trigger_processing_time: str | None = None,
     ):
         """Structured Streaming을 ClickHouse로 적재한다."""
         def _foreach(batch_df: DataFrame, batch_id: int):
@@ -76,6 +77,8 @@ class ClickHouseStreamWriterBase:
             .foreachBatch(_foreach)
             .option("checkpointLocation", checkpoint_dir)
         )
+        if trigger_processing_time:
+            writer = writer.trigger(processingTime=trigger_processing_time)
         if query_name:
             writer = writer.queryName(query_name)
         return writer.start()
