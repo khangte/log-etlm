@@ -175,6 +175,27 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
+  spark-batch:
+    build:
+      context: .
+      dockerfile: spark_job/Dockerfile
+    container_name: spark-batch
+    user: "1000:185"
+    command: ["python", "-m", "spark_job.dimension.jobs.batch_job"]
+    environment:
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
+      - SPARK_CLICKHOUSE_USER=log_user
+      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+    volumes:
+      - ./spark_job:/app/spark_job:ro
+    depends_on:
+      - clickhouse
+    networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+
   spark-master:
     image: spark:4.0.1-python3
     container_name: spark-master
