@@ -7,11 +7,11 @@ from pyspark.sql import functions as F
 from ..schema import DIM_TIME_COLUMNS
 
 
-def parse_dim_time(fact_df: DataFrame) -> DataFrame:
+def parse_dim_time(fact_df: DataFrame, *, time_col: str = "event_ts") -> DataFrame:
     """
-    fact_event DF에서 event_ts 기준으로 dim_time DF 생성.
+    fact_event DF에서 기준 시각 컬럼으로 dim_time DF 생성.
 
-    - 입력 DF: event_ts (TimestampType) 컬럼 포함
+    - 입력 DF: time_col (TimestampType) 컬럼 포함
     - 출력 DF: 시간 단위 차원 테이블용 DF
         - hour       : 0~23
         - minute     : 0~59
@@ -19,12 +19,12 @@ def parse_dim_time(fact_df: DataFrame) -> DataFrame:
         - time_of_day: 시간대 구간(dawn/morning/afternoon/evening)
     """
 
-    kst_ts = F.from_utc_timestamp(F.col("event_ts"), "Asia/Seoul")
+    kst_ts = F.from_utc_timestamp(F.col(time_col), "Asia/Seoul")
 
     base = (
         fact_df
-        .select("event_ts")
-        .where(F.col("event_ts").isNotNull())
+        .select(F.col(time_col))
+        .where(F.col(time_col).isNotNull())
         .withColumn("hour", F.hour(kst_ts).cast("int"))
         .withColumn("minute", F.minute(kst_ts).cast("int"))
         .withColumn("second", F.second(kst_ts).cast("int"))
