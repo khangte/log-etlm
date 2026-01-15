@@ -1,5 +1,6 @@
 import os
 import traceback
+from urllib.parse import parse_qsl, urlencode
 
 
 def _apply_partitioning(df, target_partitions: str | None):
@@ -32,6 +33,17 @@ def _apply_partitioning(df, target_partitions: str | None):
     return df
 
 
+def _append_query_params(url: str, extra_params: dict[str, str]) -> str:
+    """ClickHouse JDBC URL에 쿼리 파라미터를 병합한다."""
+    base, sep, query = url.partition("?")
+    if not sep:
+        return f"{url}?{urlencode(extra_params)}"
+    current = dict(parse_qsl(query, keep_blank_values=True))
+    for key, value in extra_params.items():
+        current.setdefault(key, value)
+    return f"{base}?{urlencode(current)}"
+
+
 def write_to_clickhouse(
     df,
     table_name,
@@ -48,8 +60,20 @@ def write_to_clickhouse(
             "SPARK_CLICKHOUSE_URL",
             "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
         )
-        # async_insert=1이 이 클러스터에서 ClickHouse "Unknown error 1002"를 발생시켜서,
-        # 비동기 쓰기가 명시적으로 지원될 때까지 동기 파이프라인을 유지합니다.
+        async_insert_enabled = os.getenv("SPARK_CLICKHOUSE_ASYNC_INSERT", "false").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "y",
+        )
+        if async_insert_enabled:
+            clickhouse_url = _append_query_params(
+                clickhouse_url,
+                {
+                    "async_insert": "1",
+                    "wait_for_async_insert": "0",
+                },
+            )
         clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER", "log_user")
         clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD", "log_pwd")
 
