@@ -12,6 +12,7 @@ def parse_event(kafka_df: DataFrame) -> DataFrame:
     return (
         kafka_df.selectExpr(
             "CAST(value AS STRING) AS raw_json",
+            "CAST(key AS STRING) AS kafka_key",
             "topic",
             "partition",
             "offset",
