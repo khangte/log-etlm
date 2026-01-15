@@ -12,7 +12,10 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
     dlq_parsed = (
         dlq_source.selectExpr(
             "CAST(value AS STRING) AS raw_json",
+            "CAST(key AS STRING) AS kafka_key",
             "topic",
+            "partition",
+            "offset",
             "timestamp AS kafka_ts",
         )
         .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
@@ -24,6 +27,9 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
         F.col("json.event_id").alias("event_id"),
         F.col("json.request_id").alias("request_id"),
         F.coalesce(F.col("json.source_topic"), F.col("topic")).alias("source_topic"),
+        F.coalesce(F.col("json.source_partition"), F.col("partition")).cast("int").alias("source_partition"),
+        F.coalesce(F.col("json.source_offset"), F.col("offset")).cast("long").alias("source_offset"),
+        F.coalesce(F.col("json.source_key"), F.col("kafka_key")).alias("source_key"),
         F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
         F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
         F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
