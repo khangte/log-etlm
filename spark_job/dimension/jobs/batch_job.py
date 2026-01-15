@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 
-from .. import (
+from ..parsers import (
     parse_dim_date,
     parse_dim_service,
     parse_dim_status_code,
@@ -29,9 +29,9 @@ def _read_fact_event(spark):
 
     # 최근 N일 데이터만 읽어서 dim을 갱신한다.
     query = f"""(
-        SELECT event_ts, service, status_code, user_id
+        SELECT ingest_ts, event_ts, service, status_code, user_id
         FROM analytics.fact_event
-        WHERE event_ts >= now() - INTERVAL {lookback_days} DAY
+        WHERE ingest_ts >= now() - INTERVAL {lookback_days} DAY
     ) AS fact"""
 
     return (
@@ -46,16 +46,31 @@ def _read_fact_event(spark):
     )
 
 
+def _read_service_map(spark):
+    """외부 서비스 메타 매핑 파일을 읽는다."""
+    path = os.getenv("DIM_SERVICE_MAP_PATH", "").strip()
+    if not path:
+        return None
+    return (
+        spark.read
+        .option("header", "true")
+        .option("inferSchema", "false")
+        .csv(path)
+        .select("service", "service_group", "is_active", "description")
+    )
+
+
 def run_dim_batch() -> None:
     """run_dim_batch 처리를 수행한다."""
     spark = build_batch_spark()
     spark.sparkContext.setLogLevel("INFO")
 
     fact_df = _read_fact_event(spark)
+    service_map_df = _read_service_map(spark)
 
-    dim_date_df = parse_dim_date(fact_df)
-    dim_time_df = parse_dim_time(fact_df)
-    dim_service_df = parse_dim_service(fact_df)
+    dim_date_df = parse_dim_date(fact_df, time_col="ingest_ts")
+    dim_time_df = parse_dim_time(fact_df, time_col="ingest_ts")
+    dim_service_df = parse_dim_service(fact_df, service_map_df=service_map_df)
     dim_status_df = parse_dim_status_code(fact_df)
     dim_user_df = parse_dim_user(fact_df)
 
