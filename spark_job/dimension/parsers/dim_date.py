@@ -7,16 +7,16 @@ from pyspark.sql import functions as F
 from ..schema import DIM_DATE_COLUMNS
 
 
-def parse_dim_date(fact_df: DataFrame) -> DataFrame:
+def parse_dim_date(fact_df: DataFrame, *, time_col: str = "event_ts") -> DataFrame:
     """
-    fact_event DF에서 event_ts 기준으로 dim_date DF 생성.
-    - 입력 DF: event_ts (TimestampType) 컬럼을 포함
+    fact_event DF에서 기준 시각 컬럼으로 dim_date DF 생성.
+    - 입력 DF: time_col (TimestampType) 컬럼을 포함
     - 출력 DF: dim_date 스키마에 맞는 DF (date 기준 distinct)
     """
 
     base = (
         fact_df
-        .select(F.to_date("event_ts").alias("date"))
+        .select(F.to_date(F.col(time_col)).alias("date"))
         .where(F.col("date").isNotNull())
         .distinct()
     )
