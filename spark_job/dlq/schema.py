@@ -11,10 +11,27 @@ DLQ_VALUE_SCHEMA: T.StructType = T.StructType(
         T.StructField("event_id", T.StringType(), True),
         T.StructField("request_id", T.StringType(), True),
         T.StructField("source_topic", T.StringType(), True),
+        T.StructField("source_partition", T.IntegerType(), True),
+        T.StructField("source_offset", T.LongType(), True),
+        T.StructField("source_key", T.StringType(), True),
         T.StructField("created_ms", T.LongType(), True),
         T.StructField("raw_json", T.StringType(), True),
     ]
 )
+
+DLQ_VALUE_COLUMNS: list[str] = [
+    "error_type",
+    "error_message",
+    "service",
+    "event_id",
+    "request_id",
+    "source_topic",
+    "source_partition",
+    "source_offset",
+    "source_key",
+    "created_ms",
+    "raw_json",
+]
 
 
 FACT_EVENT_DLQ_SCHEMA: T.StructType = T.StructType(
@@ -25,6 +42,9 @@ FACT_EVENT_DLQ_SCHEMA: T.StructType = T.StructType(
         T.StructField("event_id", T.StringType(), True),
         T.StructField("request_id", T.StringType(), True),
         T.StructField("source_topic", T.StringType(), True),
+        T.StructField("source_partition", T.IntegerType(), True),
+        T.StructField("source_offset", T.LongType(), True),
+        T.StructField("source_key", T.StringType(), True),
         T.StructField("created_ts", T.TimestampType(), True),
         T.StructField("error_type", T.StringType(), False),
         T.StructField("error_message", T.StringType(), True),
@@ -40,6 +60,9 @@ FACT_EVENT_DLQ_COLUMNS: list[str] = [
     "event_id",
     "request_id",
     "source_topic",
+    "source_partition",
+    "source_offset",
+    "source_key",
     "created_ts",
     "error_type",
     "error_message",
