@@ -8,7 +8,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, Any, List
 from pathlib import Path
-import os
 import yaml
 
 from .timeband import load_bands, Band
@@ -41,11 +40,6 @@ class ProfileContext:
     mix: Dict[str, Any]
     bands: List[Band]
 
-    error_rate: Dict[str, float]
-    funnel: Dict[str, float]
-    entity_pool: Dict[str, Any]
-    domain_event_policy: Dict[str, Any]
-
 
 def load_profile_context() -> ProfileContext:
     """
@@ -56,18 +50,10 @@ def load_profile_context() -> ProfileContext:
     total_eps = float(profile.get("eps", 10000))
     mix = profile.get("mix", {})
     bands = load_bands(profile.get("time_weights", []))
-    error_rate = profile.get("error_rate", {})
-    funnel = profile.get("funnel", {})
-    entity_pool = profile.get("entity_pool", {})
-    domain_event_policy = profile.get("domain_event_policy", {})
 
     return ProfileContext(
         profile=profile,
         total_eps=total_eps,
         mix=mix,
         bands=bands,
-        error_rate=error_rate,
-        funnel=funnel,
-        entity_pool=entity_pool,
-        domain_event_policy=domain_event_policy,
     )
