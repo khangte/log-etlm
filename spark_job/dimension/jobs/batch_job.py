@@ -19,13 +19,10 @@ from ..writers.dim_writer import ClickHouseDimWriter
 
 def _read_fact_event(spark):
     """read_fact_event 처리를 수행한다."""
-    clickhouse_url = os.getenv(
-        "SPARK_CLICKHOUSE_URL",
-        "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
-    )
-    clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER", "log_user")
-    clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD", "log_pwd")
-    lookback_days = int(os.getenv("DIM_BATCH_LOOKBACK_DAYS", "1"))
+    clickhouse_url = os.getenv("SPARK_CLICKHOUSE_URL")
+    clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER")
+    clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD")
+    lookback_days = int(os.getenv("DIM_BATCH_LOOKBACK_DAYS"))
 
     # 최근 N일 데이터만 읽어서 dim을 갱신한다.
     query = f"""(
@@ -48,7 +45,7 @@ def _read_fact_event(spark):
 
 def _read_service_map(spark):
     """외부 서비스 메타 매핑 파일을 읽는다."""
-    path = os.getenv("DIM_SERVICE_MAP_PATH", "").strip()
+    path = os.getenv("DIM_SERVICE_MAP_PATH").strip()
     if not path:
         return None
     return (
