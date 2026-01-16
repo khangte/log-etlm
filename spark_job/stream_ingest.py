@@ -84,9 +84,7 @@ def start_event_ingest_streams(spark: SparkSession) -> None:
     event_kafka_df = _build_kafka_stream(fact_topics)
 
     # Kafka raw DF → fact_event 스키마로 파싱
-    event_source = event_kafka_df
-
-    event_df, bad_df = parse_fact_event_with_errors(event_source)
+    event_df, bad_df = parse_fact_event_with_errors(event_kafka_df)
 
     # ClickHouse analytics.fact_event로 스트리밍 적재
     writer.write_fact_event_stream(event_df)
