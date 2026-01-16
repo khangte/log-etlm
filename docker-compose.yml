@@ -11,17 +11,33 @@ services:
       - "8000:8000"
     environment:
       # Simulator load
+      - SIMULATOR_SHARE=1.0
       - LOG_BATCH_SIZE=240
       - TICK_SEC=0.22
       - LOOPS_PER_SERVICE=4
+      - SIM_EVENT_MODE=domain
       # Simulator queue
       - QUEUE_SIZE=4000
+      - SIM_QUEUE_WARN_RATIO=0.8
+      - QUEUE_LOW_WATERMARK_RATIO=0.2
       - QUEUE_LOW_SLEEP_SCALE=1.0
+      - QUEUE_THROTTLE_RATIO=0.9
+      - QUEUE_THROTTLE_SLEEP=0.05
+      - QUEUE_RESUME_RATIO=0.75
+      - QUEUE_SOFT_THROTTLE_RATIO=0.85
+      - QUEUE_SOFT_RESUME_RATIO=0.7
+      - QUEUE_SOFT_SCALE_STEP=0.1
+      - QUEUE_SOFT_SCALE_MIN=0.2
+      - QUEUE_SOFT_SCALE_MAX=1.0
+      - SIM_BEHIND_LOG_EVERY_SEC=5.0
+      - SIM_DRAIN_TIMEOUT_SEC=5.0
       # Publisher worker
       - PUBLISHER_WORKERS=5
       - WORKER_BATCH_SIZE=500
+      - PUBLISH_QUEUE_WARN_RATIO=0.7
       - IDLE_WARN_SEC=5
       - SEND_WARN_SEC=5
+      - PUBLISH_RETRY_BACKOFF_SEC=0.2
       # Kafka producer
       - KAFKA_BOOTSTRAP=kafka:9092
       - KAFKA_CLIENT_ID=log-monitoring-simulator
@@ -142,15 +158,20 @@ services:
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_DLQ_TOPIC=logs.dlq
       - SPARK_ENABLE_DLQ_STREAM=true
+      - SPARK_RESET_CHECKPOINT_ON_START=false
       - SPARK_STARTING_OFFSETS=latest
+      - SPARK_FACT_TRIGGER_INTERVAL=
       # maxOffsetsPerTrigger가 consumed EPS 상한을 만든다.
       - SPARK_MAX_OFFSETS_PER_TRIGGER=18000
       - SPARK_STORE_RAW_JSON=false
       - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
       - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
+      - SPARK_DLQ_KAFKA_LOG_EMPTY=false
       - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
       # ClickHouse sink tuning (override as needed)
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
+      - SPARK_CLICKHOUSE_USER=log_user
+      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
       - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=10000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=4
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
@@ -186,6 +207,8 @@ services:
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&async_insert=1&wait_for_async_insert=0
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      - DIM_BATCH_LOOKBACK_DAYS=1
+      - DIM_SERVICE_MAP_PATH=
     volumes:
       - ./spark_job:/app/spark_job:ro
     depends_on:
