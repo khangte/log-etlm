@@ -1,7 +1,5 @@
 from pyspark.sql import types as T
 
-CLICKHOUSE_DB: str = "analytics"
-
 # -----------------------------------------------------------------------------
 # 1) Kafka value(JSON) 스키마
 #    - simulator v2 이벤트 필드 + 레거시 필드 동시 수용
@@ -40,59 +38,7 @@ log_value_schema: T.StructType = T.StructType(
 
 
 # -----------------------------------------------------------------------------
-# 2) ClickHouse analytics.fact_event 타겟 스키마
-#    - 여기서는 타입/이름을 약간 정규화해서 사용
-#    - Spark DF는 FACT_EVENT_COLUMNS에 있는 컬럼만 적재하고,
-#      stored_ts는 ClickHouse에서 채운다(e2e_ms/sink_ms는 MV에서 계산).
-# -----------------------------------------------------------------------------
-
-fact_event_schema: T.StructType = T.StructType(
-    [
-        # 시간 관련
-        T.StructField("event_ts",     T.TimestampType(), False),  # 발생 시각(UTC)
-        T.StructField("ingest_ts",    T.TimestampType(), False),  # Kafka 적재 시각(UTC)
-        T.StructField("processed_ts", T.TimestampType(), False),  # Spark 처리 시각(UTC)
-        T.StructField("stored_ts",    T.TimestampType(), False),  # ClickHouse 저장 시각(UTC)
-        T.StructField("ingest_ms",    T.IntegerType(), True),     # event->ingest 지연(ms, Spark)
-        T.StructField("process_ms",   T.IntegerType(), True),     # ingest->process 지연(ms, Spark)
-
-        # 공통 메타 정보
-        T.StructField("service",     T.StringType(), False),
-        T.StructField("domain",      T.StringType(), False),
-        T.StructField("api_group",   T.StringType(), False),
-        T.StructField("event_name",  T.StringType(), False),
-        T.StructField("result",      T.StringType(), False),
-        T.StructField("request_id",  T.StringType(), False),
-        T.StructField("event_id",    T.StringType(), False),
-        T.StructField("method",      T.StringType(), True),
-        T.StructField("route_template", T.StringType(), True),
-        T.StructField("path",        T.StringType(), True),
-        T.StructField("status_code", T.IntegerType(), True),
-        T.StructField("duration_ms", T.IntegerType(), True),
-        T.StructField("level",       T.StringType(), True),
-        T.StructField("event",       T.StringType(),  True),  # 레거시 호환
-
-        # 비즈니스 필드(서비스별로 있을 수도/없을 수도 있음)
-        T.StructField("user_id",           T.StringType(),  True),
-        T.StructField("order_id",          T.StringType(),  True),
-        T.StructField("payment_id",        T.StringType(),  True),
-        T.StructField("reason_code",       T.StringType(),  True),
-        T.StructField("product_id",        T.IntegerType(), True),
-        T.StructField("amount",            T.IntegerType(), True),
-
-        # 인프라/추적용
-        T.StructField("topic",          T.StringType(), True),   # Kafka topic
-        T.StructField("kafka_partition", T.IntegerType(), True),
-        T.StructField("kafka_offset",    T.LongType(), True),
-
-        # 원본 백업
-        T.StructField("raw_json", T.StringType(), False),
-    ]
-)
-
-
-# -----------------------------------------------------------------------------
-# 3) 공통 컬럼 순서 (select 순서 강제 등에서 사용)
+# 2) ClickHouse analytics.fact_event 컬럼 순서
 # -----------------------------------------------------------------------------
 
 FACT_EVENT_COLUMNS: list[str] = [
