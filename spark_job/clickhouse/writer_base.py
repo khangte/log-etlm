@@ -15,7 +15,7 @@ from .sink import write_to_clickhouse
 
 def _append_batch_log(line: str) -> None:
     """배치 타이밍 로그를 파일에 추가한다."""
-    log_path = os.getenv("SPARK_BATCH_TIMING_LOG_PATH", "").strip()
+    log_path = os.getenv("SPARK_BATCH_TIMING_LOG_PATH").strip()
     if not log_path:
         return
     try:
