@@ -19,7 +19,7 @@ class KafkaDlqWriter:
         bootstrap = os.getenv("KAFKA_BOOTSTRAP")
         if not bootstrap:
             raise ValueError("KAFKA_BOOTSTRAP is required for DLQ Kafka writer")
-        trigger_processing_time = os.getenv("SPARK_DLQ_KAFKA_TRIGGER_INTERVAL", "").strip() or None
+        trigger_processing_time = os.getenv("SPARK_DLQ_KAFKA_TRIGGER_INTERVAL").strip() or None
         log_empty = os.getenv("SPARK_DLQ_KAFKA_LOG_EMPTY", "false").strip().lower() in (
             "1",
             "true",
