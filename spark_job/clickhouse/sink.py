@@ -39,8 +39,6 @@ def write_to_clickhouse(
     mode: str = "append",
 ):
     """write_to_clickhouse 처리를 수행한다."""
-    cached = False
-
     try:
         target_partitions = os.getenv("SPARK_CLICKHOUSE_WRITE_PARTITIONS")
         jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE")
@@ -74,9 +72,3 @@ def write_to_clickhouse(
                 f"    --query \"ATTACH TABLE {table_name}\""
             )
         traceback.print_exc()
-    finally:
-        try:
-            if cached:
-                out_df.unpersist()
-        except Exception:
-            pass
