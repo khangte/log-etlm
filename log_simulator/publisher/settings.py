@@ -11,12 +11,12 @@ import os
 
 @dataclass(frozen=True)
 class PublisherSettings:
-    workers: int = int(os.getenv("PUBLISHER_WORKERS", "8"))
-    worker_batch_size: int = int(os.getenv("WORKER_BATCH_SIZE", "80"))
-    queue_warn_ratio: float = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO", "0.7"))
-    idle_warn_sec: float = float(os.getenv("IDLE_WARN_SEC", "0.2"))
-    send_warn_sec: float = float(os.getenv("SEND_WARN_SEC", "0.3"))
-    retry_backoff_sec: float = float(os.getenv("PUBLISH_RETRY_BACKOFF_SEC", "0.2"))
+    workers: int = int(os.getenv("PUBLISHER_WORKERS"))
+    worker_batch_size: int = int(os.getenv("WORKER_BATCH_SIZE"))
+    queue_warn_ratio: float = float(os.getenv("PUBLISH_QUEUE_WARN_RATIO"))
+    idle_warn_sec: float = float(os.getenv("IDLE_WARN_SEC"))
+    send_warn_sec: float = float(os.getenv("SEND_WARN_SEC"))
+    retry_backoff_sec: float = float(os.getenv("PUBLISH_RETRY_BACKOFF_SEC"))
 
 
 PUBLISHER_SETTINGS = PublisherSettings()
