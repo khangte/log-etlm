@@ -57,14 +57,11 @@ def start_event_ingest_streams(spark: SparkSession) -> None:
 
     # Kafka logs.* 토픽에서 스트리밍 데이터 읽기
     # 목표 처리량이 10k EPS라면, (배치 주기 dt) 기준으로 대략 maxOffsetsPerTrigger ~= 10000 * dt 로 잡아야 한다.
-    max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER", "250000")
-    starting_offsets = os.getenv("SPARK_STARTING_OFFSETS", "latest")  # "latest" | "earliest" | (토픽별 JSON)
+    max_offsets_per_trigger = os.getenv("SPARK_MAX_OFFSETS_PER_TRIGGER")
+    starting_offsets = os.getenv("SPARK_STARTING_OFFSETS")  # "latest" | "earliest" | (토픽별 JSON)
     print(f"[ℹ️ spark] startingOffsets={starting_offsets} (체크포인트가 있으면 무시될 수 있음)")
-    fact_topics = os.getenv(
-        "SPARK_FACT_TOPICS",
-        "logs.auth,logs.order,logs.payment",
-    )
-    dlq_topic = os.getenv("SPARK_DLQ_TOPIC", "logs.dlq")
+    fact_topics = os.getenv("SPARK_FACT_TOPICS")
+    dlq_topic = os.getenv("SPARK_DLQ_TOPIC")
     enable_dlq_stream = os.getenv("SPARK_ENABLE_DLQ_STREAM", "true").strip().lower() in (
         "1",
         "true",
