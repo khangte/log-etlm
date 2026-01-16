@@ -30,6 +30,12 @@
       "id": "stat",
       "name": "Stat",
       "version": "1"
+    },
+    {
+      "type": "panel",
+      "id": "text",
+      "name": "Text",
+      "version": "1"
     }
   ],
   "annotations": {
@@ -63,22 +69,8 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "now() - max(ingest_ts) (last 60s)",
       "fieldConfig": {
         "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "ms",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "lineWidth": 2,
-            "showPoints": "auto",
-            "spanNulls": true
-          },
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
@@ -94,22 +86,23 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 6,
-        "w": 24,
         "x": 0,
-        "y": 0
+        "y": 0,
+        "w": 8,
+        "h": 4
       },
-      "id": 24,
+      "id": 30,
       "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       },
       "pluginVersion": "10.4.2",
@@ -121,12 +114,244 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time",
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE",
           "refId": "A"
         }
       ],
-      "title": "Freshness (ms)",
-      "type": "timeseries"
+      "title": "현재 Freshness ms",
+      "type": "stat",
+      "description": "fact_event 직접 집계(부하 주의)"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "eps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE bucket >= now() - INTERVAL 1 MINUTE",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 1분 EPS",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct\nFROM\n(\n  SELECT sum(total) AS dlq\n  FROM analytics.fact_event_dlq_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) d\nCROSS JOIN\n(\n  SELECT uniqCombined64Merge(total_state) AS total\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 5분 DLQ 비율 %",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "최근 5분 서비스별 EPS",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 8,
+        "h": 8
+      },
+      "id": 33,
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  service,\n  uniqCombined64Merge(total_state) / 300 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nGROUP BY service\nORDER BY eps DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "서비스별 EPS Top (5m)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "최근 5분 서비스별 5xx 비율",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 8,
+        "h": 8
+      },
+      "id": 34,
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  service,\n  if(total = 0, 0, errors / total) * 100 AS error_rate_pct\nFROM\n(\n  SELECT\n    service,\n    uniqCombined64Merge(total_state) AS total,\n    uniqCombined64Merge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n  GROUP BY service\n)\nORDER BY error_rate_pct DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "서비스별 5xx 에러율 Top (5m)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "fact_event 직접 집계(부하 주의)",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 8,
+        "h": 8
+      },
+      "id": 35,
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  status_code,\n  count() AS cnt\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE\nGROUP BY status_code\nORDER BY cnt DESC\nLIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 5분 status_code 분포",
+      "type": "table"
     },
     {
       "datasource": {
@@ -140,7 +365,7 @@
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "EPS (ingest_ts)",
+            "axisLabel": "EPS",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -159,15 +384,15 @@
               }
             ]
           },
-          "unit": "ops"
+          "unit": "eps"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 6
+        "y": 12,
+        "w": 12,
+        "h": 8
       },
       "id": 8,
       "options": {
@@ -234,10 +459,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 6
+        "y": 12,
+        "w": 12,
+        "h": 8
       },
       "id": 13,
       "options": {
@@ -304,10 +529,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 14
+        "y": 20,
+        "w": 24,
+        "h": 8
       },
       "id": 20,
       "options": {
@@ -374,10 +599,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "x": 0,
+        "y": 28,
         "w": 12,
-        "x": 12,
-        "y": 14
+        "h": 8
       },
       "id": 22,
       "options": {
@@ -413,7 +638,26 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "fact_event_dlq 실제 유입량(EPS)을 1분 단위로 표시합니다.",
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "id": 37,
+      "options": {
+        "content": "Ingest->Stored 지연 p95 패널은 fact_event 직접 집계로 부하가 커서 비활성화했습니다.",
+        "mode": "markdown"
+      },
+      "title": "Ingest->Stored 지연 p95 (비활성화)",
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "fact_event_dlq_agg_1m 기반 1분 EPS",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -444,10 +688,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 0,
-        "y": 24
+        "y": 36,
+        "w": 12,
+        "h": 8
       },
       "id": 21,
       "options": {
@@ -471,7 +715,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  count() / 60 AS eps\nFROM analytics.fact_event_dlq\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  sum(total) / 60 AS eps\nFROM analytics.fact_event_dlq_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -489,10 +733,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
         "x": 12,
-        "y": 24
+        "y": 36,
+        "w": 12,
+        "h": 8
       },
       "id": 23,
       "options": {
