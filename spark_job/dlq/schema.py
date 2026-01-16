@@ -34,25 +34,6 @@ DLQ_VALUE_COLUMNS: list[str] = [
 ]
 
 
-FACT_EVENT_DLQ_SCHEMA: T.StructType = T.StructType(
-    [
-        T.StructField("ingest_ts", T.TimestampType(), False),
-        T.StructField("processed_ts", T.TimestampType(), False),
-        T.StructField("service", T.StringType(), True),
-        T.StructField("event_id", T.StringType(), True),
-        T.StructField("request_id", T.StringType(), True),
-        T.StructField("source_topic", T.StringType(), True),
-        T.StructField("source_partition", T.IntegerType(), True),
-        T.StructField("source_offset", T.LongType(), True),
-        T.StructField("source_key", T.StringType(), True),
-        T.StructField("created_ts", T.TimestampType(), True),
-        T.StructField("error_type", T.StringType(), False),
-        T.StructField("error_message", T.StringType(), True),
-        T.StructField("raw_json", T.StringType(), False),
-    ]
-)
-
-
 FACT_EVENT_DLQ_COLUMNS: list[str] = [
     "ingest_ts",
     "processed_ts",
