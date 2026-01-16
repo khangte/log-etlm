@@ -1,6 +1,5 @@
 import os
 import traceback
-from urllib.parse import parse_qsl, urlencode
 
 
 def _apply_partitioning(df, target_partitions: str | None):
@@ -33,17 +32,6 @@ def _apply_partitioning(df, target_partitions: str | None):
     return df
 
 
-def _append_query_params(url: str, extra_params: dict[str, str]) -> str:
-    """ClickHouse JDBC URL에 쿼리 파라미터를 병합한다."""
-    base, sep, query = url.partition("?")
-    if not sep:
-        return f"{url}?{urlencode(extra_params)}"
-    current = dict(parse_qsl(query, keep_blank_values=True))
-    for key, value in extra_params.items():
-        current.setdefault(key, value)
-    return f"{base}?{urlencode(current)}"
-
-
 def write_to_clickhouse(
     df,
     table_name,
@@ -55,27 +43,10 @@ def write_to_clickhouse(
 
     try:
         target_partitions = os.getenv("SPARK_CLICKHOUSE_WRITE_PARTITIONS")
-        jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE", "50000")
-        clickhouse_url = os.getenv(
-            "SPARK_CLICKHOUSE_URL",
-            "jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false",
-        )
-        async_insert_enabled = os.getenv("SPARK_CLICKHOUSE_ASYNC_INSERT", "false").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "y",
-        )
-        if async_insert_enabled:
-            clickhouse_url = _append_query_params(
-                clickhouse_url,
-                {
-                    "async_insert": "1",
-                    "wait_for_async_insert": "0",
-                },
-            )
-        clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER", "log_user")
-        clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD", "log_pwd")
+        jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE")
+        clickhouse_url = os.getenv("SPARK_CLICKHOUSE_URL")
+        clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER")
+        clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD")
 
         out_df = _apply_partitioning(df, target_partitions)
 
@@ -89,8 +60,8 @@ def write_to_clickhouse(
             .option("dbtable", table_name) \
             .option("isolationLevel", "NONE") \
             .option("batchsize", jdbc_batchsize)
-            .mode(mode)
         )
+        writer = writer.mode(mode)
         writer.save()
 
     except Exception as e:
