@@ -20,13 +20,3 @@ error_rate:  # 서비스별 오류율
 domain_event_policy:
   emit_for_get_routes: false   # GET은 도메인 이벤트 안 찍기(추천)
   emit_on_fail: true           # 실패도 도메인 이벤트로 남김(추천)
-
-# funnel:  # 도메인 흐름(퍼널) 제어: DB 없이도 엔티티 연결되게 만드는 핵심
-#   auth_login_success_to_order_create_rate: 0.30
-#   order_created_to_payment_create_rate: 0.75
-#   payment_created_to_confirm_attempt_rate: 0.90
-
-# entity_pool:  # 시뮬레이터 내부 인메모리 상태(=DB 아님) 보호용
-#   active_users_max: 150000
-#   open_orders_max: 80000
-#   open_payments_max: 80000
