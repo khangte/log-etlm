@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional
 import bisect
 import json
 import random
@@ -331,34 +331,6 @@ class BaseServiceSimulator:
 
     # ---------- 출력 ----------
 
-    def render(self, log: Dict[str, Any]) -> str:  # 미사용
-        """render 처리를 수행한다."""
-        return json.dumps(log, ensure_ascii=False)
-
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
         """render_bytes 처리를 수행한다."""
         return json.dumps(log, ensure_ascii=False).encode("utf-8")
-
-
-    # # ---------- late 이벤트(옵션) ----------
-
-    # def maybe_delay_some(self, events: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    #     if not self.late_events.get("enabled"):
-    #         return list(events)
-
-    #     rate = float(self.late_events.get("rate", 0.0))
-    #     max_delay = int(self.late_events.get("max_delay_seconds", 0))
-    #     if rate <= 0.0 or max_delay <= 0:
-    #         return list(events)
-
-    #     out: List[Dict[str, Any]] = []
-    #     rng = self._rng
-    #     for ev in events:
-    #         if rng.random() < rate:
-    #             delay_ms = rng.randint(1, max_delay) * 1000
-    #             ev2 = ev.copy()
-    #             ev2["ts_ms"] = int(ev2["ts_ms"]) - delay_ms
-    #             out.append(ev2)
-    #         else:
-    #             out.append(ev)
-    #     return out
