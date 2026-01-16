@@ -121,7 +121,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 60 SECOND",
+          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time",
           "refId": "A"
         }
       ],
@@ -343,76 +343,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "fact_event_dlq 실제 유입량(EPS)을 1분 단위로 표시합니다.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisLabel": "DLQ EPS",
-            "axisPlacement": "auto",
-            "axisSoftMin": 0,
-            "drawStyle": "line",
-            "fillOpacity": 12,
-            "lineWidth": 2,
-            "showPoints": "auto",
-            "spanNulls": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "eps"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 14
-      },
-      "id": 21,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  count() / 60 AS eps\nFROM analytics.fact_event_dlq\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "DLQ EPS",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "event->ingest, ingest->processed, processed->stored, e2e (p95, 1분 집계)",
       "fieldConfig": {
         "defaults": {
@@ -444,10 +374,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 22
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
       },
       "id": 22,
       "options": {
@@ -483,6 +413,76 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
+      "description": "fact_event_dlq 실제 유입량(EPS)을 1분 단위로 표시합니다.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "DLQ EPS",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "eps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  toStartOfMinute(ingest_ts) AS time,\n  count() / 60 AS eps\nFROM analytics.fact_event_dlq\nWHERE $__timeFilter(ingest_ts)\nGROUP BY time\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "DLQ EPS",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
       "description": "Top error_type in the last 5 minutes",
       "fieldConfig": {
         "defaults": {},
@@ -490,9 +490,9 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 31
+        "w": 12,
+        "x": 12,
+        "y": 24
       },
       "id": 23,
       "options": {
