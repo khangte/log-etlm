@@ -44,15 +44,16 @@
    - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.dlq`, `logs.error`, `logs.unknown` 토픽에서 생산자와 소비자 사이 메시지 큐 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
 3. **로그 실시간 처리**
-   - `spark_job/main.py`가 `spark_job/fact/jobs/ingest_job.py`를 실행하고, fact/DLQ 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
-- fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
-- DLQ 스트리밍을 끄려면 `SPARK_ENABLE_DLQ_STREAM=false`.
+   - `spark_job/main.py`가 `spark_job/stream_ingest.py`를 실행하고, fact/DLQ 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
+   - fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
+   - DLQ 스트리밍을 끄려면 `SPARK_ENABLE_DLQ_STREAM=false`.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
    - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
    - 초기 스키마는 `spark_job/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
+   - 대시보드 JSON: `grafana/dashboards/overview.json`(파이프라인), `grafana/dashboards/dim_overview.json`(DIM).
    - `monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.
 
 
@@ -71,7 +72,7 @@
 # 1. Kafka + Kafka UI 우선 기동
 docker compose up -d kafka kafka-ui
 
-# 1-1. 도메인별 토픽 생성(수동)
+# 1-1. 도메인별 토픽 생성(수동, 파티션 수 조정이 필요할 때만)
 # mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 총 8 파티션 기준
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
@@ -101,7 +102,7 @@ crontab -e
 
 ## Kafka 토픽 파티션 분배(도메인 기준)
 
-`KAFKA_AUTO_CREATE_TOPICS_ENABLE=false`이므로 토픽을 수동 생성한다.
+`KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`인 경우에도 파티션 수를 맞추려면 수동 생성이 필요하다.
 
 예시(mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 기준 총 8 파티션 유지):
 
@@ -148,14 +149,16 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - process: `ingest_ts → processed_ts` (Spark 처리 지연)
 - sink: `processed_ts → stored_ts` (Spark → ClickHouse 적재 지연)
 - end-to-end: `event_ts → stored_ts` (전체 지연)
-- DLQ: `analytics.fact_event_dlq_1m` (fail_stage=source_topic, fail_reason=error_type, cnt)
+- DLQ: `analytics.fact_event_dlq_agg_1m` (service, error_type, total)
+
 
 ## Grafana용 기본 집계 쿼리
 
 - 정상 EPS(서비스별): `analytics.fact_event_agg_1m`
 - 토픽 EPS: `analytics.fact_event_topic_1m`
 - E2E 지연: `analytics.fact_event_latency_1m`
-- DLQ TopN: `analytics.fact_event_dlq_1m` (fail_stage, fail_reason 기준)
+- 과정별 지연: `analytics.fact_event_latency_service_1m`
+- DLQ TopN: `analytics.fact_event_dlq_agg_1m` (error_type 기준)
 
 
 ## 결과 기록
