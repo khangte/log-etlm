@@ -12,6 +12,7 @@ from typing import Any
 from ..models.messages import BatchMessage
 from .settings import QueueThrottleConfig
 
+
 def adjust_eps_for_event_mode(simulator: Any, eps: float) -> float:
     """adjust_eps_for_event_mode 처리를 수행한다."""
     mode = getattr(simulator, "event_mode", "all")
