@@ -1,20 +1,22 @@
-# spark_job/main.py
-# spark-submit 진입점
+# 파일명 : spark_job/main.py
+# 목적   : spark-submit 진입점
 
 from __future__ import annotations
 
 import os
 from pyspark.sql.streaming import StreamingQueryException
 
-from .stream_ingest import start_event_ingest_streams
-from .spark import build_streaming_spark
+from common.get_env import get_env_str
+from spark_job.stream_ingest import start_event_ingest_streams
+from spark_job.spark import build_streaming_spark
 
 
 def run_event_ingest() -> None:
-    """Spark 세션을 구성하고 이벤트 ingest 스트림을 실행한다."""
+    """Spark 스트리밍 적재 작업을 실행한다."""
     spark = None
     try:
-        spark = build_streaming_spark(master=os.getenv("SPARK_MASTER_URL"))
+        master_url = get_env_str(os.environ, "SPARK_MASTER_URL")
+        spark = build_streaming_spark(master=master_url)
         spark.sparkContext.setLogLevel("INFO")
 
         start_event_ingest_streams(spark)
