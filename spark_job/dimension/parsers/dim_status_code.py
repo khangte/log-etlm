@@ -1,4 +1,5 @@
-# spark_job/dimension/dim_status_code.py
+# 파일명 : spark_job/dimension/parsers/dim_status_code.py
+# 목적   : dim_status_code 차원 테이블을 생성한다.
 
 from __future__ import annotations
 
@@ -8,11 +9,7 @@ from ..schema import DIM_STATUS_CODE_COLUMNS
 
 
 def parse_dim_status_code(fact_df: DataFrame) -> DataFrame:
-    """
-    fact_event DF에서 status_code 기준으로 dim_status_code DF 생성.
-    - 입력 DF: status_code (Int) 컬럼 포함
-    - 출력 DF: status_code 기준 distinct + class / is_error / description
-    """
+    """fact_event에서 dim_status_code를 생성한다."""
 
     base = (
         fact_df
