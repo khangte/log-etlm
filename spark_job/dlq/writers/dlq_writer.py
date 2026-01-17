@@ -1,26 +1,26 @@
 from __future__ import annotations
 
-import os
-
 from pyspark.sql import DataFrame
 
+from ..settings import DlqStreamSettings, get_dlq_stream_settings
 from ...clickhouse.writer_base import ClickHouseStreamWriterBase
-
-# ClickHouse 테이블 이름
-FACT_EVENT_DLQ_TABLE = "analytics.fact_event_dlq"
-
-# 체크포인트 디렉터리
-FACT_EVENT_DLQ_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event_dlq"
 
 
 class ClickHouseDlqWriter(ClickHouseStreamWriterBase):
+    """DLQ 스트림 적재를 담당한다."""
+
+    def __init__(self, settings: DlqStreamSettings | None = None):
+        """DLQ 스트림 설정을 주입한다."""
+        super().__init__()
+        self._settings = settings or get_dlq_stream_settings()
+
     def write_dlq_stream(self, df: DataFrame):
-        """write_dlq_stream 처리를 수행한다."""
-        trigger_processing_time = os.getenv("SPARK_DLQ_TRIGGER_INTERVAL").strip() or None
+        """DLQ 스트림을 적재한다."""
+        trigger_processing_time = self._settings.trigger_interval or None
         return self.write_stream(
             df,
-            FACT_EVENT_DLQ_TABLE,
-            FACT_EVENT_DLQ_CHECKPOINT_DIR,
+            self._settings.table_name,
+            self._settings.checkpoint_dir,
             query_name="fact_event_dlq_stream",
             skip_empty=True,
             trigger_processing_time=trigger_processing_time,
