@@ -1,4 +1,5 @@
-# spark_job/dimension/dim_time.py
+# 파일명 : spark_job/dimension/parsers/dim_time.py
+# 목적   : dim_time 차원 테이블을 생성한다.
 
 from __future__ import annotations
 
@@ -8,16 +9,7 @@ from ..schema import DIM_TIME_COLUMNS
 
 
 def parse_dim_time(fact_df: DataFrame, *, time_col: str = "event_ts") -> DataFrame:
-    """
-    fact_event DF에서 기준 시각 컬럼으로 dim_time DF 생성.
-
-    - 입력 DF: time_col (TimestampType) 컬럼 포함
-    - 출력 DF: 시간 단위 차원 테이블용 DF
-        - hour       : 0~23
-        - minute     : 0~59
-        - second     : 0~59
-        - time_of_day: 시간대 구간(dawn/morning/afternoon/evening)
-    """
+    """fact_event에서 dim_time을 생성한다."""
 
     kst_ts = F.from_utc_timestamp(F.col(time_col), "Asia/Seoul")
 
