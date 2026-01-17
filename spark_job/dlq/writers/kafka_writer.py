@@ -1,31 +1,31 @@
 from __future__ import annotations
 
-import os
 import time
 
 from pyspark.sql import DataFrame, functions as F
 
 from ..schema import DLQ_VALUE_COLUMNS
+from ..settings import DlqKafkaSettings, get_dlq_kafka_settings
 from ..transforms.build_dlq_kafka import build_dlq_kafka_df
-
-# 체크포인트 디렉터리
-FACT_EVENT_DLQ_KAFKA_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event_dlq_kafka"
 
 
 class KafkaDlqWriter:
+    """DLQ Kafka 적재를 담당한다."""
+
+    def __init__(self, settings: DlqKafkaSettings | None = None):
+        """DLQ Kafka 설정을 주입한다."""
+        self._settings = settings or get_dlq_kafka_settings()
+
     def write_dlq_kafka_stream(self, bad_df: DataFrame, *, topic: str):
-        """파싱/검증 실패 레코드를 DLQ Kafka 토픽으로 적재한다."""
+        """DLQ Kafka 스트림을 적재한다."""
         dlq_topic = topic
-        bootstrap = os.getenv("KAFKA_BOOTSTRAP")
+        if not dlq_topic:
+            raise ValueError("DLQ Kafka topic is required")
+        bootstrap = self._settings.bootstrap
         if not bootstrap:
             raise ValueError("KAFKA_BOOTSTRAP is required for DLQ Kafka writer")
-        trigger_processing_time = os.getenv("SPARK_DLQ_KAFKA_TRIGGER_INTERVAL").strip() or None
-        log_empty = os.getenv("SPARK_DLQ_KAFKA_LOG_EMPTY", "false").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "y",
-        )
+        trigger_processing_time = self._settings.trigger_interval or None
+        log_empty = self._settings.log_empty
 
         def _foreach(batch_df: DataFrame, batch_id: int) -> None:
             """DLQ Kafka 배치 적재와 타이밍 로그를 처리한다."""
@@ -59,7 +59,7 @@ class KafkaDlqWriter:
 
         writer = (
             bad_df.writeStream.foreachBatch(_foreach)
-            .option("checkpointLocation", FACT_EVENT_DLQ_KAFKA_CHECKPOINT_DIR)
+            .option("checkpointLocation", self._settings.checkpoint_dir)
         )
         if trigger_processing_time:
             writer = writer.trigger(processingTime=trigger_processing_time)
