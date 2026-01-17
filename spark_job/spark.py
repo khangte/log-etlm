@@ -7,7 +7,7 @@ from pyspark.sql import SparkSession
 
 
 def _reset_stopped_spark_context() -> None:
-    """이전 세션이 중단된 경우 stale SparkContext 참조를 정리한다."""
+    """중단된 SparkContext 참조를 정리한다."""
     active_sc = getattr(SparkContext, "_active_spark_context", None)
     if not active_sc:
         return
@@ -34,7 +34,7 @@ def _build_spark_session(
     event_log_enabled: bool,
     event_log_dir: str | None,
 ) -> SparkSession:
-    """build_spark_session 처리를 수행한다."""
+    """SparkSession을 생성한다."""
     _reset_stopped_spark_context()
     builder = SparkSession.builder.appName(app_name)
     if master:
@@ -61,7 +61,7 @@ def build_streaming_spark(
     master: str | None,
     app_name: str = "LogForge_Spark_Job",
 ) -> SparkSession:
-    """build_streaming_spark 처리를 수행한다."""
+    """스트리밍용 SparkSession을 생성한다."""
     packages = [
         "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1",
         "com.clickhouse:clickhouse-jdbc:0.4.6",
@@ -81,7 +81,7 @@ def build_batch_spark(
     app_name: str = "LogForge_Dim_Batch",
     master: str = "local[*]",
 ) -> SparkSession:
-    """build_batch_spark 처리를 수행한다."""
+    """배치용 SparkSession을 생성한다."""
     packages = [
         "com.clickhouse:clickhouse-jdbc:0.4.6",
     ]
