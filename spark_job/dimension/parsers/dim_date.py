@@ -1,4 +1,5 @@
-# spark_job/dimension/dim_date.py
+# 파일명 : spark_job/dimension/parsers/dim_date.py
+# 목적   : dim_date 차원 테이블을 생성한다.
 
 from __future__ import annotations
 
@@ -8,11 +9,7 @@ from ..schema import DIM_DATE_COLUMNS
 
 
 def parse_dim_date(fact_df: DataFrame, *, time_col: str = "event_ts") -> DataFrame:
-    """
-    fact_event DF에서 기준 시각 컬럼으로 dim_date DF 생성.
-    - 입력 DF: time_col (TimestampType) 컬럼을 포함
-    - 출력 DF: dim_date 스키마에 맞는 DF (date 기준 distinct)
-    """
+    """fact_event에서 dim_date를 생성한다."""
 
     base = (
         fact_df
