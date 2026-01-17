@@ -52,6 +52,7 @@ services:
       kafka:
         condition: service_healthy
     volumes:
+      - ./common:/app/common:ro
       - ./log_simulator:/app/log_simulator:ro
     networks: [logetlm-net]
     command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
@@ -176,6 +177,7 @@ services:
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=4
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
     volumes:
+      - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
@@ -210,6 +212,7 @@ services:
       - DIM_BATCH_LOOKBACK_DAYS=1
       - DIM_SERVICE_MAP_PATH=
     volumes:
+      - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
     depends_on:
       - clickhouse
