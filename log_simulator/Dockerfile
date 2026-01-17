@@ -29,6 +29,7 @@ RUN pip install --no-cache-dir -r ./requirements.txt
 
 # 애플리케이션 복사
 # 패키지 코드
+COPY common ./common
 COPY log_simulator ./log_simulator
 
 # 비루트 권장 (선택)
