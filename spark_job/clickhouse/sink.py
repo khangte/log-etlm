@@ -1,22 +1,18 @@
-import os
 import traceback
 
+from .settings import ClickHouseSettings, get_clickhouse_settings
 
-def _apply_partitioning(df, target_partitions: str | None):
-    """apply_partitioning 처리를 수행한다."""
-    if not target_partitions or not target_partitions.strip():
-        return df
-    try:
-        n = int(target_partitions)
-    except ValueError:
-        return df
 
-    allow_repartition = os.getenv("SPARK_CLICKHOUSE_ALLOW_REPARTITION", "false").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "y",
-    )
+def _apply_partitioning(
+    df,
+    *,
+    target_partitions: int | None,
+    allow_repartition: bool,
+):
+    """파티션 수를 조정한다."""
+    if target_partitions is None or target_partitions <= 0:
+        return df
+    n = target_partitions
     current = df.rdd.getNumPartitions()
     if n < current:
         # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
@@ -37,28 +33,22 @@ def write_to_clickhouse(
     table_name,
     batch_id: int | None = None,
     mode: str = "append",
+    *,
+    settings: ClickHouseSettings | None = None,
 ):
-    """write_to_clickhouse 처리를 수행한다."""
+    """ClickHouse로 데이터를 적재한다."""
     try:
-        target_partitions = os.getenv("SPARK_CLICKHOUSE_WRITE_PARTITIONS")
-        jdbc_batchsize = os.getenv("SPARK_CLICKHOUSE_JDBC_BATCHSIZE")
-        clickhouse_url = os.getenv("SPARK_CLICKHOUSE_URL")
-        clickhouse_user = os.getenv("SPARK_CLICKHOUSE_USER")
-        clickhouse_password = os.getenv("SPARK_CLICKHOUSE_PASSWORD")
+        resolved_settings = settings or get_clickhouse_settings()
 
-        out_df = _apply_partitioning(df, target_partitions)
-
-        writer = (
-            out_df.write
-            .format("jdbc") \
-            .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
-            .option("url", clickhouse_url) \
-            .option("user", clickhouse_user) \
-            .option("password", clickhouse_password) \
-            .option("dbtable", table_name) \
-            .option("isolationLevel", "NONE") \
-            .option("batchsize", jdbc_batchsize)
+        out_df = _apply_partitioning(
+            df,
+            target_partitions=resolved_settings.write_partitions,
+            allow_repartition=resolved_settings.allow_repartition,
         )
+
+        writer = out_df.write.format("jdbc")
+        for key, value in resolved_settings.build_jdbc_options(table_name).items():
+            writer = writer.option(key, value)
         writer = writer.mode(mode)
         writer.save()
 
