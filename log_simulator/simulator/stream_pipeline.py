@@ -13,7 +13,12 @@ import math
 from typing import Any, List
 
 from ..config.timeband import current_hour_kst, pick_multiplier
-from .settings import QUEUE_CONFIG, SIMULATOR_SETTINGS
+from .settings import (
+    QueueThrottleConfig,
+    SimulatorSettings,
+    get_queue_config,
+    get_simulator_settings,
+)
 from ..models.messages import BatchMessage
 from .stream_helpers import (
     adjust_eps_for_event_mode,
@@ -21,13 +26,6 @@ from .stream_helpers import (
     build_batch_messages,
     log_behind,
 )
-
-# 서비스 루프 기본 설정
-# tick 기반으로 batch_size를 계산해 버스트를 줄인다. (초)
-TICK_SEC = SIMULATOR_SETTINGS.tick_sec
-# publish_queue는 "개별 로그"가 아니라 "배치(list)"를 담는다. (큐 연산 오버헤드 절감)
-SIM_BEHIND_LOG_EVERY_SEC = SIMULATOR_SETTINGS.behind_log_every_sec
-
 
 _logger = logging.getLogger("log_simulator.simulator.stream_pipeline")
 _logger.setLevel(logging.INFO)
@@ -45,15 +43,25 @@ async def run_simulator_loop(
     target_eps: float,
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     bands: List[Any],
-    log_batch_size: int,
+    log_batch_size: int | None = None,
+    *,
+    settings: SimulatorSettings | None = None,
+    queue_config: QueueThrottleConfig | None = None,
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
-    throttle_scale = QUEUE_CONFIG.soft_scale_max
-    tick_sec = max(TICK_SEC, 0.01)
-    max_batch_size = max(log_batch_size, 1)
+    resolved_settings = settings or get_simulator_settings()
+    resolved_queue_config = queue_config or get_queue_config(resolved_settings)
+    throttle_scale = resolved_queue_config.soft_scale_max
+    tick_sec = max(resolved_settings.tick_sec, 0.01)
+    resolved_batch_size = (
+        resolved_settings.log_batch_size
+        if log_batch_size is None
+        else log_batch_size
+    )
+    max_batch_size = max(int(resolved_batch_size), 1)
     carry = 0.0
     prev_ts = time.perf_counter()
-    behind_log_every_sec = SIM_BEHIND_LOG_EVERY_SEC
+    behind_log_every_sec = resolved_settings.behind_log_every_sec
     last_behind_log_ts = 0.0
 
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
@@ -116,7 +124,7 @@ async def run_simulator_loop(
 
         throttle_scale, sleep_time, throttled = await apply_queue_backpressure(
             _logger,
-            config=QUEUE_CONFIG,
+            config=resolved_queue_config,
             service=service,
             publish_queue=publish_queue,
             throttle_scale=throttle_scale,
