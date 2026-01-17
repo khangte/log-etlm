@@ -99,12 +99,11 @@ services:
       # ★ JVM 힙(정수 단위로)
       # 초기 크기 1GB, 최대 크기 1.5GB
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
-      # 토픽별 retention 감수
-      # 2시간만 보관 + 세그먼트 작게
-      KAFKA_LOG_RETENTION_HOURS: 1
-      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
-      KAFKA_LOG_RETENTION_BYTES: 268435456    # 256MB
-      KAFKA_LOG_SEGMENT_BYTES: 134217728      # 128MB
+      # 로그 세그먼트 정리 빈도와 I/O 스톨을 줄이기 위한 보관 설정
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000   # 10분
+      KAFKA_LOG_RETENTION_HOURS: 2                    # 2시간
+      KAFKA_LOG_RETENTION_BYTES: 21474836480          # 20GB
+      KAFKA_LOG_SEGMENT_BYTES: 536870912              # 512MB
     volumes:
       - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
       - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
