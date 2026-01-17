@@ -6,9 +6,7 @@ from ..schema import DLQ_VALUE_SCHEMA, FACT_EVENT_DLQ_COLUMNS
 
 
 def parse_dlq(dlq_source: DataFrame) -> DataFrame:
-    """
-    Kafka logs.dlq raw DF -> fact_event_dlq 스키마로 변환한다.
-    """
+    """DLQ 원본 데이터를 스키마로 변환한다."""
     dlq_parsed = (
         dlq_source.selectExpr(
             "CAST(value AS STRING) AS raw_json",
