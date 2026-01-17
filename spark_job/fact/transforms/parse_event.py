@@ -6,9 +6,7 @@ from ..schema import log_value_schema
 
 
 def parse_event(kafka_df: DataFrame) -> DataFrame:
-    """
-    Kafka raw DF(value/topic/timestamp) -> parsed struct(json)까지 변환한다.
-    """
+    """Kafka 원본을 파싱된 구조로 변환한다."""
     return (
         kafka_df.selectExpr(
             "CAST(value AS STRING) AS raw_json",
