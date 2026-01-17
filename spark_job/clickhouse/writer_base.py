@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
-# file: spark_job/clickhouse/writer_base.py
-# purpose: shared ClickHouse writer helpers for fact/dim/dlq
+# 파일명 : spark_job/clickhouse/writer_base.py
+# 목적   : fact/dim/dlq 공용 ClickHouse writer 헬퍼
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
@@ -10,12 +10,13 @@ import time
 
 from pyspark.sql import DataFrame
 
+from .settings import get_batch_timing_log_settings
 from .sink import write_to_clickhouse
 
 
 def _append_batch_log(line: str) -> None:
     """배치 타이밍 로그를 파일에 추가한다."""
-    log_path = os.getenv("SPARK_BATCH_TIMING_LOG_PATH").strip()
+    log_path = get_batch_timing_log_settings().log_path
     if not log_path:
         return
     try:
@@ -30,7 +31,10 @@ def _append_batch_log(line: str) -> None:
 
 
 class ClickHouseStreamWriterBase:
+    """스트리밍 데이터의 ClickHouse 적재를 담당한다."""
+
     def __init__(self, foreach_writer=write_to_clickhouse):
+        """배치 처리 함수를 주입한다."""
         self._foreach_writer = foreach_writer
 
     def write_stream(
@@ -45,7 +49,8 @@ class ClickHouseStreamWriterBase:
         skip_empty: bool = False,
         trigger_processing_time: str | None = None,
     ):
-        """Structured Streaming을 ClickHouse로 적재한다."""
+        """스트리밍 데이터를 ClickHouse로 적재한다."""
+
         def _foreach(batch_df: DataFrame, batch_id: int):
             """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
@@ -60,7 +65,7 @@ class ClickHouseStreamWriterBase:
                 return
             out_df = batch_df
             if deduplicate_keys:
-                # Drop duplicates per micro-batch to reduce ClickHouse duplicates.
+                # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
                 out_df = out_df.dropDuplicates(deduplicate_keys)
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
             elapsed = time.perf_counter() - start_time
@@ -85,7 +90,10 @@ class ClickHouseStreamWriterBase:
 
 
 class ClickHouseBatchWriterBase:
+    """배치 데이터의 ClickHouse 적재를 담당한다."""
+
     def __init__(self, batch_writer=write_to_clickhouse):
+        """배치 처리 함수를 주입한다."""
         self._batch_writer = batch_writer
 
     def write_batch(
@@ -95,7 +103,7 @@ class ClickHouseBatchWriterBase:
         *,
         deduplicate_keys: list[str] | None = None,
     ):
-        """Batch DF를 ClickHouse로 적재한다."""
+        """배치 데이터를 ClickHouse로 적재한다."""
         out_df = df
         if deduplicate_keys:
             out_df = out_df.dropDuplicates(deduplicate_keys)
