@@ -6,6 +6,7 @@ from pyspark.sql import types as T
 #    - from_json(col("value"), log_value_schema) 에서 사용
 # -----------------------------------------------------------------------------
 
+# Kafka 이벤트 value 스키마
 log_value_schema: T.StructType = T.StructType(
     [
         # v2 이벤트 필드(현재 simulator 기준)
@@ -41,6 +42,7 @@ log_value_schema: T.StructType = T.StructType(
 # 2) ClickHouse analytics.fact_event 컬럼 순서
 # -----------------------------------------------------------------------------
 
+# fact_event 컬럼 순서
 FACT_EVENT_COLUMNS: list[str] = [
     # 1) 시간
     "event_ts",
