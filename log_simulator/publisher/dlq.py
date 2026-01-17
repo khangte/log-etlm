@@ -8,10 +8,11 @@ from __future__ import annotations
 import json
 import logging
 import time
+from dataclasses import dataclass
 from typing import Sequence
 
 from ..models.messages import BatchMessage
-from ..producer.client import publish_batch_direct
+from ..producer.client import KafkaProducerClient, get_client
 from ..producer.topic import get_topic
 
 
@@ -57,15 +58,35 @@ def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
     )
 
 
+@dataclass(frozen=True)
+class DlqPublisher:
+    producer: KafkaProducerClient
+
+    async def publish_batch(self, batch: Sequence[BatchMessage], error: Exception) -> None:
+        dlq_batch = [build_dlq_message(message, error) for message in batch]
+        try:
+            await self.producer.publish_batch(dlq_batch)
+            _logger.warning(
+                "[publisher] sent to dlq batch=%d error=%s",
+                len(dlq_batch),
+                type(error).__name__,
+            )
+        except Exception:
+            _logger.exception("[publisher] dlq send failed batch=%d", len(dlq_batch))
+
+
+_dlq_publisher: DlqPublisher | None = None
+
+
+def get_dlq_publisher(
+    producer: KafkaProducerClient | None = None,
+) -> DlqPublisher:
+    global _dlq_publisher
+    if _dlq_publisher is None:
+        _dlq_publisher = DlqPublisher(producer or get_client())
+    return _dlq_publisher
+
+
 async def publish_dlq_batch(batch: Sequence[BatchMessage], error: Exception) -> None:
     """publish_dlq_batch 처리를 수행한다."""
-    dlq_batch = [build_dlq_message(message, error) for message in batch]
-    try:
-        await publish_batch_direct(dlq_batch)
-        _logger.warning(
-            "[publisher] sent to dlq batch=%d error=%s",
-            len(dlq_batch),
-            type(error).__name__,
-        )
-    except Exception:
-        _logger.exception("[publisher] dlq send failed batch=%d", len(dlq_batch))
+    await get_dlq_publisher().publish_batch(batch, error)
