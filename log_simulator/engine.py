@@ -10,7 +10,7 @@ import asyncio
 import logging
 
 from .config.profile_route_settings import load_profile_context
-from .simulator.settings import SIMULATOR_SETTINGS
+from .simulator.settings import get_simulator_settings
 from .config.stats import stats_reporter
 from .pipeline_builder import Pipeline, assemble_pipeline
 from .producer.client import close_producer
@@ -35,13 +35,14 @@ class SimulatorEngine:
 
         # 프로파일/정책을 읽고 파이프라인을 한 번에 조립한다.
         context = load_profile_context()
-        context.profile["event_mode"] = SIMULATOR_SETTINGS.event_mode
+        settings = get_simulator_settings()
+        context.profile["event_mode"] = settings.event_mode
         simulators = build_simulators(context.profile)
         base_eps, service_eps = allocate_service_eps(
             total_eps=context.total_eps,
             mix=context.mix,
             services=list(simulators.keys()),
-            simulator_share=SIMULATOR_SETTINGS.simulator_share,
+            simulator_share=settings.simulator_share,
         )
         pipe = assemble_pipeline(
             simulators=simulators,
@@ -71,6 +72,7 @@ class SimulatorEngine:
         """stop 처리를 수행한다."""
         if not self._started:
             return
+        settings = get_simulator_settings()
         if self._pipe:
             # 종료 순서: 생성 중단 → 큐 드레인 → 퍼블리셔 중단.
             for task in self._pipe.service_tasks:
@@ -80,7 +82,7 @@ class SimulatorEngine:
             try:
                 await asyncio.wait_for(
                     self._pipe.publish_queue.join(),
-                    timeout=SIMULATOR_SETTINGS.shutdown_drain_timeout_sec,
+                    timeout=settings.shutdown_drain_timeout_sec,
                 )
             except asyncio.TimeoutError:
                 logger.warning("publish queue drain timeout; proceeding with shutdown")
