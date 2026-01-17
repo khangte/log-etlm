@@ -28,6 +28,7 @@ COPY spark_job/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 # 3) 애플리케이션 코드
+COPY common ./common
 COPY spark_job ./spark_job
 
 ENV PYTHONUNBUFFERED=1
