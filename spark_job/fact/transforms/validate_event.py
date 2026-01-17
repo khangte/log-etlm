@@ -4,9 +4,7 @@ from pyspark.sql import DataFrame, functions as F
 
 
 def validate_event(parsed_df: DataFrame) -> tuple[DataFrame, DataFrame]:
-    """
-    parsed struct 유효성 기준으로 good/bad를 분리한다.
-    """
+    """유효성 기준으로 good/bad를 분리한다."""
     good_df = parsed_df.where(F.col("json").isNotNull())
     bad_df = (
         parsed_df.where(F.col("json").isNull())
