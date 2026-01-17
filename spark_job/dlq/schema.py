@@ -3,6 +3,7 @@ from __future__ import annotations
 from pyspark.sql import types as T
 
 
+# DLQ Kafka value 스키마
 DLQ_VALUE_SCHEMA: T.StructType = T.StructType(
     [
         T.StructField("error_type", T.StringType(), True),
@@ -19,6 +20,7 @@ DLQ_VALUE_SCHEMA: T.StructType = T.StructType(
     ]
 )
 
+# DLQ Kafka value 컬럼 순서
 DLQ_VALUE_COLUMNS: list[str] = [
     "error_type",
     "error_message",
@@ -34,6 +36,7 @@ DLQ_VALUE_COLUMNS: list[str] = [
 ]
 
 
+# fact_event_dlq 컬럼 순서
 FACT_EVENT_DLQ_COLUMNS: list[str] = [
     "ingest_ts",
     "processed_ts",
