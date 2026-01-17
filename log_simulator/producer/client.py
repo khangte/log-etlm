@@ -7,17 +7,18 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Any, Dict, Optional, Sequence
 
 from confluent_kafka import Producer
 
-from .settings import PRODUCER_SETTINGS
 from ..models.messages import BatchMessage
+from .settings import ProducerSettings, get_producer_settings
 from .topic import get_topic
 
-import logging
 logger = logging.getLogger("log_simulator.producer")
 logger.setLevel(logging.INFO)
+
 
 def _ensure_logger_handler() -> None:
     """ensure_logger_handler 처리를 수행한다."""
@@ -32,46 +33,111 @@ def _ensure_logger_handler() -> None:
 _ensure_logger_handler()
 
 
-def build_producer_config() -> Dict[str, Any]:
+def build_producer_config(settings: ProducerSettings | None = None) -> Dict[str, Any]:
     """build_producer_config 처리를 수행한다."""
-    s = PRODUCER_SETTINGS
-    return {
-        "bootstrap.servers": s.brokers,
-        "client.id": s.client_id,
-        "enable.idempotence": s.enable_idempotence,
-        "acks": s.acks,
-        "max.in.flight.requests.per.connection": 5,
-        "compression.type": s.compression_type,
-        "linger.ms": s.linger_ms,
-        "batch.num.messages": s.batch_num_messages,
-        "queue.buffering.max.kbytes": s.queue_buffering_max_kbytes,
-        "queue.buffering.max.messages": s.queue_buffering_max_messages,
-        "partitioner": "murmur2_random",
-    }
+    s = settings or get_producer_settings()
+    return s.to_kafka_config()
 
 
-_producer: Optional[Producer] = None
+class KafkaProducerClient:
+    """Kafka 프로듀서 클라이언트를 관리한다."""
+    def __init__(self, settings: ProducerSettings | None = None) -> None:
+        self._settings = settings or get_producer_settings()
+        self._producer: Optional[Producer] = None
+
+    def _ensure_producer(self) -> Producer:
+        """프로듀서 인스턴스를 준비한다."""
+        if self._producer is None:
+            self._producer = Producer(build_producer_config(self._settings))
+        return self._producer
+
+    def get_producer(self) -> Producer:
+        """인스턴스 단위로 Producer를 반환한다."""
+        return self._ensure_producer()
+
+    def close(self, timeout: float = 5.0) -> None:
+        """프로듀서를 flush 후 정리한다."""
+        if self._producer is None:
+            return
+        try:
+            self._producer.flush(timeout)
+        except Exception:
+            logger.exception("producer flush failed")
+        finally:
+            self._producer = None
+
+    async def publish_batch(
+        self,
+        batch: Sequence[BatchMessage],
+        *,
+        poll_every: int = 1000,
+        backoff_sec: float = 0.001,
+    ) -> None:
+        """
+        threadpool 없이 event loop에서 바로 produce한다.
+
+        confluent_kafka.Producer.produce()는 비동기 enqueue이며 빠르지만,
+        내부 버퍼가 가득 차면 BufferError가 날 수 있어 poll+backoff로 흡수한다.
+        delivery callback 처리는 이 함수의 poll로만 보장한다.
+        BufferError 외 예외는 호출부에서 처리할 수 있도록 상위로 전달한다.
+        """
+        producer = self._ensure_producer()
+        backoff_sec = max(backoff_sec, 0.0)
+        poll_every = max(int(poll_every), 1)
+
+        for idx, message in enumerate(batch, start=1):
+            while True:
+                try:
+                    _deliver(
+                        producer,
+                        message.service,
+                        message.value,
+                        message.key,
+                        message.replicate_error,
+                    )
+                    break
+                except BufferError:
+                    producer.poll(0)
+                    if backoff_sec > 0:
+                        await asyncio.sleep(backoff_sec)
+                except Exception:
+                    logger.exception(
+                        "Kafka produce error: service=%s",
+                        message.service,
+                    )
+                    raise
+
+            if idx % poll_every == 0:
+                producer.poll(0)
+
+        producer.poll(0)
+
+
+_client: Optional[KafkaProducerClient] = None
+
+
+def get_client() -> KafkaProducerClient:
+    """모듈 전역에서 재사용할 단일 ProducerClient를 반환한다."""
+    global _client
+    if _client is None:
+        _client = KafkaProducerClient()
+    return _client
+
 
 def get_producer() -> Producer:
     """
     모듈 전역에서 재사용할 단일 Producer 인스턴스를 반환한다.
     """
-    global _producer
-    if _producer is None:
-        _producer = Producer(build_producer_config())
-    return _producer
+    return get_client().get_producer()
+
 
 def close_producer(timeout: float = 5.0) -> None:
     """프로듀서를 flush 후 정리한다."""
-    global _producer
-    if _producer is None:
+    global _client
+    if _client is None:
         return
-    try:
-        _producer.flush(timeout)
-    except Exception:
-        logger.exception("producer flush failed")
-    finally:
-        _producer = None
+    _client.close(timeout)
+    _client = None
 
 
 # ---------------------------------------------------------------------------
@@ -132,41 +198,9 @@ async def publish_batch_direct(
     poll_every: int = 1000,
     backoff_sec: float = 0.001,
 ) -> None:
-    """
-    threadpool 없이 event loop에서 바로 produce한다.
-
-    confluent_kafka.Producer.produce()는 비동기 enqueue이며 빠르지만,
-    내부 버퍼가 가득 차면 BufferError가 날 수 있어 poll+backoff로 흡수한다.
-    delivery callback 처리는 이 함수의 poll로만 보장한다.
-    BufferError 외 예외는 호출부에서 처리할 수 있도록 상위로 전달한다.
-    """
-    producer = get_producer()
-    backoff_sec = max(backoff_sec, 0.0)
-    poll_every = max(int(poll_every), 1)
-
-    for idx, message in enumerate(batch, start=1):
-        while True:
-            try:
-                _deliver(
-                    producer,
-                    message.service,
-                    message.value,
-                    message.key,
-                    message.replicate_error,
-                )
-                break
-            except BufferError:
-                producer.poll(0)
-                if backoff_sec > 0:
-                    await asyncio.sleep(backoff_sec)
-            except Exception:
-                logger.exception(
-                    "Kafka produce error: service=%s",
-                    message.service,
-                )
-                raise
-
-        if idx % poll_every == 0:
-            producer.poll(0)
-
-    producer.poll(0)
+    """단일 클라이언트 인스턴스를 통해 batch를 발행한다."""
+    await get_client().publish_batch(
+        batch,
+        poll_every=poll_every,
+        backoff_sec=backoff_sec,
+    )
