@@ -46,6 +46,18 @@ WHERE event_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;
 
+-- ingest_ts -> stored_ts 지연 집계(1분)
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_ingest_to_stored_1m
+TO analytics.fact_event_ingest_to_stored_1m
+AS
+SELECT
+    toStartOfMinute(stored_ts) AS bucket,
+    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', ingest_ts, stored_ts), 0))) AS ingest_state
+FROM analytics.fact_event
+WHERE ingest_ts IS NOT NULL
+  AND stored_ts IS NOT NULL
+GROUP BY bucket;
+
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1m
 TO analytics.fact_event_latency_service_1m
 AS
@@ -53,11 +65,13 @@ SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     service,
     quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', event_ts, ingest_ts), 0))) AS queue_state,
-    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', ingest_ts, processed_ts), 0))) AS publish_state
+    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', ingest_ts, processed_ts), 0))) AS publish_state,
+    quantileTDigestState(toFloat64(greatest(dateDiff('millisecond', event_ts, stored_ts), 0))) AS e2e_state
 FROM analytics.fact_event
 WHERE event_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
   AND processed_ts IS NOT NULL
+  AND stored_ts IS NOT NULL
 GROUP BY bucket, service;
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_dlq_agg_1m
