@@ -5,12 +5,11 @@
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import Dict, Any, List
+from typing import Dict, Any
 from pathlib import Path
 import yaml
 
-from .timeband import load_bands, Band
+from .profile_context import ProfileContext
 
 THIS_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = THIS_DIR
@@ -32,28 +31,9 @@ def load_profile() -> Dict[str, Any]:
     return data
 
 
-@dataclass(frozen=True)
-class ProfileContext:
-    profile: Dict[str, Any]
-
-    total_eps: float
-    mix: Dict[str, Any]
-    bands: List[Band]
-
-
 def load_profile_context() -> ProfileContext:
     """
     프로파일 파일명을 기준으로 실행에 필요한 기본 컨텍스트를 로드한다.
     """
     profile = load_profile()
-
-    total_eps = float(profile.get("eps", 10000))
-    mix = profile.get("mix", {})
-    bands = load_bands(profile.get("time_weights", []))
-
-    return ProfileContext(
-        profile=profile,
-        total_eps=total_eps,
-        mix=mix,
-        bands=bands,
-    )
+    return ProfileContext.from_profile(profile)
