@@ -1,4 +1,5 @@
-# spark_job/dimension/dim_service.py
+# 파일명 : spark_job/dimension/parsers/dim_service.py
+# 목적   : dim_service 차원 테이블을 생성한다.
 
 from __future__ import annotations
 
@@ -12,11 +13,7 @@ def parse_dim_service(
     *,
     service_map_df: DataFrame | None = None,
 ) -> DataFrame:
-    """
-    fact_event DF에서 service 기준으로 dim_service DF 생성.
-    - 입력 DF: service (StringType) 컬럼 포함
-    - 출력 DF: service 기준 distinct + 기본값 service_group / is_active
-    """
+    """fact_event에서 dim_service를 생성한다."""
 
     base = (
         fact_df
