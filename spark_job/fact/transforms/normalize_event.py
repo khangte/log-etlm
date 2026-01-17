@@ -6,11 +6,10 @@ from ..schema import FACT_EVENT_COLUMNS
 
 
 def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> DataFrame:
-    """
-    parsed struct -> fact_event 컬럼 표준화.
-    """
+    """fact_event 컬럼으로 표준화한다."""
+
     def _ms_diff(end_col: str, start_col: str) -> F.Column:
-        """ms_diff 처리를 수행한다."""
+        """두 타임스탬프 차이를 밀리초로 계산한다."""
         end_ts = F.col(end_col)
         start_ts = F.col(start_col)
         diff_ms = (end_ts.cast("double") - start_ts.cast("double")) * F.lit(1000)
