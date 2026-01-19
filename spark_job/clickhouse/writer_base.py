@@ -5,29 +5,12 @@
 
 from __future__ import annotations
 
-import os
 import time
 
 from pyspark.sql import DataFrame
 
-from .settings import get_batch_timing_log_settings
+from ..batch_log import append_batch_log
 from .sink import write_to_clickhouse
-
-
-def _append_batch_log(line: str) -> None:
-    """배치 타이밍 로그를 파일에 추가한다."""
-    log_path = get_batch_timing_log_settings().log_path
-    if not log_path:
-        return
-    try:
-        log_dir = os.path.dirname(log_path)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
-        utc_ts = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-        with open(log_path, "a", encoding="utf-8") as logfile:
-            logfile.write(f"{utc_ts} {line}\n")
-    except Exception as exc:
-        print(f"[spark batch] log write failed: {exc}")
 
 
 class ClickHouseStreamWriterBase:
@@ -45,23 +28,34 @@ class ClickHouseStreamWriterBase:
         *,
         output_mode: str = "append",
         query_name: str | None = None,
+        stream_name: str | None = None,
         deduplicate_keys: list[str] | None = None,
         skip_empty: bool = False,
         trigger_processing_time: str | None = None,
     ):
         """스트리밍 데이터를 ClickHouse로 적재한다."""
+        resolved_stream = stream_name or query_name or table_name
+        prefix_parts = [
+            "[spark batch]",
+            f"stream={resolved_stream}",
+            f"table={table_name}",
+        ]
+        if query_name:
+            prefix_parts.append(f"query={query_name}")
+        prefix = " ".join(prefix_parts)
 
         def _foreach(batch_df: DataFrame, batch_id: int):
             """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
-            if skip_empty and batch_df.rdd.isEmpty():
+            row_count = int(batch_df.count())
+            row_line = f"{prefix} batch_id={batch_id} rows={row_count}"
+            print(row_line)
+            append_batch_log(row_line)
+            if skip_empty and row_count == 0:
                 elapsed = time.perf_counter() - start_time
-                line = (
-                    "[spark batch] "
-                    f"table={table_name} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
-                )
+                line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
                 print(line)
-                _append_batch_log(line)
+                append_batch_log(line)
                 return
             out_df = batch_df
             if deduplicate_keys:
@@ -69,12 +63,9 @@ class ClickHouseStreamWriterBase:
                 out_df = out_df.dropDuplicates(deduplicate_keys)
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
             elapsed = time.perf_counter() - start_time
-            line = (
-                "[spark batch] "
-                f"table={table_name} batch_id={batch_id} duration={elapsed:.3f}s"
-            )
+            line = f"{prefix} batch_id={batch_id} duration={elapsed:.3f}s"
             print(line)
-            _append_batch_log(line)
+            append_batch_log(line)
 
         writer = (
             df.writeStream
