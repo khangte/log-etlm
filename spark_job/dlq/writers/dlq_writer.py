@@ -22,6 +22,7 @@ class ClickHouseDlqWriter(ClickHouseStreamWriterBase):
             self._settings.table_name,
             self._settings.checkpoint_dir,
             query_name="fact_event_dlq_stream",
+            stream_name="dlq_table",
             skip_empty=True,
             trigger_processing_time=trigger_processing_time,
         )
