@@ -3,7 +3,7 @@
 # 목적   : Kafka Producer 래퍼 및 토픽 매핑
 # -----------------------------------------------------------------------------
 
-from .client import (
+from .kafka_client import (
     build_producer_config,
     close_producer,
     get_producer,

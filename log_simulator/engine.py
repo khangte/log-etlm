@@ -13,7 +13,7 @@ from .config.profile_route_settings import load_profile_context
 from .simulator.settings import get_simulator_settings
 from .config.stats import stats_reporter
 from .pipeline_builder import Pipeline, assemble_pipeline
-from .producer.client import close_producer
+from .producer.kafka_client import close_producer
 from .simulator.eps_policy import allocate_service_eps
 from .simulator.simulators_builder import build_simulators
 

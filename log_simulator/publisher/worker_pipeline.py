@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import List, Tuple
 
 from .dlq import DlqPublisher, get_dlq_publisher
-from ..producer.client import KafkaProducerClient, get_client
+from ..producer.kafka_client import KafkaProducerClient, get_client
 from ..models.messages import BatchMessage
 from .settings import PublisherSettings, get_publisher_settings
 from .worker_helpers import (

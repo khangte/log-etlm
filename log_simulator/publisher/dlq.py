@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from ..models.messages import BatchMessage
-from ..producer.client import KafkaProducerClient, get_client
+from ..producer.kafka_client import KafkaProducerClient, get_client
 from ..producer.topic import get_topic
 
 

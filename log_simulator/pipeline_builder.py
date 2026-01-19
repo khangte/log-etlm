@@ -13,7 +13,7 @@ from .simulator.task_builder import create_simulator_tasks
 from .simulator.settings import QueueThrottleConfig, SimulatorSettings
 from .publisher.settings import PublisherSettings
 from .publisher.dlq import DlqPublisher
-from .producer.client import KafkaProducerClient
+from .producer.kafka_client import KafkaProducerClient
 from .publisher.worker_pipeline import create_publisher_workers
 from .models.messages import BatchMessage
 
