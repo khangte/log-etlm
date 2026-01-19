@@ -46,6 +46,7 @@ def _build_spark_session(
         builder.config("spark.driver.bindAddress", "0.0.0.0")
         .config("spark.ui.enabled", "true")
         .config("spark.ui.port", ui_port)
+        .config("spark.sql.streaming.ui.enabled", "true")
     )
 
     if event_log_enabled:
