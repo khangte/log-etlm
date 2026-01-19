@@ -61,4 +61,5 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq
 ENGINE = MergeTree
 PARTITION BY toDate(ingest_ts)
 ORDER BY (ingest_ts, error_type, source_topic)
-TTL ingest_ts + INTERVAL 7 DAY;
+TTL ingest_ts + INTERVAL 7 DAY
+SETTINGS allow_nullable_key=1;
