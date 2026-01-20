@@ -6,7 +6,7 @@ set -euo pipefail
 #   TOPICS="logs.auth,logs.order" CHECKPOINT_DIR=/data/log-etlm/spark_checkpoints/fact_event scripts/check_backlog.sh
 
 SUDO="${SUDO:-}"
-SPARK_SERVICE="${SPARK_SERVICE:-spark}"
+SPARK_SERVICE="${SPARK_SERVICE:-spark-driver}"
 KAFKA_SERVICE="${KAFKA_SERVICE:-kafka}"
 KAFKA_BROKER="${KAFKA_BROKER:-kafka:9092}"
 CHECKPOINT_DIR="${CHECKPOINT_DIR:-/data/log-etlm/spark_checkpoints/fact_event}"
