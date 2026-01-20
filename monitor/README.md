@@ -14,8 +14,8 @@ python3 monitor/docker_watchdog.py
 - 스크립트는 `docker` CLI 에 의존하므로 호스트에서 `docker` 명령이 가능해야 합니다.
 
 ## 모니터링 항목
-- **컨테이너 이벤트**: `docker events` 스트림을 읽어 kafka/spark/clickhouse 가 `die`, `health_status: unhealthy` 상태가 되면 즉시 경고합니다.
-- **healthcheck**: 30초마다 `docker inspect` 로 Health 상태를 확인(`docker-compose.yml`의 spark/clickhouse healthcheck 설정 활용).
+- **컨테이너 이벤트**: `docker events` 스트림을 읽어 kafka/spark-driver/clickhouse 가 `die`, `health_status: unhealthy` 상태가 되면 즉시 경고합니다.
+- **healthcheck**: 30초마다 `docker inspect` 로 Health 상태를 확인(`docker-compose.yml`의 spark-driver/clickhouse healthcheck 설정 활용).
 - **로그 패턴**: `docker logs -f` 로 각 컨테이너 로그를 추적해 `OutOfMemoryError`, `StreamingQueryException`, `Code: 241` 등의 문자열을 감지하면 경보를 보냅니다.
 - **Spark REST**: `http://localhost:4040/api/v1/applications` 를 주기적으로 호출하여 UI 가 응답하지 않으면 알림을 전송합니다.
 - **단계별 지표**: ClickHouse 집계 테이블을 조회해 EPS/에러율/지연(p95)/freshness/DLQ 비율이 임계값을 넘으면 알림을 전송합니다.
