@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 경량 Docker 모니터링 스크립트.
-- kafka / spark / clickhouse 컨테이너 이벤트 및 로그를 감시
+- kafka / spark-driver / clickhouse 컨테이너 이벤트 및 로그를 감시
 - ClickHouse 기반 단계별 지표를 점검해 이상 시 알림
 - OOM/StreamingQueryException 등 특정 키워드 또는 health 상태 변경 시 Slack/webhook 알림
 - Prometheus 없이 빠르게 붙일 수 있는 최소 방어선
@@ -21,13 +21,13 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 
-TARGET_CONTAINERS: List[str] = ["kafka", "spark", "clickhouse", "grafana"]
+TARGET_CONTAINERS: List[str] = ["kafka", "spark-driver", "clickhouse", "grafana"]
 LOG_PATTERNS: Dict[str, List[re.Pattern[str]]] = {
     "kafka": [
         re.compile(r"OutOfMemoryError", re.IGNORECASE),
         re.compile(r"Fatal error", re.IGNORECASE),
     ],
-    "spark": [
+    "spark-driver": [
         re.compile(r"OutOfMemoryError"),
         re.compile(r"StreamingQueryException"),
         re.compile(r"Job aborted"),
