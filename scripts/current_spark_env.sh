@@ -5,15 +5,15 @@ set -euo pipefail
 # 컨테이너에 실제 적용된 값을 우선 확인하고, 예시 env와 일치하면 그 프로파일명을 출력한다.
 
 ENV_DIR="/home/kang/log-etlm/env"
-if ! docker ps --format '{{.Names}}' | grep -qx "spark"; then
-  echo "spark not running"
+if ! docker ps --format '{{.Names}}' | grep -qx "spark-driver"; then
+  echo "spark-driver not running"
   exit 1
 fi
 
 declare -A CURRENT
 while IFS='=' read -r key value; do
   CURRENT["$key"]="$value"
-done < <(docker exec -i spark env | grep '^SPARK_')
+done < <(docker exec -i spark-driver env | grep '^SPARK_')
 
 for profile in low mid high; do
   env_file="${ENV_DIR}/${profile}.env.example"
