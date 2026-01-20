@@ -27,7 +27,6 @@ class KafkaDlqWriter:
             raise ValueError("KAFKA_BOOTSTRAP is required for DLQ Kafka writer")
         trigger_processing_time = self._settings.trigger_interval or None
         log_empty = self._settings.log_empty
-
         query_name = "fact_event_dlq_kafka_stream"
         stream_name = "dlq_kafka"
         prefix = (
@@ -38,18 +37,13 @@ class KafkaDlqWriter:
         def _foreach(batch_df: DataFrame, batch_id: int) -> None:
             """DLQ Kafka 배치 적재와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
-            row_count = int(batch_df.count())
-            row_line = f"{prefix} batch_id={batch_id} rows={row_count}"
-            print(row_line)
-            append_batch_log(row_line)
-            if row_count == 0:
+            if batch_df.rdd.isEmpty():
                 if log_empty:
                     elapsed = time.perf_counter() - start_time
                     line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
                     print(line)
                     append_batch_log(line)
                 return
-
             payload_df = build_dlq_kafka_df(batch_df)
             value_struct = F.struct(*[F.col(name) for name in DLQ_VALUE_COLUMNS])
             kafka_df = payload_df.select(
