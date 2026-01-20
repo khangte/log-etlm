@@ -1,0 +1,9 @@
+<clickhouse>
+  <asynchronous_insert_log>
+    <database>system</database>
+    <table>asynchronous_insert_log</table>
+    <flush_interval_milliseconds>1000</flush_interval_milliseconds>
+    <max_size_rows>1000000</max_size_rows>
+    <reserved_size_rows>200000</reserved_size_rows>
+  </asynchronous_insert_log>
+</clickhouse>
