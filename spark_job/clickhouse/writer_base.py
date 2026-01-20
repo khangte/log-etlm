@@ -47,21 +47,22 @@ class ClickHouseStreamWriterBase:
         def _foreach(batch_df: DataFrame, batch_id: int):
             """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
-            row_count = int(batch_df.count())
-            row_line = f"{prefix} batch_id={batch_id} rows={row_count}"
-            print(row_line)
-            append_batch_log(row_line)
-            if skip_empty and row_count == 0:
+
+            if skip_empty and len(batch_df.take(1)) == 0:
                 elapsed = time.perf_counter() - start_time
                 line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
                 print(line)
                 append_batch_log(line)
                 return
+
             out_df = batch_df
+
             if deduplicate_keys:
                 # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
                 out_df = out_df.dropDuplicates(deduplicate_keys)
+
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
+
             elapsed = time.perf_counter() - start_time
             line = f"{prefix} batch_id={batch_id} duration={elapsed:.3f}s"
             print(line)
@@ -73,8 +74,10 @@ class ClickHouseStreamWriterBase:
             .foreachBatch(_foreach)
             .option("checkpointLocation", checkpoint_dir)
         )
+
         if trigger_processing_time:
             writer = writer.trigger(processingTime=trigger_processing_time)
+
         if query_name:
             writer = writer.queryName(query_name)
         return writer.start()
