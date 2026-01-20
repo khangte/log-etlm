@@ -79,7 +79,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-n
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
 
 # 2. Spark, ClickHouse, Grafana 파이프라인 기동
-docker compose up -d spark clickhouse ch-ui grafana
+docker compose up -d spark-driver clickhouse ch-ui grafana
 
 # 3. 로그 시뮬레이터 기동
 docker compose up -d simulator
