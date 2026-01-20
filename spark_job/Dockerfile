@@ -19,7 +19,7 @@ WORKDIR /app
 
 # 필요하면 curl, ping 같은 유틸만 남겨도 됨 (옵션)
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 python3-pip \
+    && apt-get install -y --no-install-recommends python3 python3-pip maven ca-certificates \
     && ln -sf /usr/bin/python3 /usr/bin/python \
     && rm -rf /var/lib/apt/lists/*
 
@@ -27,14 +27,49 @@ RUN apt-get update \
 COPY spark_job/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r ./requirements.txt
 
-# 3) 애플리케이션 코드
+# 3) Spark 런타임 JAR 의존성 사전 다운로드
+RUN mkdir -p /opt/spark/jars/extra /opt/spark/jars/local
+RUN cat > /tmp/spark-deps-pom.xml <<'EOF'
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>log-etlm</groupId>
+  <artifactId>spark-deps</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql-kafka-0-10_2.13</artifactId>
+      <version>4.0.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-token-provider-kafka-0-10_2.13</artifactId>
+      <version>4.0.1</version>
+    </dependency>
+    <dependency>
+      <groupId>com.clickhouse</groupId>
+      <artifactId>clickhouse-jdbc</artifactId>
+      <version>0.4.6</version>
+    </dependency>
+  </dependencies>
+</project>
+EOF
+RUN mvn -q -f /tmp/spark-deps-pom.xml dependency:copy-dependencies \
+    -DincludeScope=runtime \
+    -DoutputDirectory=/opt/spark/jars/extra \
+    -DskipTests
+RUN rm -rf /root/.m2 /tmp/spark-deps-pom.xml
+
+# 4) 애플리케이션 코드
 COPY common ./common
 COPY spark_job ./spark_job
+COPY spark_job/jars /opt/spark/jars/local
 
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
-# 4) 비루트 유저
+# 5) 비루트 유저
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
