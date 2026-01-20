@@ -23,5 +23,6 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
             self._settings.checkpoint_dir,
             query_name="fact_event_stream",
             stream_name="fact_event",
+            skip_empty=True,
             trigger_processing_time=trigger_processing_time,
         )
