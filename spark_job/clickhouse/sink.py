@@ -12,11 +12,14 @@ def _apply_partitioning(
     """파티션 수를 조정한다."""
     if target_partitions is None or target_partitions <= 0:
         return df
+
     n = target_partitions
     current = df.rdd.getNumPartitions()
+
     if n < current:
         # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
         return df.coalesce(n)
+
     if n > current:
         if allow_repartition:
             # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
