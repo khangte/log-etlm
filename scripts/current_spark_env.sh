@@ -4,7 +4,7 @@ set -euo pipefail
 # 현재 적용된 Spark env 프로파일을 출력한다.
 # 컨테이너에 실제 적용된 값을 우선 확인하고, 예시 env와 일치하면 그 프로파일명을 출력한다.
 
-ENV_DIR="/home/kang/log-etlm/env"
+ENV_DIR="/home/kang/log-etlm/config/env"
 if ! docker ps --format '{{.Names}}' | grep -qx "spark-driver"; then
   echo "spark-driver not running"
   exit 1
