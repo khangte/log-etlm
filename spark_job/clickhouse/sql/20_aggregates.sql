@@ -59,6 +59,29 @@ PARTITION BY toDate(bucket)
 ORDER BY bucket
 TTL bucket + INTERVAL 1 DAY;
 
+-- Freshness aggregates (ingest_ts max, 1분)
+CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
+(
+    bucket           DateTime,
+    max_ingest_state AggregateFunction(max, DateTime64(3))
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL bucket + INTERVAL 1 DAY;
+
+-- Status code aggregates (1분)
+CREATE TABLE IF NOT EXISTS analytics.fact_event_status_code_1m
+(
+    bucket      DateTime,
+    status_code Int32,
+    cnt         UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY (bucket, status_code)
+TTL bucket + INTERVAL 1 DAY;
+
 -- Service latency aggregates (ingest_ts/event_ts 기준)
 CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
 (
