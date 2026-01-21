@@ -318,13 +318,13 @@ services:
     volumes:
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
-      - ./etc/clickhouse-server/config.d:/etc/clickhouse-server/config.d:ro
-      - ./etc/clickhouse-server/users.d:/etc/clickhouse-server/users.d
-      - ./spark_job/clickhouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
-      - ./spark_job/clickhouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
-      - ./spark_job/clickhouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
-      - ./spark_job/clickhouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
-      - ./spark_job/clickhouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
+      - ./infra/clickhouse/config.d:/etc/clickhouse-server/config.d:ro
+      - ./infra/clickhouse/users.d:/etc/clickhouse-server/users.d
+      - ./infra/clickhouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
+      - ./infra/clickhouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
+      - ./infra/clickhouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
+      - ./infra/clickhouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
+      - ./infra/clickhouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
@@ -375,8 +375,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       # - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
       # NOTE: Grafana sqlite/db 및 캐시 파일도 /data로 분리
       - /data/log-etlm/grafana:/var/lib/grafana
     depends_on:
