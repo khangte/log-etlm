@@ -186,7 +186,7 @@ services:
       - SPARK_RESET_CHECKPOINT_ON_START=true
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_FACT_TRIGGER_INTERVAL=3 seconds
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=18000
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=21000
       - SPARK_STORE_RAW_JSON=false
       - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
       - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
@@ -349,12 +349,10 @@ services:
       VITE_CLICKHOUSE_URL: "http://localhost:8123"
       VITE_CLICKHOUSE_USER: "log_user"
       VITE_CLICKHOUSE_PASS: "log_pwd"
-      
       # Optional: Advanced Features
       VITE_CLICKHOUSE_USE_ADVANCED: "false"
       VITE_CLICKHOUSE_CUSTOM_PATH: ""
       VITE_CLICKHOUSE_REQUEST_TIMEOUT: "30000"
-      
       # Optional: Reverse Proxy Support
       VITE_BASE_PATH: "/"
     depends_on:
