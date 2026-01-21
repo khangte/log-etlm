@@ -58,6 +58,29 @@ WHERE ingest_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;
 
+-- Freshness aggregates (ingest_ts max, 1분)
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_freshness_1m
+TO analytics.fact_event_freshness_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    maxState(ingest_ts) AS max_ingest_state
+FROM analytics.fact_event
+WHERE ingest_ts IS NOT NULL
+GROUP BY bucket;
+
+-- Status code aggregates (1분)
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_status_code_1m
+TO analytics.fact_event_status_code_1m
+AS
+SELECT
+    toStartOfMinute(ingest_ts) AS bucket,
+    status_code,
+    count() AS cnt
+FROM analytics.fact_event
+WHERE ingest_ts IS NOT NULL
+GROUP BY bucket, status_code;
+
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1m
 TO analytics.fact_event_latency_service_1m
 AS
