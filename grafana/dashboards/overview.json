@@ -238,13 +238,13 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE",
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', maxMerge(max_ingest_state), now()) AS freshness_ms\nFROM analytics.fact_event_freshness_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE",
           "refId": "A"
         }
       ],
-      "title": "현재 Freshness ms",
+      "title": "최근 5분 Freshness ms (1m 롤업)",
       "type": "stat",
-      "description": "fact_event 직접 집계(부하 주의)"
+      "description": "1분 롤업 테이블 기반 freshness(ms)"
     },
     {
       "datasource": {
@@ -443,7 +443,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "fact_event 직접 집계(부하 주의)",
+      "description": "1분 롤업 테이블 합산 결과",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -470,11 +470,11 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  status_code,\n  count() AS cnt\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE\nGROUP BY status_code\nORDER BY cnt DESC\nLIMIT 15",
+          "rawSql": "SELECT\n  status_code,\n  sum(cnt) AS cnt\nFROM analytics.fact_event_status_code_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nGROUP BY status_code\nORDER BY cnt DESC\nLIMIT 15",
           "refId": "A"
         }
       ],
-      "title": "최근 5분 status_code 분포",
+      "title": "최근 5분 status_code 분포 (1m)",
       "type": "table"
     },
     {
@@ -653,9 +653,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 24,
-        "w": 24,
+        "w": 12,
         "h": 8
       },
       "id": 22,
@@ -724,7 +724,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 24,
         "w": 12,
         "h": 8
       },
@@ -793,7 +793,7 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
+        "x": 0,
         "y": 32,
         "w": 12,
         "h": 8
@@ -863,9 +863,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 40,
-        "w": 24,
+        "w": 12,
         "h": 8
       },
       "id": 42,
@@ -929,7 +929,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  service,\n  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, service\nORDER BY publish_p95_ms DESC\nLIMIT 10",
+          "rawSql": "SELECT\n  bucket AS time,\n  service,\n  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, service\nORDER BY time ASC, publish_p95_ms DESC",
           "refId": "A"
         }
       ],
@@ -1007,7 +1007,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  eps,\n  publish_p95_ms\nFROM\n(\n  SELECT\n    b.time,\n    b.eps,\n    p.publish_p95_ms\n  FROM\n  (\n    SELECT\n      bucket AS time,\n      uniqCombined64Merge(total_state) / 60 AS eps\n    FROM analytics.fact_event_agg_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS b\n  INNER JOIN\n  (\n    SELECT\n      bucket AS time,\n      quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\n    FROM analytics.fact_event_latency_service_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS p\n  USING time\n) AS t\nWHERE publish_p95_ms >= 3000\nORDER BY publish_p95_ms DESC\nLIMIT 30",
+          "rawSql": "SELECT\n  time,\n  eps,\n  publish_p95_ms\nFROM\n(\n  SELECT\n    b.time,\n    b.eps,\n    p.publish_p95_ms\n  FROM\n  (\n    SELECT\n      bucket AS time,\n      uniqCombined64Merge(total_state) / 60 AS eps\n    FROM analytics.fact_event_agg_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS b\n  INNER JOIN\n  (\n    SELECT\n      bucket AS time,\n      quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\n    FROM analytics.fact_event_latency_service_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS p\n  USING time\n) AS t\nWHERE publish_p95_ms >= 3000\nORDER BY time ASC, publish_p95_ms DESC",
           "refId": "A"
         }
       ],
