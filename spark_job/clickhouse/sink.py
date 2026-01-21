@@ -17,6 +17,9 @@ def _apply_partitioning(
     current = df.rdd.getNumPartitions()
 
     if n < current:
+        if allow_repartition:
+            # 다운스케일 시에도 파티션 스큐를 줄이기 위해 재분배한다.
+            return df.repartition(n)
         # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
         return df.coalesce(n)
 
