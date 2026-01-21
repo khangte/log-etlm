@@ -68,31 +68,42 @@
 #                  /data/log-etlm/clickhouse-logs /data/log-etlm/grafana
 #     sudo chown -R $USER:$USER /data/log-etlm
 # - 방화벽/보안 그룹에서 29092(Kafka), 4040(Spark UI), 3000(Grafana) 허용
+# - ClickHouse(8123/9000)는 기본적으로 localhost 바인딩(외부 접근 필요 시 docker-compose.yml 포트 수정)
 
 # 1. Kafka + Kafka UI 우선 기동
 docker compose up -d kafka kafka-ui
 
 # 1-1. 도메인별 토픽 생성(수동, 파티션 수 조정이 필요할 때만)
-# mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 총 8 파티션 기준
+# mix = auth 0.5 / order 0.3 / payment 0.2, logs.auth/order/payment 합계 8 파티션 기준
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
 
-# 2. Spark, ClickHouse, Grafana 파이프라인 기동
-docker compose up -d spark-driver clickhouse ch-ui grafana
+# 2. ClickHouse 기동
+docker compose up -d clickhouse ch-ui
 
-# 3. 로그 시뮬레이터 기동
+# 3. Spark 기동
+docker compose up -d spark-master spark-worker-1 spark-worker-2
+
+# 3-1. Spark-driver 기동 (Kafka/ClickHouse healthcheck 이후 권장)
+docker compose up -d spark-driver
+
+# 4. Grafana 기동
+docker compose up -d grafana
+# - grafana-clickhouse-datasource 플러그인 필요(온라인이면 GF_INSTALL_PLUGINS 사용)
+
+# 5. 로그 시뮬레이터 기동 (Spark-driver 정상 기동 후)
 docker compose up -d simulator
 
-# 4. 상태 점검
+# 6. 상태 점검
 docker compose ps
 curl http://localhost:8000/ping                 # log_simulator FastAPI
 curl http://localhost:4040/api/v1/applications  # Spark UI REST
 
-# 5. (선택) CLI 모니터링
+# 7. (선택) CLI 모니터링
 python monitor/docker_watchdog.py
 
-# 6. (선택) Spark 프로파일 자동 전환 크론 등록
+# 8. (선택) Spark 프로파일 자동 전환 크론 등록
 #   - ClickHouse 지연 p95 기반 Spark 프로파일 주기 조정
 #   - 로그 저장 위치: logs/autoswitch.log
 crontab -e
@@ -104,7 +115,7 @@ crontab -e
 
 `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`인 경우에도 파티션 수를 맞추려면 수동 생성이 필요하다.
 
-예시(mix = auth 0.5 / order 0.3 / payment 0.2, logs.event 기준 총 8 파티션 유지):
+예시(mix = auth 0.5 / order 0.3 / payment 0.2, logs.auth/order/payment 합계 8 파티션 유지):
 
 ```bash
 # 토픽 생성
@@ -137,6 +148,9 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 스트림 분리 설정: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 파일 경로 지정 가능
+- ClickHouse 설정(conf/users.d): `etc/clickhouse-server/`
+  - `config.d/`에서 서버 설정(예: listen_host, async insert 로그)
+  - `users.d/`에서 사용자/프로파일 설정(예: log_user async_insert)
 - 유틸 스크립트 목록
   - `scripts/apply_spark_env.sh`: 프로파일 적용 후 Spark 컨테이너 재기동
   - `scripts/current_spark_env.sh`: 현재 적용된 Spark 프로파일 확인
@@ -159,6 +173,8 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - E2E 지연: `analytics.fact_event_latency_1m`
 - 과정별 지연: `analytics.fact_event_latency_service_1m`
 - DLQ TopN: `analytics.fact_event_dlq_agg_1m` (error_type 기준)
+- Freshness: `analytics.fact_event_freshness_1m`
+- status_code 분포: `analytics.fact_event_status_code_1m`
 
 
 ## 결과 기록
