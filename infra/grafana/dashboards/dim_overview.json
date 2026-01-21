@@ -1,0 +1,398 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  service,\n  service_group,\n  is_active,\n  description\nFROM analytics.dim_service\nORDER BY service ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "서비스 목록",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  status_code,\n  status_class,\n  is_error,\n  description\nFROM analytics.dim_status_code\nORDER BY status_code ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "상태코드 목록",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  table_name,\n  rows\nFROM (\n  SELECT 'dim_date' AS table_name, count() AS rows FROM analytics.dim_date\n  UNION ALL SELECT 'dim_time', count() FROM analytics.dim_time\n  UNION ALL SELECT 'dim_service', count() FROM analytics.dim_service\n  UNION ALL SELECT 'dim_status_code', count() FROM analytics.dim_status_code\n  UNION ALL SELECT 'dim_user', count() FROM analytics.dim_user\n)\nORDER BY table_name",
+          "refId": "A"
+        }
+      ],
+      "title": "Dim 테이블 row count",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "WITH\n  (SELECT min(date) FROM analytics.dim_date) AS min_date,\n  (SELECT max(date) FROM analytics.dim_date) AS max_date,\n  dateDiff('day', min_date, max_date) + 1 AS expected,\n  (SELECT count() FROM analytics.dim_date) AS actual\nSELECT\n  min_date,\n  max_date,\n  expected,\n  actual,\n  expected - actual AS missing_days",
+          "refId": "A"
+        }
+      ],
+      "title": "날짜 범위",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  toHour(bucket) AS hour,\n  uniqCombined64Merge(total_state) AS events\nFROM analytics.fact_event_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY hour\nORDER BY hour",
+          "refId": "A"
+        }
+      ],
+      "title": "유입 시간대 분포",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  uniqCombined64If(user_id, user_id IS NOT NULL) AS active_users\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 15 MINUTE",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 활성 사용자",
+      "type": "stat",
+      "description": "최근 15분 active user (uniq)"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  date AS gap_start,\n  next_date AS gap_end,\n  dateDiff('day', date, next_date) - 1 AS missing_days\nFROM (\n  SELECT\n    date,\n    lead(date) OVER (ORDER BY date) AS next_date\n  FROM analytics.dim_date\n)\nWHERE next_date IS NOT NULL\n  AND dateDiff('day', date, next_date) > 1\nORDER BY gap_start\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_date 누락 구간",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 18,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  f.service,\n  uniqCombined64Merge(f.total_state) AS events\nFROM analytics.fact_event_agg_1m f\nLEFT JOIN analytics.dim_service d ON f.service = d.service\nWHERE $__timeFilter(f.bucket)\n  AND d.service IS NULL\nGROUP BY f.service\nORDER BY events DESC\nLIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Fact-Dim 미매핑 서비스 Top",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  f.status_code,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d ON f.status_code = d.status_code\nWHERE $__timeFilter(f.ingest_ts)\n  AND d.status_code IS NULL\nGROUP BY f.status_code\nORDER BY cnt DESC\nLIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Fact-Dim 미매핑 상태코드 Top",
+      "type": "table",
+      "description": "fact_event 직접 집계(부하 주의)"
+    }
+  ],
+  "refresh": "5m",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": [
+    "log-etlm",
+    "dimension"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Log Dimension Overview",
+  "uid": "log-dim",
+  "version": 1,
+  "weekStart": ""
+}
