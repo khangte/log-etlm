@@ -50,11 +50,11 @@
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
 4. **로그 저장**
    - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
-   - 초기 스키마는 `spark_job/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
+   - 초기 스키마는 `infra/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
-   - 대시보드 JSON: `grafana/dashboards/overview.json`(파이프라인), `grafana/dashboards/dim_overview.json`(DIM).
-   - `monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.
+   - 대시보드 JSON: `infra/grafana/dashboards/overview.json`(파이프라인), `infra/grafana/dashboards/dim_overview.json`(DIM).
+   - `infra/monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.
 
 
 ## 실행 방법
@@ -101,7 +101,7 @@ curl http://localhost:8000/ping                 # log_simulator FastAPI
 curl http://localhost:4040/api/v1/applications  # Spark UI REST
 
 # 7. (선택) CLI 모니터링
-python monitor/docker_watchdog.py
+python infra/monitor/docker_watchdog.py
 
 # 8. (선택) Spark 프로파일 자동 전환 크론 등록
 #   - ClickHouse 지연 p95 기반 Spark 프로파일 주기 조정
@@ -143,12 +143,12 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 시뮬레이터 부하 프로파일: `log_simulator/config/profiles.yml`
   - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
 - 라우트/도메인 이벤트 설정: `log_simulator/config/routes.yml`
-- Spark 환경 프로파일: `env/{low,mid,high}.env.example`
+- Spark 환경 프로파일: `config/env/{low,mid,high}.env.example`
   - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
 - 스트림 분리 설정: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 파일 경로 지정 가능
-- ClickHouse 설정(conf/users.d): `etc/clickhouse-server/`
+- ClickHouse 설정(conf/users.d): `infra/clickhouse/`
   - `config.d/`에서 서버 설정(예: listen_host, async insert 로그)
   - `users.d/`에서 사용자/프로파일 설정(예: log_user async_insert)
 - 유틸 스크립트 목록
