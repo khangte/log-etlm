@@ -51,7 +51,7 @@ def _build_spark_session(
         .config("spark.ui.enabled", "true")
         .config("spark.ui.port", ui_port)
         .config("spark.sql.streaming.ui.enabled", "true")
-        .config("spark.sql.shuffle.partitions", "4")
+        .config("spark.sql.shuffle.partitions", "8")
     )
 
     if event_log_enabled:
