@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 용도: Spark env 프로파일을 적용하고 spark-driver만 재기동한다.
+
 # 사용법: ./scripts/apply_spark_env.sh {low|mid|high}
 # config/env/<profile>.env.example을 적용하고 spark 서비스만 재기동한다.
 
