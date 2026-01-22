@@ -89,6 +89,8 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
     service       LowCardinality(String),
     queue_state   AggregateFunction(quantileTDigest, Float64),
     publish_state AggregateFunction(quantileTDigest, Float64),
+    kafka_to_processed_state AggregateFunction(quantileTDigest, Float64),
+    ingest_to_kafka_state AggregateFunction(quantileTDigest, Float64),
     e2e_state     AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
@@ -99,6 +101,10 @@ TTL bucket + INTERVAL 1 DAY;
 -- 기존 테이블 컬럼 보강(이미 생성된 경우)
 ALTER TABLE analytics.fact_event_latency_service_1m
     ADD COLUMN IF NOT EXISTS e2e_state AggregateFunction(quantileTDigest, Float64);
+
+ALTER TABLE analytics.fact_event_latency_service_1m
+    ADD COLUMN IF NOT EXISTS kafka_to_processed_state AggregateFunction(quantileTDigest, Float64),
+    ADD COLUMN IF NOT EXISTS ingest_to_kafka_state AggregateFunction(quantileTDigest, Float64);
 
 -- DLQ aggregates
 CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_agg_1m
