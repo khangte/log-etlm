@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage:
+# 용도: Kafka 최신 오프셋과 Spark 체크포인트를 비교해 토픽별 backlog를 출력한다.
+# 사용법:
 #   SUDO=sudo scripts/check_backlog.sh
 #   TOPICS="logs.auth,logs.order" CHECKPOINT_DIR=/data/log-etlm/spark_checkpoints/fact_event scripts/check_backlog.sh
 
