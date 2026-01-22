@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
 (
     event_ts     DateTime64(3) CODEC(Delta, ZSTD(3)),
     ingest_ts    DateTime64(3) CODEC(Delta, ZSTD(3)),
+    kafka_ts     Nullable(DateTime64(3)) CODEC(Delta, ZSTD(3)),
     processed_ts DateTime64(3) CODEC(Delta, ZSTD(3)),
     stored_ts    DateTime64(3) DEFAULT now64(3) CODEC(Delta, ZSTD(3)),
     ingest_ms    Nullable(Int32),
@@ -40,6 +41,10 @@ ENGINE = MergeTree
 PARTITION BY toDate(ingest_ts)
 ORDER BY (service, ingest_ts)
 TTL ingest_ts + INTERVAL 1 DAY;
+
+-- 기존 테이블 보강 (이미 생성된 경우)
+ALTER TABLE analytics.fact_event
+    ADD COLUMN IF NOT EXISTS kafka_ts Nullable(DateTime64(3)) CODEC(Delta, ZSTD(3));
 
 -- DLQ table (parse/validation failures)
 CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq
