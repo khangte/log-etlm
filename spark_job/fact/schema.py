@@ -47,6 +47,7 @@ FACT_EVENT_COLUMNS: list[str] = [
     # 1) 시간
     "event_ts",
     "ingest_ts",
+    "kafka_ts",
     "processed_ts",
     "ingest_ms",
     "process_ms",
