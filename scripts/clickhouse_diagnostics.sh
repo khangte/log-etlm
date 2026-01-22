@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 용도: ClickHouse merge/part/insert 상태를 빠르게 확인하는 진단 스크립트.
+
 CLICKHOUSE_CONTAINER="${CLICKHOUSE_CONTAINER:-clickhouse}"
 CLICKHOUSE_USER="${CLICKHOUSE_USER:-log_user}"
 CLICKHOUSE_PASSWORD="${CLICKHOUSE_PASSWORD:-log_pwd}"
