@@ -15,22 +15,16 @@ def _apply_partitioning(
 
     n = target_partitions
     current = df.rdd.getNumPartitions()
+    print(
+        "[clickhouse sink] 파티션 조정 target=%s current=%s allow_repartition=%s"
+        % (n, current, allow_repartition)
+    )
 
     if n < current:
-        if allow_repartition:
-            # 다운스케일 시에도 파티션 스큐를 줄이기 위해 재분배한다.
-            return df.repartition(n)
-        # 셔플 없이 파티션 수를 줄여 쓰기 오버헤드를 낮춘다.
-        return df.coalesce(n)
+        return df.coalesce(n)  # 다운스케일은 셔플 없이 coalesce로 줄여 초소형 파티션 생성을 완화한다.
 
-    if n > current:
-        if allow_repartition:
-            # 병렬 쓰기를 늘리기 위해 파티션을 재분배한다.
-            return df.repartition(n)
-        print(
-            "[ℹ️ clickhouse sink] repartition 비활성: "
-            "SPARK_CLICKHOUSE_ALLOW_REPARTITION=true로 켜세요."
-        )
+    if n > current and allow_repartition:
+        return df.repartition(n)
     return df
 
 
