@@ -8,6 +8,7 @@ docker compose logs --tail 200 spark-driver | grep "clickhouse sink" | tail -n 2
 
 echo
 echo ">>> ClickHouse recent NewPart rows (last 5m) <<<"
+echo "Event Time           Event_type Rows    Size in Bytes"
 docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd --query "
 SELECT
     event_time,
