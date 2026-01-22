@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 용도: Kafka 최신 오프셋과 Spark 체크포인트를 비교해 토픽별 lag를 계산한다.
 from __future__ import annotations
 
 import json
