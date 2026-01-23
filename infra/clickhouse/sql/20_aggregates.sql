@@ -1,29 +1,34 @@
--- Aggregate tables for Grafana (ingest_ts basis)
+-- ============================================================================
+-- Aggregate tables for Grafana (bucket basis, 1 minute)
+-- ============================================================================
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_agg_1m
 (
     bucket       DateTime,
     service      LowCardinality(String),
-    total_state  AggregateFunction(uniqCombined64, String),
-    errors_state AggregateFunction(uniqCombined64, String)
+    total_state  AggregateFunction(count, String),
+    errors_state AggregateFunction(count, String)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
-TTL bucket + INTERVAL 1 DAY;
+-- 기존: TTL bucket + INTERVAL 1 DAY (행 단위)
+-- 변경: 파티션(일) 단위 TTL
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Topic EPS aggregates
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_topic_1m
 (
-    bucket   DateTime,
-    topic    LowCardinality(String),
-    total_state AggregateFunction(uniqCombined64, String)
+    bucket      DateTime,
+    topic       LowCardinality(String),
+    total_state AggregateFunction(count, String)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, topic)
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Lag aggregates (ingest_ts basis)
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 (
     bucket   DateTime,
@@ -34,32 +39,22 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Latency aggregates (stored_ts basis)
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m
 (
-    bucket    DateTime,
-    e2e_state AggregateFunction(quantileTDigest, Float64),
-    sink_state AggregateFunction(quantileTDigest, Float64)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
-
--- ingest_ts -> stored_ts 지연 집계 (1분)
-CREATE TABLE IF NOT EXISTS analytics.fact_event_ingest_to_stored_1m
-(
-    bucket       DateTime,
+    bucket     DateTime,
+    e2e_state  AggregateFunction(quantileTDigest, Float64),
+    sink_state AggregateFunction(quantileTDigest, Float64),
     ingest_state AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Freshness aggregates (ingest_ts max, 1분)
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
 (
     bucket           DateTime,
@@ -68,9 +63,9 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Status code aggregates (1분)
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_status_code_1m
 (
     bucket      DateTime,
@@ -80,33 +75,25 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_status_code_1m
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, status_code)
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- Service latency aggregates (ingest_ts/event_ts 기준)
+
 CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
 (
     bucket        DateTime,
     service       LowCardinality(String),
-    queue_state   AggregateFunction(quantileTDigest, Float64),
-    publish_state AggregateFunction(quantileTDigest, Float64),
-    kafka_to_processed_state AggregateFunction(quantileTDigest, Float64),
-    ingest_to_kafka_state AggregateFunction(quantileTDigest, Float64),
+    producer_to_kafka_state       AggregateFunction(quantileTDigest, Float64),
+    kafka_to_spark_ingest_state   AggregateFunction(quantileTDigest, Float64),
+    spark_processing_state        AggregateFunction(quantileTDigest, Float64),
+    spark_to_stored_state         AggregateFunction(quantileTDigest, Float64),
     e2e_state     AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
-TTL bucket + INTERVAL 1 DAY;
+TTL toDate(bucket) + INTERVAL 2 DAY;
 
--- 기존 테이블 컬럼 보강(이미 생성된 경우)
-ALTER TABLE analytics.fact_event_latency_service_1m
-    ADD COLUMN IF NOT EXISTS e2e_state AggregateFunction(quantileTDigest, Float64);
 
-ALTER TABLE analytics.fact_event_latency_service_1m
-    ADD COLUMN IF NOT EXISTS kafka_to_processed_state AggregateFunction(quantileTDigest, Float64),
-    ADD COLUMN IF NOT EXISTS ingest_to_kafka_state AggregateFunction(quantileTDigest, Float64);
-
--- DLQ aggregates
 CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_agg_1m
 (
     bucket     DateTime,
@@ -117,4 +104,6 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_agg_1m
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, service, error_type)
-TTL bucket + INTERVAL 7 DAY;
+-- 기존: TTL bucket + INTERVAL 7 DAY (행 단위)
+-- 변경: 파티션(일) 단위 TTL
+TTL toDate(bucket) + INTERVAL 8 DAY;
