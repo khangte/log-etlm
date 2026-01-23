@@ -48,11 +48,15 @@ class ClickHouseStreamWriterBase:
             """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
 
-            if skip_empty and len(batch_df.take(1)) == 0:
+            # 불필요한 Spark Job 실행을 막기 위해 데이터프레임을 메모리에 캐시
+            batch_df.persist()
+
+            if skip_empty and batch_df.isEmpty():
                 elapsed = time.perf_counter() - start_time
                 line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
                 print(line)
                 append_batch_log(line)
+                batch_df.unpersist()  # 캐시 해제
                 return
 
             out_df = batch_df
@@ -62,6 +66,8 @@ class ClickHouseStreamWriterBase:
                 out_df = out_df.dropDuplicates(deduplicate_keys)
 
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
+
+            batch_df.unpersist()  # 캐시 해제
 
             elapsed = time.perf_counter() - start_time
             line = f"{prefix} batch_id={batch_id} duration={elapsed:.3f}s"
