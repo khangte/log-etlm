@@ -21,10 +21,13 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
 
     parsed = (
         good_df.select(
+            # unified_ts_ms는 created_ts 및 event_ts의 통합 소스
             F.coalesce(
                 F.col("json.ts_ms"),
-                F.col("json.timestamp_ms"),
-            ).alias("event_ts_ms"),
+                F.col("json.timestamp_ms"), # 이전 형식과의 호환성을 위한 대체
+                (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long"), # JSON에 타임스탬프가 없는 경우의 대체
+            ).alias("unified_ts_ms"),
+
             F.coalesce(F.col("json.service"), F.lit("unknown")).alias("service"),
             F.coalesce(
                 F.col("json.domain"),
@@ -81,11 +84,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
                 F.lit(0),
             ).alias("status_code"),
             F.col("json.duration_ms").cast("int").alias("duration_ms"),
-            F.coalesce(
-                F.col("json.event_name"),
-                F.col("json.event"),
-                F.lit("unknown"),
-            ).alias("event"),
             F.col("json.user_id").alias("user_id"),
             F.col("json.order_id").alias("order_id"),
             F.col("json.payment_id").alias("payment_id"),
@@ -96,14 +94,15 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.col("partition").cast("int").alias("kafka_partition"),
             F.col("offset").cast("long").alias("kafka_offset"),
             F.col("kafka_ts"),
+            F.coalesce(
+                F.col("spark_ingest_ts"),
+                F.current_timestamp(),
+            ).alias("spark_ingest_ts"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
-            "event_ts_ms",
-            F.coalesce(
-                F.col("event_ts_ms"),
-                (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long"),
-            ),
+            "event",
+            F.col("event_name"),
         )
         .withColumn(
             "ingest_ts",
@@ -114,16 +113,20 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.current_timestamp(),
         )
         .withColumn(
-            "event_ts",
-            F.to_timestamp((F.col("event_ts_ms") / F.lit(1000)).cast("double")),
+            "created_ts",
+            F.to_timestamp((F.col("unified_ts_ms") / F.lit(1000)).cast("double")),
         )
         .withColumn(
-            "ingest_ms",
+            "event_ts",
+            F.col("created_ts"),
+        )
+        .withColumn(
+            "ingest_ms", # event_ts 기준 ingest_ms
             _ms_diff("ingest_ts", "event_ts"),
         )
         .withColumn(
             "process_ms",
-            _ms_diff("processed_ts", "ingest_ts"),
+            _ms_diff("processed_ts", "spark_ingest_ts"),
         )
     )
 
