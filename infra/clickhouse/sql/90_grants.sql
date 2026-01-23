@@ -4,7 +4,6 @@ CREATE USER IF NOT EXISTS grafana_user IDENTIFIED BY 'grafana_pwd';
 GRANT SELECT ON analytics.fact_event_agg_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_event_topic_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_event_latency_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_ingest_to_stored_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_event_lag_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_event_latency_service_1m TO grafana_user;
 GRANT SELECT ON analytics.fact_event_dlq_agg_1m TO grafana_user;
