@@ -93,7 +93,7 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 12,
+        "w": 8,
         "h": 4
       },
       "id": 38,
@@ -153,9 +153,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 12,
+        "x": 8,
+        "y": 4,
+        "w": 8,
         "h": 4
       },
       "id": 39,
@@ -269,7 +269,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 4,
+        "y": 0,
         "w": 8,
         "h": 4
       },
@@ -365,123 +365,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 서비스별 EPS",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 8,
-        "h": 8
-      },
-      "id": 33,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  countMerge(total_state) / 300 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nGROUP BY service\nORDER BY eps DESC\nLIMIT 10",
-          "refId": "A"
-        }
-      ],
-      "title": "서비스별 EPS Top (5m)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "최근 5분 서비스별 5xx 비율",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 8,
-        "w": 8,
-        "h": 8
-      },
-      "id": 34,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  if(total = 0, 0, errors / total) * 100 AS error_rate_pct\nFROM\n(\n  SELECT\n    service,\n    countMerge(total_state) AS total,\n    countMerge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n  GROUP BY service\n)\nORDER BY error_rate_pct DESC\nLIMIT 10",
-          "refId": "A"
-        }
-      ],
-      "title": "서비스별 5xx 에러율 Top (5m)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "1분 롤업 테이블 합산 결과",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 8,
-        "w": 8,
-        "h": 8
-      },
-      "id": 35,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  status_code,\n  sum(cnt) AS cnt\nFROM analytics.fact_event_status_code_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nGROUP BY status_code\nORDER BY cnt DESC\nLIMIT 15",
-          "refId": "A"
-        }
-      ],
-      "title": "최근 5분 status_code 분포 (1m)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
       "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
@@ -514,7 +397,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -584,7 +467,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 16,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -654,7 +537,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 24,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -724,7 +607,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 24,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -794,7 +677,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 24,
         "w": 12,
         "h": 8
       },
@@ -864,7 +747,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 40,
+        "y": 24,
         "w": 12,
         "h": 8
       },
@@ -896,162 +779,6 @@
       ],
       "title": "EPS vs publish p95 (1m)",
       "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "시간 범위를 1분으로 좁히면 사건 분의 Top을 확인할 수 있다.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "id": 40,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  service,\n  quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, service\nORDER BY time ASC, publish_p95_ms DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "서비스별 publish p95 Top (범위)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "최근 5분 서비스별 e2e p95",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 48,
-        "w": 12,
-        "h": 8
-      },
-      "id": 41,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nGROUP BY service\nORDER BY e2e_p95_ms DESC\nLIMIT 10",
-          "refId": "A"
-        }
-      ],
-      "title": "서비스별 e2e p95 Top (5m)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "publish p95가 임계값 이상인 분만 표시한다.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 56,
-        "w": 12,
-        "h": 8
-      },
-      "id": 43,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  eps,\n  publish_p95_ms\nFROM\n(\n  SELECT\n    b.time,\n    b.eps,\n    p.publish_p95_ms\n  FROM\n  (\n    SELECT\n      bucket AS time,\n      countMerge(total_state) / 60 AS eps\n    FROM analytics.fact_event_agg_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS b\n  INNER JOIN\n  (\n    SELECT\n      bucket AS time,\n      quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\n    FROM analytics.fact_event_latency_service_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS p\n  USING time\n) AS t\nWHERE publish_p95_ms >= 3000\nORDER BY time ASC, publish_p95_ms DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "publish 사건 목록 (p95>=3000ms)",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "description": "시간 범위를 1분으로 좁히면 사건 분의 토픽 EPS를 확인할 수 있다.",
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 56,
-        "w": 12,
-        "h": 8
-      },
-      "id": 44,
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  countMerge(total_state) / 60 AS eps\nFROM analytics.fact_event_topic_1m\nWHERE $__timeFilter(bucket)\n  AND bucket >= now() - INTERVAL 1 HOUR\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, topic\nORDER BY time ASC, eps DESC\nLIMIT 200",
-          "refId": "A"
-        }
-      ],
-      "title": "토픽별 EPS (범위)",
-      "type": "table"
     },
     {
       "datasource": {
@@ -1090,7 +817,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 32,
         "w": 12,
         "h": 8
       },
@@ -1135,7 +862,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 64,
+        "y": 32,
         "w": 12,
         "h": 8
       },
@@ -1161,6 +888,64 @@
       ],
       "title": "DLQ Top error_type (5m)",
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "id": 45,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, t.errors / t.total) * 100 AS error_rate_pct\nFROM (\n  SELECT\n    countMerge(total_state) AS total,\n    countMerge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "최근 5분 에러율 %",
+      "type": "stat",
+      "description": "최근 5분 전체 에러율(5xx) 비율"
     }
   ],
   "refresh": "30s",
