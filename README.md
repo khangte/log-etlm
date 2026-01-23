@@ -169,12 +169,10 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 ## Grafana용 기본 집계 쿼리
 
 - 정상 EPS(서비스별): `analytics.fact_event_agg_1m`
-- 토픽 EPS: `analytics.fact_event_topic_1m`
 - E2E 지연: `analytics.fact_event_latency_1m`
 - 과정별 지연: `analytics.fact_event_latency_service_1m`
 - DLQ TopN: `analytics.fact_event_dlq_agg_1m` (error_type 기준)
 - Freshness: `analytics.fact_event_freshness_1m`
-- status_code 분포: `analytics.fact_event_status_code_1m`
 
 
 ## 결과 기록
