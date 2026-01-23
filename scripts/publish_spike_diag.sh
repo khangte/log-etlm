@@ -16,14 +16,14 @@ run_query() {
     --query "${sql}"
 }
 
-echo "== publish/queue/e2e p95 (last ${WINDOW_MIN}m) =="
+echo "== segmented p95 (producer/kafka/spark/sink, last ${WINDOW_MIN}m) =="
 run_query "
 SELECT
   bucket,
-  quantileTDigestMerge(0.95)(queue_state) AS queue_p95_ms,
-  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms,
-  quantileTDigestMerge(0.95)(kafka_to_processed_state) AS kafka_to_processed_p95_ms,
-  quantileTDigestMerge(0.95)(ingest_to_kafka_state) AS ingest_to_kafka_p95_ms,
+  quantileTDigestMerge(0.95)(producer_to_kafka_state) AS producer_to_kafka_p95_ms,
+  quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_p95_ms,
+  quantileTDigestMerge(0.95)(spark_processing_state) AS spark_process_p95_ms,
+  quantileTDigestMerge(0.95)(spark_to_stored_state) AS spark_to_stored_p95_ms,
   quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms
 FROM ${CLICKHOUSE_DB}.fact_event_latency_service_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
@@ -52,7 +52,7 @@ run_query "
 SELECT
   bucket,
   quantileTDigestMerge(0.95)(ingest_state) AS ingest_to_stored_p95_ms
-FROM ${CLICKHOUSE_DB}.fact_event_ingest_to_stored_1m
+FROM ${CLICKHOUSE_DB}.fact_event_latency_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
 GROUP BY bucket
 ORDER BY bucket
@@ -64,8 +64,8 @@ echo "== eps per minute (last ${WINDOW_MIN}m) =="
 run_query "
 SELECT
   bucket,
-  uniqCombined64Merge(total_state) AS total,
-  round(uniqCombined64Merge(total_state) / 60, 2) AS eps
+  countMerge(total_state) AS total,
+  round(countMerge(total_state) / 60, 2) AS eps
 FROM ${CLICKHOUSE_DB}.fact_event_agg_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
 GROUP BY bucket
@@ -78,7 +78,7 @@ echo "== top publish_p95 services (last ${WINDOW_MIN}m) =="
 run_query "
 SELECT
   service,
-  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms
+  quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms
 FROM ${CLICKHOUSE_DB}.fact_event_latency_service_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
 GROUP BY service
