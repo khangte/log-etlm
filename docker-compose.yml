@@ -5,7 +5,7 @@ services:
       context: .
       dockerfile: log_simulator/Dockerfile
     container_name: simulator
-    # cpus: "0.8"
+    cpus: "0.8"
     # restart: unless-stopped
     ports: 
       - "8000:8000"
@@ -186,7 +186,7 @@ services:
       - SPARK_RESET_CHECKPOINT_ON_START=true
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_FACT_TRIGGER_INTERVAL=3 seconds
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=21000
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=17000
       - SPARK_STORE_RAW_JSON=false
       - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
       - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
@@ -196,9 +196,9 @@ services:
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=20000
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=2
-      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=true
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=50000
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=1
+      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
     volumes:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
