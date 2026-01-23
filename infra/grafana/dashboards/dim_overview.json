@@ -199,7 +199,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  toHour(bucket) AS hour,\n  uniqCombined64Merge(total_state) AS events\nFROM analytics.fact_event_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY hour\nORDER BY hour",
+          "rawSql": "SELECT\n  toHour(bucket) AS hour,\n  countMerge(total_state) AS events\nFROM analytics.fact_event_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY hour\nORDER BY hour",
           "refId": "A"
         }
       ],
@@ -329,7 +329,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  f.service,\n  uniqCombined64Merge(f.total_state) AS events\nFROM analytics.fact_event_agg_1m f\nLEFT JOIN analytics.dim_service d ON f.service = d.service\nWHERE $__timeFilter(f.bucket)\n  AND d.service IS NULL\nGROUP BY f.service\nORDER BY events DESC\nLIMIT 20",
+          "rawSql": "SELECT\n  f.service,\n  countMerge(f.total_state) AS events\nFROM analytics.fact_event_agg_1m f\nLEFT JOIN analytics.dim_service d ON f.service = d.service\nWHERE $__timeFilter(f.bucket)\n  AND d.service IS NULL\nGROUP BY f.service\nORDER BY events DESC\nLIMIT 20",
           "refId": "A"
         }
       ],
