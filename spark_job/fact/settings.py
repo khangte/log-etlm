@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import os
 from typing import Mapping, Optional
 
-from common.get_env import get_env_bool, get_env_str
+from common.get_env import get_env_bool, get_env_int, get_env_str
 
 
 FACT_EVENT_TABLE = "analytics.fact_event"
@@ -18,6 +18,7 @@ class FactStreamSettings:
     checkpoint_dir: str
     trigger_interval: Optional[str]
     store_raw_json: bool
+    num_partitions: Optional[int]
 
 
 def load_fact_stream_settings(
@@ -30,6 +31,7 @@ def load_fact_stream_settings(
         checkpoint_dir=FACT_EVENT_CHECKPOINT_DIR,
         trigger_interval=get_env_str(source, "SPARK_FACT_TRIGGER_INTERVAL"),
         store_raw_json=get_env_bool(source, "SPARK_STORE_RAW_JSON", False),
+        num_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
     )
 
 
