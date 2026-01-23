@@ -119,7 +119,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE",
+          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -181,7 +181,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE",
+          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -238,7 +238,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', maxMerge(max_ingest_state), now()) AS freshness_ms\nFROM analytics.fact_event_freshness_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE",
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', maxMerge(max_ingest_state), now()) AS freshness_ms\nFROM analytics.fact_event_freshness_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -296,7 +296,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE bucket >= now() - INTERVAL 1 MINUTE",
+          "rawSql": "SELECT\n  now() AS time,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_agg_1m\nWHERE bucket >= now() - INTERVAL 1 MINUTE\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -353,7 +353,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct\nFROM\n(\n  SELECT sum(total) AS dlq\n  FROM analytics.fact_event_dlq_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) d\nCROSS JOIN\n(\n  SELECT uniqCombined64Merge(total_state) AS total\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t",
+          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct\nFROM\n(\n  SELECT sum(total) AS dlq\n  FROM analytics.fact_event_dlq_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) d\nCROSS JOIN\n(\n  SELECT uniqCombined64Merge(total_state) AS total\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -680,7 +680,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  q.bucket AS time,\n  q.queue_p95_ms,\n  q.ingest_to_kafka_p95_ms,\n  q.kafka_to_processed_p95_ms,\n  q.publish_p95_ms,\n  e.sink_p95_ms,\n  e.e2e_p95_ms\nFROM (\n  SELECT\n    bucket,\n    quantileTDigestMerge(0.95)(queue_state) AS queue_p95_ms,\n    quantileTDigestMerge(0.95)(ingest_to_kafka_state) AS ingest_to_kafka_p95_ms,\n    quantileTDigestMerge(0.95)(kafka_to_processed_state) AS kafka_to_processed_p95_ms,\n    quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\n  FROM analytics.fact_event_latency_service_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n) AS q\nINNER JOIN (\n  SELECT\n    bucket,\n    quantileTDigestMerge(e2e_state) AS e2e_p95_ms,\n    quantileTDigestMerge(sink_state) AS sink_p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n) AS e\nON q.bucket = e.bucket\nORDER BY time ASC",
+          "rawSql": "SELECT\n  q.bucket AS time,\n  q.producer_to_kafka_p95_ms,\n  q.kafka_to_spark_ingest_p95_ms,\n  q.spark_processing_p95_ms,\n  q.spark_to_stored_p95_ms,\n  e.e2e_p95_ms\nFROM (\n  SELECT\n    bucket,\n    quantileTDigestMerge(0.95)(producer_to_kafka_state) AS producer_to_kafka_p95_ms,\n    quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_ingest_p95_ms,\n    quantileTDigestMerge(0.95)(spark_processing_state) AS spark_processing_p95_ms,\n    quantileTDigestMerge(0.95)(spark_to_stored_state) AS spark_to_stored_p95_ms\n  FROM analytics.fact_event_latency_service_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n) AS q\nINNER JOIN (\n  SELECT\n    bucket,\n    quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms\n  FROM analytics.fact_event_latency_1m\n  WHERE $__timeFilter(bucket)\n  GROUP BY bucket\n) AS e\nON q.bucket = e.bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -750,7 +750,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -890,7 +890,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  b.time AS time,\n  b.eps,\n  p.publish_p95_ms\nFROM\n(\n  SELECT\n    bucket AS time,\n    uniqCombined64Merge(total_state) / 60 AS eps\n  FROM analytics.fact_event_agg_1m\n  WHERE $__timeFilter(bucket)\n    AND bucket < toStartOfMinute(now())\n  GROUP BY bucket\n) AS b\nINNER JOIN\n(\n  SELECT\n    bucket AS time,\n    quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\n  FROM analytics.fact_event_latency_service_1m\n  WHERE $__timeFilter(bucket)\n    AND bucket < toStartOfMinute(now())\n  GROUP BY bucket\n) AS p\nUSING time\nORDER BY time",
+          "rawSql": "SELECT\n  b.time AS time,\n  b.eps,\n  p.publish_p95_ms\nFROM\n(\n  SELECT\n    bucket AS time,\n    uniqCombined64Merge(total_state) / 60 AS eps\n  FROM analytics.fact_event_agg_1m\n  WHERE $__timeFilter(bucket)\n    AND bucket < toStartOfMinute(now())\n  GROUP BY bucket\n) AS b\nINNER JOIN\n(\n  SELECT\n    bucket AS time,\n    quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\n  FROM analytics.fact_event_latency_service_1m\n  WHERE $__timeFilter(bucket)\n    AND bucket < toStartOfMinute(now())\n  GROUP BY bucket\n) AS p\nUSING time\nORDER BY time",
           "refId": "A"
         }
       ],
@@ -929,7 +929,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  service,\n  quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, service\nORDER BY time ASC, publish_p95_ms DESC",
+          "rawSql": "SELECT\n  bucket AS time,\n  service,\n  quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, service\nORDER BY time ASC, publish_p95_ms DESC",
           "refId": "A"
         }
       ],
@@ -1007,7 +1007,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  time,\n  eps,\n  publish_p95_ms\nFROM\n(\n  SELECT\n    b.time,\n    b.eps,\n    p.publish_p95_ms\n  FROM\n  (\n    SELECT\n      bucket AS time,\n      uniqCombined64Merge(total_state) / 60 AS eps\n    FROM analytics.fact_event_agg_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS b\n  INNER JOIN\n  (\n    SELECT\n      bucket AS time,\n      quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms\n    FROM analytics.fact_event_latency_service_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS p\n  USING time\n) AS t\nWHERE publish_p95_ms >= 3000\nORDER BY time ASC, publish_p95_ms DESC",
+          "rawSql": "SELECT\n  time,\n  eps,\n  publish_p95_ms\nFROM\n(\n  SELECT\n    b.time,\n    b.eps,\n    p.publish_p95_ms\n  FROM\n  (\n    SELECT\n      bucket AS time,\n      uniqCombined64Merge(total_state) / 60 AS eps\n    FROM analytics.fact_event_agg_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS b\n  INNER JOIN\n  (\n    SELECT\n      bucket AS time,\n      quantileTDigestMerge(0.95)(producer_to_kafka_state) AS publish_p95_ms\n    FROM analytics.fact_event_latency_service_1m\n    WHERE $__timeFilter(bucket)\n      AND bucket < toStartOfMinute(now())\n    GROUP BY bucket\n  ) AS p\n  USING time\n) AS t\nWHERE publish_p95_ms >= 3000\nORDER BY time ASC, publish_p95_ms DESC",
           "refId": "A"
         }
       ],
@@ -1046,7 +1046,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_topic_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, topic\nORDER BY time DESC, eps DESC\nLIMIT 200",
+          "rawSql": "SELECT\n  bucket AS time,\n  topic,\n  uniqCombined64Merge(total_state) / 60 AS eps\nFROM analytics.fact_event_topic_1m\nWHERE $__timeFilter(bucket)\n  AND bucket < toStartOfMinute(now())\nGROUP BY bucket, topic\nORDER BY time ASC, eps DESC\nLIMIT 200",
           "refId": "A"
         }
       ],

@@ -50,7 +50,6 @@ def write_to_clickhouse(
         for key, value in resolved_settings.build_jdbc_options(table_name).items():
             writer = writer.option(key, value)
         writer = writer.mode(mode)
-        writer.save()
 
     except Exception as e:
         print(f"[❌ ERROR] ClickHouse 저장 실패: {table_name} {e}")
