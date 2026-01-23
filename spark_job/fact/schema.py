@@ -14,6 +14,7 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("event_name",     T.StringType(),  True),
         T.StructField("domain",         T.StringType(),  True),
         T.StructField("ts_ms",          T.LongType(),    True),
+        T.StructField("created_ts_ms",  T.LongType(),    True), # E2E 측정의 기준이 되는 이벤트 생성 시각
         T.StructField("service",        T.StringType(),  True),
         T.StructField("request_id",     T.StringType(),  True),
         T.StructField("method",         T.StringType(),  True),
@@ -39,7 +40,8 @@ log_value_schema: T.StructType = T.StructType(
 
 
 # -----------------------------------------------------------------------------
-# 2) ClickHouse analytics.fact_event 컬럼 순서
+# 2) ClickHouse analytics.fact_event 적재 컬럼 순서
+#    - stored_ts는 ClickHouse DEFAULT(now64)로 채워지므로 제외
 # -----------------------------------------------------------------------------
 
 # fact_event 컬럼 순서
@@ -48,13 +50,15 @@ FACT_EVENT_COLUMNS: list[str] = [
     "event_ts",
     "ingest_ts",
     "kafka_ts",
+    "spark_ingest_ts",
     "processed_ts",
+    "created_ts",
     "ingest_ms",
     "process_ms",
 
     # 2) 식별자 / 상관관계
-    "event_id",
     "request_id",
+    "event_id",
 
     # 3) 분류 메타
     "service",
@@ -62,8 +66,6 @@ FACT_EVENT_COLUMNS: list[str] = [
     "api_group",
     "event_name",
     "result",
-    "level",
-    "event",
 
     # 4) HTTP/요청 정보
     "method",
@@ -72,7 +74,11 @@ FACT_EVENT_COLUMNS: list[str] = [
     "status_code",
     "duration_ms",
 
-    # 5) 비즈니스 필드
+    # 5) 로그 레벨/메시지
+    "level",
+    "event",
+
+    # 6) 비즈니스 필드
     "user_id",
     "order_id",
     "payment_id",
@@ -80,11 +86,11 @@ FACT_EVENT_COLUMNS: list[str] = [
     "product_id",
     "amount",
 
-    # 6) Kafka 메타(재처리/포렌식 핵심)
+    # 7) Kafka 메타(재처리/포렌식 핵심)
     "topic",
     "kafka_partition",
     "kafka_offset",
 
-    # 7) 원문
+    # 8) 원문
     "raw_json",
 ]
