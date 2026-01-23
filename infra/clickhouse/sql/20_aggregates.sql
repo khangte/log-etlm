@@ -17,18 +17,6 @@ ORDER BY (bucket, service)
 TTL toDate(bucket) + INTERVAL 2 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_topic_1m
-(
-    bucket      DateTime,
-    topic       LowCardinality(String),
-    total_state AggregateFunction(count, String)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY (bucket, topic)
-TTL toDate(bucket) + INTERVAL 2 DAY;
-
-
 CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 (
     bucket   DateTime,
@@ -63,18 +51,6 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 2 DAY;
-
-
-CREATE TABLE IF NOT EXISTS analytics.fact_event_status_code_1m
-(
-    bucket      DateTime,
-    status_code Int32,
-    cnt         UInt64
-)
-ENGINE = SummingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY (bucket, status_code)
 TTL toDate(bucket) + INTERVAL 2 DAY;
 
 

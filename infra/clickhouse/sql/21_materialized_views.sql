@@ -15,17 +15,6 @@ FROM analytics.fact_event
 GROUP BY bucket, service;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_topic_1m
-TO analytics.fact_event_topic_1m
-AS
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    topic,
-    countState(event_id) AS total_state
-FROM analytics.fact_event
-GROUP BY bucket, topic;
-
-
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
 TO analytics.fact_event_lag_1m
 AS
@@ -70,18 +59,6 @@ SELECT
 FROM analytics.fact_event
 WHERE ingest_ts IS NOT NULL
 GROUP BY bucket;
-
-
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_status_code_1m
-TO analytics.fact_event_status_code_1m
-AS
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    status_code,
-    count() AS cnt
-FROM analytics.fact_event
-WHERE ingest_ts IS NOT NULL
-GROUP BY bucket, status_code;
 
 
 -- ⚠️ 이 MV는 가장 CPU가 비싼 편. 중복 제거 + WITH로 diff 재사용.
