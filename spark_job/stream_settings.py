@@ -18,7 +18,6 @@ class StreamIngestSettings:
     target_eps: Optional[int]
     max_offsets_safety: Optional[float]
     target_eps_profile_path: Optional[str]
-    kafka_partition_count: Optional[int]
     kafka_min_partitions: Optional[int]
     kafka_min_partitions_multiplier: Optional[float]
     enable_dlq_stream: bool
@@ -41,7 +40,6 @@ def load_stream_ingest_settings(
         target_eps_profile_path=get_env_str(
             source, "SPARK_TARGET_EPS_PROFILE_PATH"
         ),
-        kafka_partition_count=get_env_int(source, "SPARK_KAFKA_PARTITION_COUNT"),
         kafka_min_partitions=get_env_int(source, "SPARK_KAFKA_MIN_PARTITIONS"),
         kafka_min_partitions_multiplier=get_env_float(
             source, "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER"
