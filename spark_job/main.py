@@ -3,12 +3,79 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+import json
 import os
-from pyspark.sql.streaming import StreamingQueryException
+from pyspark.sql.streaming import StreamingQueryException, StreamingQueryListener
 
 from common.get_env import get_env_str
 from spark_job.stream_ingest import start_event_ingest_streams
 from spark_job.spark import build_streaming_spark
+
+
+def _progress_log_path() -> str:
+    """스트리밍 진행 로그 경로를 반환한다."""
+    return os.getenv("SPARK_PROGRESS_LOG_PATH", "/data/log-etlm/spark-events/spark_progress.log")
+
+
+class JsonProgressListener(StreamingQueryListener):
+    """StreamingQueryProgress를 JSON lines로 기록한다."""
+
+    def __init__(self, log_path: str):
+        super().__init__()
+        self._log_path = log_path
+
+    def _write(self, payload: dict) -> None:
+        if not self._log_path:
+            return
+        try:
+            log_dir = os.path.dirname(self._log_path)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+            with open(self._log_path, "a", encoding="utf-8") as logfile:
+                logfile.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        except Exception as exc:
+            print(f"[spark progress] log write failed: {exc}")
+
+    def onQueryStarted(self, event) -> None:  # type: ignore[override]
+        ts = datetime.now(timezone.utc).isoformat()
+        self._write(
+            {
+                "ts": ts,
+                "event": "started",
+                "id": str(event.id),
+                "runId": str(event.runId),
+                "name": event.name,
+            }
+        )
+
+    def onQueryProgress(self, event) -> None:  # type: ignore[override]
+        ts = datetime.now(timezone.utc).isoformat()
+        try:
+            progress = json.loads(event.progress.json)
+        except Exception:
+            progress = {"raw": event.progress.json}
+        self._write(
+            {
+                "ts": ts,
+                "queryName": event.progress.name,
+                "id": str(event.progress.id),
+                "runId": str(event.progress.runId),
+                "progress": progress,
+            }
+        )
+
+    def onQueryTerminated(self, event) -> None:  # type: ignore[override]
+        ts = datetime.now(timezone.utc).isoformat()
+        self._write(
+            {
+                "ts": ts,
+                "event": "terminated",
+                "id": str(event.id),
+                "runId": str(event.runId),
+                "exception": event.exception,
+            }
+        )
 
 
 def run_event_ingest() -> None:
@@ -18,6 +85,8 @@ def run_event_ingest() -> None:
         master_url = get_env_str(os.environ, "SPARK_MASTER_URL")
         spark = build_streaming_spark(master=master_url)
         spark.sparkContext.setLogLevel("INFO")
+
+        spark.streams.addListener(JsonProgressListener(_progress_log_path()))
 
         start_event_ingest_streams(spark)
 
