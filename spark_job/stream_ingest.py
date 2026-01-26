@@ -101,27 +101,52 @@ class StreamIngestJob:
         if max_offsets:
             reader = reader.option("maxOffsetsPerTrigger", max_offsets)
 
-        min_partitions = self._resolve_min_partitions()
+        min_partitions = self._resolve_min_partitions(spark, topics)
         if min_partitions:
             reader = reader.option("minPartitions", str(min_partitions))
         return reader.load()
 
-    def _resolve_min_partitions(self) -> int | None:
+    def _resolve_min_partitions(self, spark: SparkSession, topics: str) -> int | None:
         """스큐 완화를 위해 minPartitions를 계산/반환한다."""
         if self.settings.kafka_min_partitions:
             return self.settings.kafka_min_partitions
-        if (
-            self.settings.kafka_partition_count
-            and self.settings.kafka_min_partitions_multiplier
-        ):
-            return max(
-                1,
-                int(
-                    self.settings.kafka_partition_count
-                    * self.settings.kafka_min_partitions_multiplier
-                ),
-            )
+        multiplier = self.settings.kafka_min_partitions_multiplier
+        if not multiplier:
+            return None
+        partition_count = self._fetch_kafka_partition_count(spark, topics)
+        if not partition_count:
+            return None
+        return max(1, int(partition_count * multiplier))
         return None
+
+    def _fetch_kafka_partition_count(
+        self, spark: SparkSession, topics: str
+    ) -> int | None:
+        """Kafka 메타데이터에서 파티션 수를 조회한다."""
+        topic_list = [t.strip() for t in (topics or "").split(",") if t.strip()]
+        if not topic_list:
+            return None
+        try:
+            jvm = spark._jvm
+            props = jvm.java.util.Properties()
+            props.put("bootstrap.servers", self.settings.kafka_bootstrap)
+            admin = jvm.org.apache.kafka.clients.admin.AdminClient.create(props)
+            try:
+                java_topics = jvm.java.util.ArrayList()
+                for topic in topic_list:
+                    java_topics.add(topic)
+                desc = admin.describeTopics(java_topics).all().get()
+                it = desc.entrySet().iterator()
+                total = 0
+                while it.hasNext():
+                    entry = it.next()
+                    total += entry.getValue().partitions().size()
+                return int(total)
+            finally:
+                admin.close()
+        except Exception as exc:
+            print(f"[⚠️ spark] Kafka 파티션 수 조회 실패: {exc}")
+            return None
 
     def _compute_max_offsets_per_trigger(self) -> int | None:
         """목표 EPS와 트리거 간격으로 maxOffsetsPerTrigger를 계산한다."""
