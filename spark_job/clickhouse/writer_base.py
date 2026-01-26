@@ -6,8 +6,7 @@
 from __future__ import annotations
 
 import time
-
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, functions as F
 
 from ..batch_log import append_batch_log
 from .sink import write_to_clickhouse
@@ -64,6 +63,32 @@ class ClickHouseStreamWriterBase:
             if deduplicate_keys:
                 # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
                 out_df = out_df.dropDuplicates(deduplicate_keys)
+
+            # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
+            if "processed_ts" in out_df.columns:
+                out_df = out_df.withColumn("processed_ts", F.current_timestamp())
+                if "spark_ingest_ts" in out_df.columns and "process_ms" in out_df.columns:
+                    out_df = out_df.withColumn(
+                        "process_ms",
+                        (
+                            F.when(
+                                F.col("processed_ts").isNull()
+                                | F.col("spark_ingest_ts").isNull(),
+                                F.lit(None),
+                            )
+                            .otherwise(
+                                F.greatest(
+                                    (
+                                        F.col("processed_ts").cast("double")
+                                        - F.col("spark_ingest_ts").cast("double")
+                                    )
+                                    * F.lit(1000.0),
+                                    F.lit(0.0),
+                                )
+                            )
+                            .cast("int")
+                        ),
+                    )
 
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
 
