@@ -37,15 +37,18 @@ AS
 WITH
     dateDiff('millisecond', event_ts, stored_ts) AS e2e_ms,
     dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
-    dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms
+    dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
+    dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
 SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state,
     quantileTDigestState(toFloat64(greatest(sink_ms, 0))) AS sink_state,
-    quantileTDigestState(toFloat64(greatest(ingest_ms, 0))) AS ingest_state
+    quantileTDigestState(toFloat64(greatest(ingest_ms, 0))) AS ingest_state,
+    quantileTDigestState(toFloat64(greatest(ifNull(spark_processing_ms, 0), 0))) AS spark_processing_state
 FROM analytics.fact_event
 WHERE event_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
+  AND spark_ingest_ts IS NOT NULL
   AND processed_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;
@@ -108,3 +111,71 @@ SELECT
     count() AS total
 FROM analytics.fact_event_dlq
 GROUP BY bucket, service, error_type;
+
+
+-- ============================================================================
+-- Realtime materialized views (10 second buckets)
+-- ============================================================================
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_agg_10s
+TO analytics.fact_event_agg_10s
+AS
+SELECT
+    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
+    countState(event_id) AS total_state,
+    countStateIf(event_id, status_code >= 500) AS errors_state
+FROM analytics.fact_event
+GROUP BY bucket;
+
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_10s
+TO analytics.fact_event_latency_10s
+AS
+WITH
+    dateDiff('millisecond', event_ts, stored_ts) AS e2e_ms,
+    dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
+    dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
+    dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
+SELECT
+    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
+    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state,
+    quantileTDigestState(toFloat64(greatest(sink_ms, 0))) AS sink_state,
+    quantileTDigestState(toFloat64(greatest(ingest_ms, 0))) AS ingest_state,
+    quantileTDigestState(toFloat64(greatest(ifNull(spark_processing_ms, 0), 0))) AS spark_processing_state
+FROM analytics.fact_event
+WHERE event_ts IS NOT NULL
+  AND ingest_ts IS NOT NULL
+  AND spark_ingest_ts IS NOT NULL
+  AND processed_ts IS NOT NULL
+  AND stored_ts IS NOT NULL
+GROUP BY bucket;
+
+
+-- created_ts 기준 단계별 지연. bucket은 ingest_ts 10초 기준
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_stage_10s
+TO analytics.fact_event_latency_stage_10s
+AS
+WITH
+    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
+    assumeNotNull(created_ts) AS c_ts,
+    assumeNotNull(ingest_ts) AS i_ts,
+    assumeNotNull(spark_ingest_ts) AS s_ingest,
+    dateDiff('millisecond', c_ts, i_ts) AS producer_to_kafka_ms,
+    dateDiff('millisecond', i_ts, s_ingest) AS kafka_to_spark_ingest_ms,
+    dateDiff('millisecond', s_ingest, processed_ts) AS spark_processing_ms,
+    dateDiff('millisecond', processed_ts, stored_ts) AS spark_to_stored_ms,
+    dateDiff('millisecond', c_ts, stored_ts) AS e2e_ms
+SELECT
+    bucket,
+    quantileTDigestState(toFloat64(greatest(producer_to_kafka_ms, 0))) AS producer_to_kafka_state,
+    quantileTDigestState(toFloat64(greatest(kafka_to_spark_ingest_ms, 0))) AS kafka_to_spark_ingest_state,
+    quantileTDigestState(toFloat64(greatest(spark_processing_ms, 0))) AS spark_processing_state,
+    quantileTDigestState(toFloat64(greatest(spark_to_stored_ms, 0))) AS spark_to_stored_state,
+    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state
+FROM analytics.fact_event
+WHERE created_ts IS NOT NULL
+  AND ingest_ts IS NOT NULL
+  AND spark_ingest_ts IS NOT NULL
+  AND processed_ts IS NOT NULL
+  AND stored_ts IS NOT NULL
+GROUP BY bucket;
