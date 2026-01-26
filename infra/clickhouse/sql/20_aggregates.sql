@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m
     bucket     DateTime,
     e2e_state  AggregateFunction(quantileTDigest, Float64),
     sink_state AggregateFunction(quantileTDigest, Float64),
-    ingest_state AggregateFunction(quantileTDigest, Float64)
+    ingest_state AggregateFunction(quantileTDigest, Float64),
+    spark_processing_state AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
@@ -83,3 +84,48 @@ ORDER BY (bucket, service, error_type)
 -- 기존: TTL bucket + INTERVAL 7 DAY (행 단위)
 -- 변경: 파티션(일) 단위 TTL
 TTL toDate(bucket) + INTERVAL 8 DAY;
+
+
+-- ============================================================================
+-- Realtime aggregates (10 second buckets)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS analytics.fact_event_agg_10s
+(
+    bucket       DateTime,
+    total_state  AggregateFunction(count, String),
+    errors_state AggregateFunction(count, String)
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL toDate(bucket) + INTERVAL 1 DAY;
+
+
+CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_10s
+(
+    bucket     DateTime,
+    e2e_state  AggregateFunction(quantileTDigest, Float64),
+    sink_state AggregateFunction(quantileTDigest, Float64),
+    ingest_state AggregateFunction(quantileTDigest, Float64),
+    spark_processing_state AggregateFunction(quantileTDigest, Float64)
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL toDate(bucket) + INTERVAL 1 DAY;
+
+
+CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_stage_10s
+(
+    bucket        DateTime,
+    producer_to_kafka_state       AggregateFunction(quantileTDigest, Float64),
+    kafka_to_spark_ingest_state   AggregateFunction(quantileTDigest, Float64),
+    spark_processing_state        AggregateFunction(quantileTDigest, Float64),
+    spark_to_stored_state         AggregateFunction(quantileTDigest, Float64),
+    e2e_state     AggregateFunction(quantileTDigest, Float64)
+)
+ENGINE = AggregatingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL toDate(bucket) + INTERVAL 1 DAY;
