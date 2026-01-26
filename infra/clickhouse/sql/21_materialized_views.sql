@@ -35,7 +35,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_1m
 TO analytics.fact_event_latency_1m
 AS
 WITH
-    dateDiff('millisecond', event_ts, stored_ts) AS e2e_ms,
+    dateDiff('millisecond', ingest_ts, stored_ts) AS e2e_ms,
     dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
     dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
     dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
@@ -69,20 +69,20 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1
 TO analytics.fact_event_latency_service_1m
 AS
 WITH
-    -- bucket을 ingest_ts 대신 created_ts 기준으로 변경
-    toStartOfMinute(assumeNotNull(created_ts)) AS bucket,
+    -- bucket 기준을 ingest_ts로 통일 (1m 집계와 정렬)
+    toStartOfMinute(ingest_ts) AS bucket,
 
     -- null 제거 후 쓰려고 where로 강제했으니 assumeNotNull은 필수는 아니지만
     -- 타입 때문에 남겨야 하면 유지.
     assumeNotNull(created_ts) AS c_ts,
     assumeNotNull(ingest_ts) AS i_ts,
     assumeNotNull(spark_ingest_ts) AS s_ingest,
-    -- E2E 관련 지연 시간 계산 (created_ts 기준)
+    -- 지연 시간 계산 (producer→kafka는 created_ts, e2e는 ingest_ts 기준)
     dateDiff('millisecond', c_ts, i_ts) AS producer_to_kafka_ms,    -- Producer 생성 ~ Kafka 수집
     dateDiff('millisecond', i_ts, s_ingest) AS kafka_to_spark_ingest_ms, -- Kafka 수집 ~ Spark 수집
     dateDiff('millisecond', s_ingest, processed_ts) AS spark_processing_ms, -- Spark 수집 ~ Spark 처리 완료
     dateDiff('millisecond', processed_ts, stored_ts) AS spark_to_stored_ms,   -- Spark 처리 완료 ~ ClickHouse 적재
-    dateDiff('millisecond', c_ts, stored_ts) AS e2e_ms               -- Producer 생성 ~ ClickHouse 적재 (새로운 E2E)
+    dateDiff('millisecond', i_ts, stored_ts) AS e2e_ms               -- Kafka 수집 ~ ClickHouse 적재 (운영 E2E)
 
 SELECT
     bucket,
@@ -132,7 +132,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_10s
 TO analytics.fact_event_latency_10s
 AS
 WITH
-    dateDiff('millisecond', event_ts, stored_ts) AS e2e_ms,
+    dateDiff('millisecond', ingest_ts, stored_ts) AS e2e_ms,
     dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
     dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
     dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
@@ -151,7 +151,7 @@ WHERE event_ts IS NOT NULL
 GROUP BY bucket;
 
 
--- created_ts 기준 단계별 지연. bucket은 ingest_ts 10초 기준
+-- producer→kafka는 created_ts 기준, bucket은 ingest_ts 10초 기준
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_stage_10s
 TO analytics.fact_event_latency_stage_10s
 AS
@@ -164,7 +164,7 @@ WITH
     dateDiff('millisecond', i_ts, s_ingest) AS kafka_to_spark_ingest_ms,
     dateDiff('millisecond', s_ingest, processed_ts) AS spark_processing_ms,
     dateDiff('millisecond', processed_ts, stored_ts) AS spark_to_stored_ms,
-    dateDiff('millisecond', c_ts, stored_ts) AS e2e_ms
+    dateDiff('millisecond', i_ts, stored_ts) AS e2e_ms
 SELECT
     bucket,
     quantileTDigestState(toFloat64(greatest(producer_to_kafka_ms, 0))) AS producer_to_kafka_state,
