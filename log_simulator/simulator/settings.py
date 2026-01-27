@@ -17,7 +17,7 @@ class SimulatorSettings:
     """시뮬레이터 런타임 설정 값을 담는다."""
     simulator_share: float
     log_batch_size: int
-    tick_sec: float
+    target_interval_sec: float
     queue_size: int
     loops_per_service: int
     queue_warn_ratio: float
@@ -54,7 +54,7 @@ class QueueThrottleConfig:
 
 _DEFAULT_SIMULATOR_SHARE = 1.0
 _DEFAULT_LOG_BATCH_SIZE = 240
-_DEFAULT_TICK_SEC = 0.22
+_DEFAULT_TARGET_INTERVAL_SEC = 0.22
 _DEFAULT_QUEUE_SIZE = 4000
 _DEFAULT_LOOPS_PER_SERVICE = 4
 _DEFAULT_QUEUE_WARN_RATIO = 0.8
@@ -86,6 +86,11 @@ def _normalize_event_mode(mode: Optional[str]) -> str:
 def load_simulator_settings(env: Mapping[str, str] | None = None) -> SimulatorSettings:
     """환경 변수에서 시뮬레이터 설정을 로드한다."""
     source = env or os.environ
+    target_interval_sec = get_env_float(
+        source,
+        "TARGET_INTERVAL_SEC",
+        _DEFAULT_TARGET_INTERVAL_SEC,
+    )
     return SimulatorSettings(
         simulator_share=get_env_float(
             source,
@@ -97,11 +102,7 @@ def load_simulator_settings(env: Mapping[str, str] | None = None) -> SimulatorSe
             "LOG_BATCH_SIZE",
             _DEFAULT_LOG_BATCH_SIZE,
         ),
-        tick_sec=get_env_float(
-            source,
-            "TICK_SEC",
-            _DEFAULT_TICK_SEC,
-        ),
+        target_interval_sec=target_interval_sec,
         queue_size=get_env_int(
             source,
             "QUEUE_SIZE",
