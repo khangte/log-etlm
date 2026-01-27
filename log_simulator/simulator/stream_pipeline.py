@@ -52,7 +52,7 @@ async def run_simulator_loop(
     resolved_settings = settings or get_simulator_settings()
     resolved_queue_config = queue_config or get_queue_config(resolved_settings)
     throttle_scale = resolved_queue_config.soft_scale_max
-    tick_sec = max(resolved_settings.tick_sec, 0.01)
+    target_interval_sec = max(resolved_settings.target_interval_sec, 0.01)
     resolved_batch_size = (
         resolved_settings.log_batch_size
         if log_batch_size is None
@@ -65,7 +65,7 @@ async def run_simulator_loop(
     last_behind_log_ts = 0.0
 
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
-    await asyncio.sleep(random.uniform(0.0, tick_sec))
+    await asyncio.sleep(random.uniform(0.0, target_interval_sec))
 
     while True:
         loop_start = time.perf_counter()
@@ -98,7 +98,7 @@ async def run_simulator_loop(
                 await publish_queue.put(batch_items)
                 enqueue_duration = time.perf_counter() - enqueue_start
 
-        desired_period = tick_sec
+        desired_period = target_interval_sec
         elapsed = time.perf_counter() - loop_start
         sleep_time = desired_period - elapsed
         if sleep_time < 0:
