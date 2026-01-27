@@ -1,5 +1,5 @@
 {
-  "_comment": "Grafana 로그 파이프라인 운영 모니터링 (1m/5m 집계 기반)",
+  "_comment": "Grafana \ub85c\uadf8 \ud30c\uc774\ud504\ub77c\uc778 \uc6b4\uc601 \ubaa8\ub2c8\ud130\ub9c1 (1m/5m \uc9d1\uacc4 \uae30\ubc18)",
   "__requires": [
     {
       "type": "grafana",
@@ -69,7 +69,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 e2e p95 판정용",
+      "description": "\ucd5c\uadfc 5\ubd84 e2e p95 \ud310\uc815\uc6a9",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -82,7 +82,7 @@
               },
               {
                 "color": "red",
-                "value": 10000
+                "value": 20000
               }
             ]
           },
@@ -123,122 +123,7 @@
           "refId": "A"
         }
       ],
-      "title": "최근 5분 E2E p95 (ms) (5m)",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "id": 45,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, t.errors / t.total) * 100 AS error_rate_pct\nFROM (\n  SELECT\n    countMerge(total_state) AS total,\n    countMerge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "최근 5분 에러율 % (5m)",
-      "type": "stat",
-      "description": "최근 5분 전체 에러율(5xx) 비율"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 0,
-        "w": 6,
-        "h": 4
-      },
-      "id": 32,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "pluginVersion": "10.4.2",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct\nFROM\n(\n  SELECT sum(total) AS dlq\n  FROM analytics.fact_event_dlq_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) d\nCROSS JOIN\n(\n  SELECT countMerge(total_state) AS total\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "최근 5분 DLQ 비율 % (5m)",
+      "title": "E2E p95 (\ucd5c\uadfc 5\ubd84)",
       "type": "stat"
     },
     {
@@ -263,7 +148,7 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 18,
+        "x": 6,
         "y": 0,
         "w": 6,
         "h": 4
@@ -295,16 +180,379 @@
           "refId": "A"
         }
       ],
-      "title": "최근 5분 Freshness ms (1m 롤업) (5m)",
+      "title": "Freshness(ingest) (\ucd5c\uadfc 5\ubd84)",
       "type": "stat",
-      "description": "1분 롤업 테이블 기반 freshness(ms)"
+      "description": "1\ubd84 \ub864\uc5c5 \ud14c\uc774\ube14 \uae30\ubc18 freshness(ms)"
     },
     {
       "datasource": {
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "\ucd5c\uadfc 5\ubd84 e2e p95 \ud310\uc815\uc6a9",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 48,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(event_ts), now()) AS freshness_ms\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE\n  AND event_ts IS NOT NULL\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Freshness(event) (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "id": 45,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, t.errors / t.total) * 100 AS error_rate_pct\nFROM (\n  SELECT\n    countMerge(total_state) AS total,\n    countMerge(errors_state) AS errors\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "\uc5d0\ub7ec\uc728 (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat",
+      "description": "\ucd5c\uadfc 5\ubd84 \uc804\uccb4 \uc5d0\ub7ec\uc728(5xx) \ube44\uc728"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "\ucd5c\uadfc 5\ubd84 e2e p95 \ud310\uc815\uc6a9",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "id": 53,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS spark_ingest_p95_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Spark ingest p95 (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "\ucd5c\uadfc 5\ubd84 e2e p95 \ud310\uc815\uc6a9",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "id": 49,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigest(0.95)(query_duration_ms) AS insert_p95_ms\nFROM system.query_log\nWHERE type='QueryFinish'\n  AND event_time >= now() - INTERVAL 5 MINUTE\n  AND query LIKE 'INSERT INTO analytics.fact_event%'\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "ClickHouse INSERT p95 (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "\ucd5c\uadfc 5\ubd84 e2e p95 \ud310\uc815\uc6a9",
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20000
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "id": 50,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  quantileTDigest(0.95)(query_duration_ms) AS query_p95_ms\nFROM system.query_log\nWHERE type='QueryFinish'\n  AND event_time >= now() - INTERVAL 5 MINUTE\n  AND (user = 'grafana_user' OR client_name = 'grafana_user')\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Grafana \ucffc\ub9ac p95 (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "id": 32,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  now() AS time,\n  if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct\nFROM\n(\n  SELECT sum(total) AS dlq\n  FROM analytics.fact_event_dlq_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) d\nCROSS JOIN\n(\n  SELECT countMerge(total_state) AS total\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 5 MINUTE\n) t\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "DLQ \ube44\uc728 (\ucd5c\uadfc 5\ubd84)",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "\uc801\uc7ac \uc2dc\uac01(ingest_ts) \uae30\uc900 EPS\uc785\ub2c8\ub2e4. Spark \ucc98\ub9ac\ub7c9\uacfc \uc9c1\uc811 \uc5f0\ub3d9\ub429\ub2c8\ub2e4. (1\ubd84 \uc9d1\uacc4)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -336,7 +584,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -366,7 +614,7 @@
           "refId": "A"
         }
       ],
-      "title": "로그 EPS (ingest_ts 기준) (1m)",
+      "title": "\ub85c\uadf8 EPS (1m)",
       "type": "timeseries"
     },
     {
@@ -374,7 +622,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ingest_ts 기준 1분 집계에서 에러율(5xx)을 계산합니다.",
+      "description": "ingest_ts \uae30\uc900 1\ubd84 \uc9d1\uacc4\uc5d0\uc11c \uc5d0\ub7ec\uc728(5xx)\uc744 \uacc4\uc0b0\ud569\ub2c8\ub2e4.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -406,7 +654,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 8,
         "w": 12,
         "h": 8
       },
@@ -436,7 +684,7 @@
           "refId": "A"
         }
       ],
-      "title": "에러율 (ingest 기준) (1m)",
+      "title": "\uc5d0\ub7ec\uc728 (1m)",
       "type": "timeseries"
     },
     {
@@ -444,7 +692,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "stored_ts 기준 end-to-end p95 지연(ms)입니다. (1분 집계)",
+      "description": "stored_ts \uae30\uc900 end-to-end p95 \uc9c0\uc5f0(ms)\uc785\ub2c8\ub2e4. (1\ubd84 \uc9d1\uacc4)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -476,7 +724,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -502,11 +750,11 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms,\n  quantileTDigestMerge(0.99)(e2e_state) AS e2e_p99_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
-      "title": "End-to-End 지연 p95 (1m)",
+      "title": "E2E \uc9c0\uc5f0 p95/p99 (1m)",
       "type": "timeseries"
     },
     {
@@ -514,7 +762,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "event->ingest, ingest->kafka, kafka->processed, ingest->processed, processed->stored, e2e (p95, 1분 집계)",
+      "description": "event->ingest, ingest->kafka, kafka->processed, ingest->processed, processed->stored, e2e (p95, 1\ubd84 \uc9d1\uacc4)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -546,7 +794,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 12,
+        "y": 16,
         "w": 12,
         "h": 8
       },
@@ -576,7 +824,7 @@
           "refId": "A"
         }
       ],
-      "title": "과정별 지연 p95 (1m)",
+      "title": "\uacfc\uc815\ubcc4 \uc9c0\uc5f0 p95 (1m)",
       "type": "timeseries"
     },
     {
@@ -584,14 +832,84 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "stored_ts 기준 end-to-end p99 지연(ms)입니다. (1분 집계)",
+      "description": "\uc801\uc7ac \uc2dc\uac01(ingest_ts) \uae30\uc900 EPS\uc785\ub2c8\ub2e4. Spark \ucc98\ub9ac\ub7c9\uacfc \uc9c1\uc811 \uc5f0\ub3d9\ub429\ub2c8\ub2e4. (1\ubd84 \uc9d1\uacc4)",
       "fieldConfig": {
         "defaults": {
           "color": {
             "mode": "palette-classic"
           },
           "custom": {
-            "axisLabel": "p99 (ms)",
+            "axisLabel": "p95 (ms)",
+            "axisPlacement": "auto",
+            "axisSoftMin": 0,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": true
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      },
+      "id": 52,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.4.2",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(spark_processing_state) AS spark_processing_p95_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
+          "refId": "A"
+        }
+      ],
+      "title": "Spark processing p95 (1m)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "description": "\uc801\uc7ac \uc2dc\uac01(ingest_ts) \uae30\uc900 EPS\uc785\ub2c8\ub2e4. Spark \ucc98\ub9ac\ub7c9\uacfc \uc9c1\uc811 \uc5f0\ub3d9\ub429\ub2c8\ub2e4. (1\ubd84 \uc9d1\uacc4)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisLabel": "p95/p99 (ms)",
             "axisPlacement": "auto",
             "axisSoftMin": 0,
             "drawStyle": "line",
@@ -616,11 +934,11 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 20,
+        "y": 32,
         "w": 12,
         "h": 8
       },
-      "id": 46,
+      "id": 51,
       "options": {
         "legend": {
           "calcs": [],
@@ -642,11 +960,11 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.99)(e2e_state) AS p99_ms\nFROM analytics.fact_event_latency_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_p95_ms,\n  quantileTDigestMerge(0.99)(kafka_to_spark_ingest_state) AS kafka_to_spark_p99_ms\nFROM analytics.fact_event_latency_service_1m\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
-      "title": "End-to-End 지연 p99 (1m)",
+      "title": "Kafka\u2192Spark ingest p95/p99 (1m)",
       "type": "timeseries"
     },
     {
@@ -654,7 +972,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "DLQ / 전체 비율을 1분 단위로 계산합니다.",
+      "description": "DLQ / \uc804\uccb4 \ube44\uc728\uc744 1\ubd84 \ub2e8\uc704\ub85c \uacc4\uc0b0\ud569\ub2c8\ub2e4.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -685,9 +1003,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 20,
-        "w": 12,
+        "x": 0,
+        "y": 40,
+        "w": 8,
         "h": 8
       },
       "id": 47,
@@ -716,7 +1034,7 @@
           "refId": "A"
         }
       ],
-      "title": "Drop/Invalid 비율 (1m)",
+      "title": "Drop/Invalid \ube44\uc728 (1m)",
       "type": "timeseries"
     },
     {
@@ -724,7 +1042,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "fact_event_dlq_agg_1m 기반 1분 EPS",
+      "description": "fact_event_dlq_agg_1m \uae30\ubc18 1\ubd84 EPS",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -755,9 +1073,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 0,
-        "y": 28,
-        "w": 12,
+        "x": 8,
+        "y": 40,
+        "w": 8,
         "h": 8
       },
       "id": 21,
@@ -800,9 +1118,9 @@
         "overrides": []
       },
       "gridPos": {
-        "x": 12,
-        "y": 28,
-        "w": 12,
+        "x": 16,
+        "y": 40,
+        "w": 8,
         "h": 8
       },
       "id": 23,
@@ -825,7 +1143,7 @@
           "refId": "A"
         }
       ],
-      "title": "DLQ Top error_type (5m)",
+      "title": "DLQ Top error_type (\ucd5c\uadfc 5\ubd84)",
       "type": "table"
     }
   ],
