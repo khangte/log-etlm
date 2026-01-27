@@ -5,18 +5,18 @@ services:
       context: .
       dockerfile: log_simulator/Dockerfile
     container_name: simulator
-    cpus: "0.8"
+    cpus: "1.0"
     # restart: unless-stopped
     ports: 
       - "8000:8000"
     environment:
-      # Simulator load
+      # --- Simulator load (전체 부하 프로필) ---
       - SIMULATOR_SHARE=1.0
-      - LOG_BATCH_SIZE=600
-      - TICK_SEC=0.25
+      - LOG_BATCH_SIZE=1000
+      - TARGET_INTERVAL_SEC=0.38
       - LOOPS_PER_SERVICE=2
       - SIM_EVENT_MODE=domain
-      # Simulator queue
+      # --- Simulator queue (백프레셔/스로틀) ---
       - QUEUE_SIZE=4000
       - SIM_QUEUE_WARN_RATIO=0.8
       - QUEUE_LOW_WATERMARK_RATIO=0.2
@@ -31,14 +31,14 @@ services:
       - QUEUE_SOFT_SCALE_MAX=1.0
       - SIM_BEHIND_LOG_EVERY_SEC=5.0
       - SIM_DRAIN_TIMEOUT_SEC=5.0
-      # Publisher worker
+      # --- Publisher worker ---
       - PUBLISHER_WORKERS=3
       - WORKER_BATCH_SIZE=300
       - PUBLISH_QUEUE_WARN_RATIO=0.7
       - IDLE_WARN_SEC=5
       - SEND_WARN_SEC=5
       - PUBLISH_RETRY_BACKOFF_SEC=0.2
-      # Kafka producer
+      # --- Kafka producer ---
       - KAFKA_BOOTSTRAP=kafka:9092
       - KAFKA_CLIENT_ID=log-monitoring-simulator
       - PRODUCER_ENABLE_IDEMPOTENCE=false
@@ -69,41 +69,34 @@ services:
     ports: 
       - "29092:29092"
     environment:
-      # KRaft 필수
+      # --- KRaft 기본 ---
       CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"
-      # KRaft 역할/노드
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
-      # KRaft 리스너/쿼럼
+      # --- Listener / Quorum ---
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
-      # 리스너 설정
       KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093"
-      # 외부 접속 필요 시 localhost → <VM_IP> 로 교체
       KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
-      # 단일 브로커 기본값
-      # RF=1 (복제 없음. 장애 시 데이터 유실 위험 큼)
+      # --- Replication / ISR (단일 브로커 기본) ---
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      # min_isr=1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      # 파티션 수 (파티션 수동 지정을 위해 1개로 고정)
+      # --- Partitions ---
       KAFKA_NUM_PARTITIONS: 1
-      # ★ 로그/메타데이터 경로 (메타데이터 경로를 명시적으로 지정)
+      # --- Storage / Heap ---
       KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
-      # ★ JVM 힙(정수 단위로)
-      # 초기 크기 1GB, 최대 크기 1.5GB
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
-      # 로그 세그먼트 정리 빈도와 I/O 스톨을 줄이기 위한 보관 설정
-      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000   # 10분
-      KAFKA_LOG_RETENTION_HOURS: 2                    # 2시간
-      KAFKA_LOG_RETENTION_BYTES: 21474836480          # 20GB
-      KAFKA_LOG_SEGMENT_BYTES: 536870912              # 512MB
+      # --- Retention / Segment ---
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000
+      KAFKA_LOG_RETENTION_HOURS: 2
+      KAFKA_LOG_RETENTION_BYTES: 21474836480
+      KAFKA_LOG_SEGMENT_BYTES: 536870912
     volumes:
       - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
       - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
@@ -131,10 +124,9 @@ services:
     ports: 
       - "8080:8080"
     environment:
-      # 클러스터 설정: 내부 브로커 주소 사용
+      # --- Kafka-UI (내부 브로커) ---
       - KAFKA_CLUSTERS_0_NAME=local
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
-      # (선택) 토픽 생성 허용
       - KAFKA_CLUSTERS_0_READONLY=false
     depends_on:
       kafka:
@@ -176,32 +168,38 @@ services:
     ports: 
       - "4040:4040"   # Spark UI (stream)
     environment:
-      # Spark/Kafka connection
+      # --- Spark/Kafka connection (필수) ---
       - SPARK_MASTER_URL=spark://spark-master:7077
       - KAFKA_BOOTSTRAP=kafka:9092
-      # Spark Streaming ingest tuning
+      # --- Spark Streaming ingest ---
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
+      - SPARK_STARTING_OFFSETS=latest
+      - SPARK_RESET_CHECKPOINT_ON_START=true
+      - SPARK_FACT_TRIGGER_INTERVAL=10 seconds
+      - SPARK_STORE_RAW_JSON=false
+      # --- maxOffsets 자동 계산 (target EPS 기반) ---
+      - SPARK_MAX_OFFSETS_PER_TRIGGER=    # 비어있으면 자동 계산
+      - SPARK_MAX_OFFSETS_SAFETY=1.0
+      - SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=1
+      # --- DLQ/에러 스트림 (선택) ---
       - SPARK_DLQ_TOPIC=logs.dlq
       - SPARK_ENABLE_DLQ_STREAM=false
-      - SPARK_RESET_CHECKPOINT_ON_START=true
-      - SPARK_STARTING_OFFSETS=latest
-      - SPARK_FACT_TRIGGER_INTERVAL=3 seconds
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=17000
-      - SPARK_STORE_RAW_JSON=false
       - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
       - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
       - SPARK_DLQ_KAFKA_LOG_EMPTY=false
+      # --- Batch/metrics logging ---
       - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
-      # ClickHouse sink tuning
+      # --- ClickHouse sink tuning ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=50000
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=30000
       - SPARK_CLICKHOUSE_WRITE_PARTITIONS=1
-      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false
+      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false    # 다운스케일은 sink.py에서 coalesce로 진행
     volumes:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
+      - ./log_simulator/config:/app/log_simulator/config:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
     depends_on:
@@ -241,7 +239,7 @@ services:
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "2"
+      - "3"
       - "--memory"
       - "3g"
     networks: [logetlm-net]
@@ -272,6 +270,51 @@ services:
       options: { max-size: "10m", max-file: "5" }
 
 
+  spark-batch-master:
+    image: spark:4.0.1-python3
+    container_name: spark-batch-master
+    # # cpus: "0.05"
+    # restart: unless-stopped
+    command:
+      - "/opt/spark/bin/spark-class"
+      - "org.apache.spark.deploy.master.Master"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "7078"
+      - "--webui-port"
+      - "8082"
+    ports:
+      - 7078:7078
+      - 8082:8082
+    networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+
+  spark-batch-worker-1:
+    image: spark:4.0.1-python3
+    container_name: spark-batch-worker-1
+    # cpus: "1.0"
+    # restart: unless-stopped
+    user: "185:185"
+    depends_on:
+      - spark-batch-master
+    command:
+      - "/opt/spark/bin/spark-class"
+      - "org.apache.spark.deploy.worker.Worker"
+      - "spark://spark-batch-master:7078"
+      - "--cores"
+      - "2"
+      - "--memory"
+      - "3g"
+    networks: [logetlm-net]
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "5" }
+
+
   spark-batch:
     build:
       context: .
@@ -280,9 +323,15 @@ services:
     user: "1000:185"
     command: ["python", "-m", "spark_job.dimension.jobs.batch_job"]
     environment:
+      # --- Dimension batch ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      # --- Batch options ---
+      - SPARK_BATCH_MASTER=spark://spark-batch-master:7078
+      - SPARK_BATCH_DRIVER_MEMORY=2g
+      - SPARK_BATCH_EXECUTOR_MEMORY=2g
+      - SPARK_BATCH_SHUFFLE_PARTITIONS=64
       - DIM_BATCH_LOOKBACK_DAYS=1
       - DIM_SERVICE_MAP_PATH=
     volumes:
@@ -290,6 +339,8 @@ services:
       - ./spark_job:/app/spark_job:ro
     depends_on:
       - clickhouse
+      - spark-batch-master
+      - spark-batch-worker-1
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -312,6 +363,7 @@ services:
       - IPC_LOCK
       - SYS_NICE
     environment:
+      # --- ClickHouse auth / access ---
       - CLICKHOUSE_USER=log_user
       - CLICKHOUSE_PASSWORD=log_pwd
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
@@ -345,7 +397,7 @@ services:
     ports:
       - "5521:5521"
     environment:
-      # Core ClickHouse Configuration
+      # --- CH-UI connection ---
       VITE_CLICKHOUSE_URL: "http://localhost:8123"
       VITE_CLICKHOUSE_USER: "log_user"
       VITE_CLICKHOUSE_PASS: "log_pwd"
@@ -370,9 +422,11 @@ services:
     ports: 
       - "3000:3000"
     environment:
+      # --- Grafana auth / security ---
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
+      # --- Plugins (optional) ---
       # - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
