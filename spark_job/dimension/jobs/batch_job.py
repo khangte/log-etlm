@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import time
 from typing import Optional
 
 from pyspark.sql import DataFrame, SparkSession
@@ -33,6 +34,7 @@ class DimensionBatchJob:
 
     def run(self) -> None:
         """디멘전 배치 작업을 수행한다."""
+        started = time.monotonic()
         spark = build_batch_spark()
         spark.sparkContext.setLogLevel("INFO")
         try:
@@ -52,6 +54,8 @@ class DimensionBatchJob:
             self.writer.write_dim_user(dim_user_df)
         finally:
             spark.stop()
+            elapsed = time.monotonic() - started
+            print(f"[spark batch] completed in {elapsed:.2f}s")
 
     def _read_fact_event(self, spark: SparkSession) -> DataFrame:
         """팩트 이벤트를 읽는다."""
