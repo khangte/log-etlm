@@ -27,85 +27,28 @@
         "uid": "clickhouse"
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "x": 0,
-        "y": 0,
-        "w": 8,
-        "h": 9
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  service,\n  service_group,\n  is_active,\n  description\nFROM analytics.dim_service\nORDER BY service ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "\uc11c\ube44\uc2a4 \ubaa9\ub85d",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 0,
-        "w": 8,
-        "h": 9
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  status_code,\n  status_class,\n  is_error,\n  description\nFROM analytics.dim_status_code\nORDER BY status_code ASC",
-          "refId": "A"
-        }
-      ],
-      "title": "\uc0c1\ud0dc\ucf54\ub4dc \ubaa9\ub85d",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 16,
         "y": 0,
         "w": 8,
         "h": 9
@@ -129,8 +72,10 @@
           "refId": "A"
         }
       ],
-      "title": "Dim \ud14c\uc774\ube14 row count",
-      "type": "table"
+      "title": "Dim 테이블 행 개수",
+      "type": "table",
+      "description": "dim_* 테이블 현재 row 수",
+      "id": 2
     },
     {
       "datasource": {
@@ -138,8 +83,161 @@
         "uid": "clickhouse"
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "null_rate_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  table_name,\n  round(100 * (null_cnt / total), 2) AS null_rate_pct\nFROM (\n  SELECT 'dim_service' AS table_name, count() AS total, countIf(description IS NULL) AS null_cnt FROM analytics.dim_service\n  UNION ALL SELECT 'dim_status_code', count(), countIf(description IS NULL) FROM analytics.dim_status_code\n  UNION ALL SELECT 'dim_user', count(), countIf(description IS NULL) FROM analytics.dim_user\n)\nORDER BY table_name",
+          "refId": "A"
+        }
+      ],
+      "title": "description 결측률(%)",
+      "type": "table",
+      "description": "카탈로그 설명 관리 수준",
+      "id": 3
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  table_name,\n  toString(is_active) AS is_active,\n  count() AS cnt\nFROM (\n  SELECT 'dim_service' AS table_name, is_active FROM analytics.dim_service\n  UNION ALL SELECT 'dim_user', is_active FROM analytics.dim_user\n)\nGROUP BY table_name, is_active\nORDER BY table_name, is_active DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "is_active 분포",
+      "type": "table",
+      "description": "활성/비활성 비율",
+      "id": 4
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "expected"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "actual"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_days"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "x": 0,
@@ -166,45 +264,10 @@
           "refId": "A"
         }
       ],
-      "title": "\ub0a0\uc9dc \ubc94\uc704",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 9,
-        "w": 8,
-        "h": 9
-      },
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm",
-        "footer": {
-          "show": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  toHour(bucket) AS hour,\n  countMerge(total_state) AS events\nFROM analytics.fact_event_agg_1m\nWHERE $__timeFilter(bucket)\nGROUP BY hour\nORDER BY hour",
-          "refId": "A"
-        }
-      ],
-      "title": "\uc720\uc785 \uc2dc\uac04\ub300 \ubd84\ud3ec",
-      "type": "table"
+      "title": "dim_date 범위",
+      "type": "table",
+      "description": "dim_date 최소/최대 및 누락 일수",
+      "id": 5
     },
     {
       "datasource": {
@@ -213,67 +276,28 @@
       },
       "fieldConfig": {
         "defaults": {
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missing_days"
+            },
+            "properties": [
               {
-                "color": "green",
-                "value": null
+                "id": "unit",
+                "value": "short"
               }
             ]
-          },
-          "unit": "none"
-        },
-        "overrides": []
+          }
+        ]
       },
       "gridPos": {
-        "x": 16,
+        "x": 8,
         "y": 9,
-        "w": 8,
-        "h": 9
-      },
-      "options": {
-        "colorMode": "value",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "horizontal",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-clickhouse-datasource",
-            "uid": "clickhouse"
-          },
-          "queryType": "sql",
-          "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  uniqCombined64If(user_id, user_id IS NOT NULL) AS active_users\nFROM analytics.fact_event\nWHERE ingest_ts >= now() - INTERVAL 15 MINUTE",
-          "refId": "A"
-        }
-      ],
-      "title": "\ucd5c\uadfc \ud65c\uc131 \uc0ac\uc6a9\uc790",
-      "type": "stat",
-      "description": "\ucd5c\uadfc 15\ubd84 active user (uniq)"
-    },
-    {
-      "datasource": {
-        "type": "grafana-clickhouse-datasource",
-        "uid": "clickhouse"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 18,
         "w": 8,
         "h": 9
       },
@@ -296,8 +320,10 @@
           "refId": "A"
         }
       ],
-      "title": "dim_date \ub204\ub77d \uad6c\uac04",
-      "type": "table"
+      "title": "dim_date 누락 구간 점검",
+      "type": "table",
+      "description": "dim_date 연속성 누락 구간",
+      "id": 6
     },
     {
       "datasource": {
@@ -305,8 +331,137 @@
         "uid": "clickhouse"
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "weekend_rate_pct"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 9,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  round(100 * countIf(is_weekend = 1) / count(), 2) AS weekend_rate_pct\nFROM analytics.dim_date",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_date 주말 비율",
+      "type": "table",
+      "description": "주말 비율 sanity check",
+      "id": 7
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rows"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  min(time_key) AS min_time_key,\n  max(time_key) AS max_time_key,\n  count() AS rows\nFROM analytics.dim_time",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_time 커버리지",
+      "type": "table",
+      "description": "time_key 범위 및 row 수",
+      "id": 8
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "x": 8,
@@ -329,12 +484,14 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.service,\n  countMerge(f.total_state) AS events\nFROM analytics.dim_service d\nLEFT JOIN analytics.fact_event_agg_1m f\n  ON f.service = d.service\n  AND $__timeFilter(f.bucket)\nGROUP BY d.service\nORDER BY events DESC\nLIMIT 20",
+          "rawSql": "SELECT\n  hour,\n  count() AS cnt\nFROM analytics.dim_time\nGROUP BY hour\nORDER BY hour",
           "refId": "A"
         }
       ],
-      "title": "dim_service \uae30\uc900 \uc11c\ube44\uc2a4 \uc774\ubca4\ud2b8 Top",
-      "type": "table"
+      "title": "dim_time hour 분포",
+      "type": "table",
+      "description": "0~23 커버리지 확인",
+      "id": 9
     },
     {
       "datasource": {
@@ -342,8 +499,25 @@
         "uid": "clickhouse"
       },
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "x": 16,
@@ -366,13 +540,572 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  f.status_code,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d ON f.status_code = d.status_code\nWHERE $__timeFilter(f.ingest_ts)\n  AND d.status_code IS NULL\nGROUP BY f.status_code\nORDER BY cnt DESC\nLIMIT 20",
+          "rawSql": "SELECT\n  time_of_day,\n  count() AS cnt\nFROM analytics.dim_time\nGROUP BY time_of_day\nORDER BY cnt DESC",
           "refId": "A"
         }
       ],
-      "title": "Fact-Dim \ubbf8\ub9e4\ud551 \uc0c1\ud0dc\ucf54\ub4dc Top",
+      "title": "dim_time time_of_day 분포",
       "type": "table",
-      "description": "fact_event \uc9c1\uc811 \uc9d1\uacc4(\ubd80\ud558 \uc8fc\uc758)"
+      "description": "time_of_day 라벨 분포",
+      "id": 10
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "services"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "service_groups"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  count() AS services,\n  uniqExact(service_group) AS service_groups\nFROM analytics.dim_service",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_service 규모 요약",
+      "type": "table",
+      "description": "서비스/그룹 수",
+      "id": 11
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 27,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  ifNull(service_group, '(null)') AS service_group,\n  count() AS cnt\nFROM analytics.dim_service\nGROUP BY service_group\nORDER BY cnt DESC\nLIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "서비스 그룹별 서비스 수 Top",
+      "type": "table",
+      "description": "그룹 분포",
+      "id": 12
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 27,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  service,\n  service_group,\n  description\nFROM analytics.dim_service\nWHERE is_active = 0\nORDER BY service ASC\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "비활성 서비스 목록",
+      "type": "table",
+      "description": "is_active=0 서비스",
+      "id": 13
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "events"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "WITH fact AS (\n  SELECT\n    service,\n    countMerge(total_state) AS events\n  FROM analytics.fact_event_agg_1m\n  WHERE bucket >= now() - INTERVAL 24 HOUR\n  GROUP BY service\n)\nSELECT\n  fact.service,\n  fact.events\nFROM fact\nLEFT JOIN analytics.dim_service d\n  ON fact.service = d.service\nWHERE d.service IS NULL\nORDER BY events DESC\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "미등록 서비스 감지(최근 24h)",
+      "type": "table",
+      "description": "fact에만 존재하는 서비스",
+      "id": 14
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 36,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  status_class,\n  count() AS cnt\nFROM analytics.dim_status_code\nGROUP BY status_class\nORDER BY status_class",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_status_code 분포",
+      "type": "table",
+      "description": "status_class 분포",
+      "id": 15
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 36,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  status_code,\n  status_class,\n  description\nFROM analytics.dim_status_code\nWHERE is_error = 1\nORDER BY status_code\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "에러 코드 목록(is_error=1)",
+      "type": "table",
+      "description": "에러 분류 코드",
+      "id": 16
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  f.status_code,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d\n  ON f.status_code = d.status_code\nWHERE f.ingest_ts >= now() - INTERVAL 24 HOUR\n  AND d.status_code IS NULL\nGROUP BY f.status_code\nORDER BY cnt DESC\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "미등록 status_code(최근 24h)",
+      "type": "table",
+      "description": "fact에만 존재하는 status_code",
+      "id": 17
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 45,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  d.status_class,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d\n  ON f.status_code = d.status_code\nWHERE f.ingest_ts >= now() - INTERVAL 24 HOUR\nGROUP BY d.status_class\nORDER BY cnt DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "status_class별 이벤트 비중(최근 24h)",
+      "type": "table",
+      "description": "차원 분류가 트래픽에 잘 적용되는지",
+      "id": 18
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "total_users"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "active_users"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 45,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  count() AS total_users,\n  countIf(is_active = 1) AS active_users\nFROM analytics.dim_user",
+          "refId": "A"
+        }
+      ],
+      "title": "dim_user 요약",
+      "type": "table",
+      "description": "사용자 카탈로그 규모",
+      "id": 19
+    },
+    {
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "clickhouse"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "left"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "cnt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 54,
+        "w": 8,
+        "h": 9
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-clickhouse-datasource",
+            "uid": "clickhouse"
+          },
+          "queryType": "sql",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  f.user_id,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_user d\n  ON f.user_id = d.user_id\nWHERE f.ingest_ts >= now() - INTERVAL 24 HOUR\n  AND f.user_id IS NOT NULL\n  AND d.user_id IS NULL\nGROUP BY f.user_id\nORDER BY cnt DESC\nLIMIT 50",
+          "refId": "A"
+        }
+      ],
+      "title": "미등록 user_id(최근 24h)",
+      "type": "table",
+      "description": "fact에만 존재하는 user_id",
+      "id": 20
     }
   ],
   "refresh": "",
