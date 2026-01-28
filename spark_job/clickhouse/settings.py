@@ -14,6 +14,7 @@ class ClickHouseSettings:
     user: Optional[str]
     password: Optional[str]
     jdbc_batchsize: Optional[int]
+    jdbc_fetchsize: Optional[int]
     write_partitions: Optional[int]
     allow_repartition: bool
 
@@ -33,6 +34,8 @@ class ClickHouseSettings:
             options["password"] = self.password
         if self.jdbc_batchsize is not None:
             options["batchsize"] = str(self.jdbc_batchsize)
+        if self.jdbc_fetchsize is not None:
+            options["fetchsize"] = str(self.jdbc_fetchsize)
         return options
 
 
@@ -50,6 +53,7 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
         user=get_env_str(source, "SPARK_CLICKHOUSE_USER"),
         password=get_env_str(source, "SPARK_CLICKHOUSE_PASSWORD"),
         jdbc_batchsize=get_env_int(source, "SPARK_CLICKHOUSE_JDBC_BATCHSIZE"),
+        jdbc_fetchsize=get_env_int(source, "SPARK_CLICKHOUSE_JDBC_FETCHSIZE"),
         write_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
         allow_repartition=get_env_bool(
             source,
