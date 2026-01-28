@@ -324,9 +324,10 @@ services:
     command: ["python", "-m", "spark_job.dimension.jobs.batch_job"]
     environment:
       # --- Dimension batch ---
-      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      - SPARK_CLICKHOUSE_JDBC_FETCHSIZE=10000
       # --- Batch options ---
       - SPARK_BATCH_MASTER=spark://spark-batch-master:7078
       - SPARK_BATCH_DRIVER_MEMORY=2g
