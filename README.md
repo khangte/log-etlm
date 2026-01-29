@@ -88,10 +88,12 @@
 # - Docker / Docker Compose 설치
 # - VM 환경: /data 파티션 마운트 및 디렉터리 생성, rw 권한 부여
 #     sudo mkdir -p /data/log-etlm/kafka-logs /data/log-etlm/kafka-meta \
-#                  /data/log-etlm/spark_checkpoints /data/log-etlm/clickhouse \
-#                  /data/log-etlm/clickhouse-logs /data/log-etlm/grafana
+#                  /data/log-etlm/spark_checkpoints /data/log-etlm/spark-events \
+#                  /data/log-etlm/clickhouse /data/log-etlm/clickhouse-logs \
+#                  /data/log-etlm/grafana
 #     sudo chown -R $USER:$USER /data/log-etlm
 # - 방화벽/보안 그룹에서 29092(Kafka), 4040(Spark UI), 3000(Grafana) 허용
+#   (선택) 8000(simulator), 8080(kafka-ui), 8081/8082(Spark master UI), 5521(ch-ui)
 # - ClickHouse(8123/9000)는 기본적으로 localhost 바인딩(외부 접근 필요 시 docker-compose.yml 포트 수정)
 
 # 1. Kafka + Kafka UI 우선 기동
@@ -132,7 +134,46 @@ crontab -e
 ```
 
 
-## Kafka 토픽 파티션 분배(도메인 기준)
+### DIM 배치(차원 테이블 갱신)
+
+DIM 대시보드는 `analytics.dim_*` 테이블을 사용하며, **DIM 배치는 자동 실행되지 않습니다.**
+필요할 때 수동 실행하거나 크론으로 스케줄링합니다.
+
+- 대상 테이블: `dim_date`, `dim_time`, `dim_service`, `dim_status_code`, `dim_user`
+- 입력 소스: `analytics.fact_event`
+- 데이터 범위: 최근 N일 (`DIM_BATCH_LOOKBACK_DAYS`, 기본 1일)
+- 기준 시간: `ingest_ts` (dim_date, dim_time 생성 기준)
+
+#### 1. Spark 배치 컨테이너 실행 (권장)
+
+```bash
+# 직접 실행
+docker compose run --rm spark-batch
+
+# 중복 실행 방지(flock) 포함 스크립트
+bash scripts/dim_spark_batch.sh
+```
+
+**옵션 환경 변수**
+- `DIM_BATCH_LOOKBACK_DAYS`: fact_event 조회 범위(일)
+- `DIM_SERVICE_MAP_PATH`: 서비스 메타 CSV 경로(선택)
+  - 헤더: `service,service_group,is_active,description`
+
+**크론 예시**
+```bash
+crontab -e
+0 2 * * * /home/kang/log-etlm/scripts/dim_spark_batch.sh >> /home/kang/log-etlm/logs/dim_batch.log 2>&1
+```
+
+#### 2. ClickHouse SQL 배치 (Spark 없이 간단 실행)
+
+```bash
+# DIM_RESET=1이면 TRUNCATE 후 재적재(기본 1)
+DIM_LOOKBACK_DAYS=7 DIM_RESET=1 bash scripts/dim_clickhouse_batch.sh
+```
+
+
+### Kafka 토픽 파티션 분배(도메인 기준)
 
 `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`여도 기본 파티션은 1개이므로,
 초기 한 번은 명시적으로 생성하고 이후 `--alter --partitions N`으로 증설한다.
@@ -155,36 +196,52 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ## 프로파일 & 튜닝 포인트
 
-- 시뮬레이터 부하 프로파일: `log_simulator/config/profiles.yml`
-  - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
-- 라우트/도메인 이벤트 설정: `log_simulator/config/routes.yml`
-- 시뮬레이터 런타임 설정: `docker-compose.yml`의 simulator environment
-  - `TARGET_INTERVAL_SEC`: 서비스 루프 목표 간격(초)
-  - `LOG_BATCH_SIZE`, `LOOPS_PER_SERVICE`, `PUBLISHER_WORKERS`로 부하/백프레셔 조정
-- Spark 환경 프로파일: `config/env/{low,mid,high}.env.example`
-  - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_MAX_OFFSETS_SAFETY`, `SPARK_TARGET_EPS` 값 조정
-    - `SPARK_MAX_OFFSETS_PER_TRIGGER`를 비워두면 `target_eps * trigger * safety`로 자동 계산되고, 값을 명시하면 safety는 무시된다.
-  - `SPARK_KAFKA_MIN_PARTITIONS`, `SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER`로 스큐 완화
-  - 파티션 수는 시작 시 Kafka 메타데이터로 자동 계산
-  - `SPARK_TARGET_EPS_PROFILE_PATH`로 `profiles.yml` 기반 EPS 자동 계산 경로 지정
-  - 기본 경로: `/app/log_simulator/config/profiles.yml`
-- 스트림 분리 설정: `docker-compose.yml`
+### 시뮬레이터
+
+- 부하 프로파일/라우트 설정은 `log_simulator/config/{profiles.yml,routes.yml}` 참고
+- 런타임 설정: `docker-compose.yml`의 simulator environment
+  - `TARGET_INTERVAL_SEC`, `LOG_BATCH_SIZE`, `LOOPS_PER_SERVICE`, `PUBLISHER_WORKERS`
+  - `SIMULATOR_SHARE`, `SIM_BEHIND_LOG_EVERY_SEC`
+
+### Spark 스트리밍
+
+- 환경 프로파일 값은 `config/env/{low,mid,high}.env.example` 참고(적용은 `docker-compose.yml`)
+- 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
-  - `SPARK_FACT_TRIGGER_INTERVAL`로 마이크로배치 주기 제어
-  - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 경로 지정
-  - `SPARK_PROGRESS_LOG_PATH`로 StreamingQuery 진행 로그 경로 지정
-- ClickHouse 적재 튜닝
-  - `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`로 sink 파티션/배치 크기 조정
-- near-real-time 운용 팁(단일 VM 기준)
-  - CPU 포화 시 `SPARK_FACT_TRIGGER_INTERVAL`(마이크로배치 주기)와 `SPARK_MAX_OFFSETS_PER_TRIGGER`를 조정해 지연(SLA)을 안정적으로 맞추는 것을 우선한다.
-  - 실시간(10s) 집계가 과부하를 유발하면 10s MV를 DETACH해 운영(1m) 지표 중심으로 관찰한다.
-- ClickHouse 설정(conf/users.d): `infra/clickhouse/`
-  - `config.d/`에서 서버 설정(예: listen_host, async insert 로그)
-  - `users.d/`에서 사용자/프로파일 설정(예: log_user async_insert)
-- 유틸 스크립트 목록
-  - `scripts/apply_spark_env.sh`: 프로파일 적용 후 Spark 컨테이너 재기동
-  - `scripts/current_spark_env.sh`: 현재 적용된 Spark 프로파일 확인
-  - `scripts/autoswitch_spark_env.sh`: ClickHouse 지연 p95 기반 자동 전환(크론 사용 가능)
+  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START`
+  - `SPARK_DLQ_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_LOG_EMPTY`
+  - `SPARK_BATCH_TIMING_LOG_PATH`, `SPARK_PROGRESS_LOG_PATH`
+
+### Spark 배치(DIM)
+
+- spark-batch 환경: `docker-compose.yml`
+  - `SPARK_BATCH_MASTER`, `SPARK_BATCH_DRIVER_MEMORY`, `SPARK_BATCH_EXECUTOR_MEMORY`, `SPARK_BATCH_SHUFFLE_PARTITIONS`
+  - `DIM_BATCH_LOOKBACK_DAYS`, `DIM_SERVICE_MAP_PATH` (상세는 “DIM 배치” 섹션 참고)
+
+### ClickHouse
+
+- 적재 튜닝: `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`
+- 읽기/리파티션: `SPARK_CLICKHOUSE_JDBC_FETCHSIZE`, `SPARK_CLICKHOUSE_ALLOW_REPARTITION`
+- 서버/사용자 설정: `infra/clickhouse/`
+  - `config.d/` (예: listen_host, async insert 로그)
+  - `users.d/` (예: log_user async_insert)
+
+### Kafka
+
+- 보관/메모리: `KAFKA_HEAP_OPTS`, `KAFKA_LOG_RETENTION_HOURS`, `KAFKA_LOG_RETENTION_BYTES`, `KAFKA_LOG_SEGMENT_BYTES`, `KAFKA_NUM_PARTITIONS`
+
+### near-real-time 운용 팁(단일 VM 기준)
+
+- CPU 포화 시 `SPARK_FACT_TRIGGER_INTERVAL`과 `SPARK_MAX_OFFSETS_PER_TRIGGER`를 조정해 지연(SLA)을 안정적으로 맞추는 것을 우선한다.
+- 실시간(10s) 집계가 과부하를 유발하면 10s MV를 DETACH해 운영(1m) 지표 중심으로 관찰한다.
+
+### 유틸 스크립트 목록
+
+- Spark 프로파일: `scripts/apply_spark_env.sh`, `scripts/current_spark_env.sh`, `scripts/autoswitch_spark_env.sh`
+- DIM 배치: `scripts/dim_spark_batch.sh`, `scripts/dim_clickhouse_batch.sh`
+- Kafka/Spark 지연: `scripts/check_backlog.sh`, `scripts/kafka_spark_lag.py`
+- ClickHouse 진단: `scripts/clickhouse_diagnostics.sh`, `scripts/diag_partition_and_partlog.sh`
+- 스파이크 분석: `scripts/publish_spike_diag.sh`
 
 
 ## 지표 해석(요약)
