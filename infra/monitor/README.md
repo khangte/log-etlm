@@ -23,6 +23,7 @@ python3 infra/monitor/docker_watchdog.py
 ## 환경 변수 (선택)
 - `ALERT_WEBHOOK_URL`: Slack 등 Webhook URL
 - `ALERT_COOLDOWN_SEC`: 동일 알림 최소 간격 (기본 300)
+- `ALERT_BREACH_GRACE_SEC`: 임계값 초과가 이 시간 이상 지속될 때만 알림 (기본 300)
 - `CH_MONITOR_ENABLED`: ClickHouse 지표 모니터링 on/off (기본 true)
 - `CH_HTTP_URL`: ClickHouse HTTP URL (기본 http://localhost:8123)
 - `CH_DB`: ClickHouse DB (기본 analytics)
