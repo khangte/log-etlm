@@ -64,7 +64,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
                         F.col("offset").cast("string"),
                     ),
                 ),
-                F.sha2(F.col("raw_json"), 256),
                 F.lit("unknown"),
             ).alias("event_id"),
             F.coalesce(F.col("json.method"), F.lit("")).alias("method"),
@@ -96,7 +95,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.col("kafka_ts"),
             F.coalesce(
                 F.col("spark_ingest_ts"),
-                F.current_timestamp(),
             ).alias("spark_ingest_ts"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
@@ -110,7 +108,7 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
         )
         .withColumn(
             "processed_ts",
-            F.current_timestamp(),
+            F.lit(None).cast("timestamp"),
         )
         .withColumn(
             "created_ts",
@@ -126,7 +124,7 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
         )
         .withColumn(
             "process_ms",
-            _ms_diff("processed_ts", "spark_ingest_ts"),
+            F.lit(None).cast("int"),
         )
     )
 
