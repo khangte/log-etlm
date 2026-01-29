@@ -58,6 +58,7 @@ if ENV_PATH.exists():
 ALERT_WEBHOOK_URL = os.getenv("ALERT_WEBHOOK_URL")  # Slack 등 Webhook URL
 HEALTH_INTERVAL_SEC = 30
 ALERT_COOLDOWN_SEC = int(os.getenv("ALERT_COOLDOWN_SEC", "300"))
+ALERT_BREACH_GRACE_SEC = int(os.getenv("ALERT_BREACH_GRACE_SEC", "300"))
 
 CH_MONITOR_ENABLED = os.getenv("CH_MONITOR_ENABLED", "true").lower() == "true"
 CH_HTTP_URL = os.getenv("CH_HTTP_URL", "http://localhost:8123")
@@ -67,9 +68,18 @@ CH_PASSWORD = os.getenv("CH_PASSWORD", os.getenv("CLICKHOUSE_PASSWORD", ""))
 CH_TIMEOUT_SEC = int(os.getenv("CH_TIMEOUT_SEC", "5"))
 CH_QUERY_INTERVAL_SEC = int(os.getenv("CH_QUERY_INTERVAL_SEC", "300"))
 
-P95_QUEUE_MS_MAX = int(os.getenv("P95_QUEUE_MS_MAX", "60000"))
-P95_PUBLISH_MS_MAX = int(os.getenv("P95_PUBLISH_MS_MAX", "60000"))
-P95_SINK_MS_MAX = int(os.getenv("P95_SINK_MS_MAX", "60000"))
+P95_PRODUCER_TO_KAFKA_MS_MAX = int(
+    os.getenv("P95_PRODUCER_TO_KAFKA_MS_MAX", os.getenv("P95_QUEUE_MS_MAX", "60000"))
+)
+P95_KAFKA_TO_SPARK_INGEST_MS_MAX = int(
+    os.getenv(
+        "P95_KAFKA_TO_SPARK_INGEST_MS_MAX", os.getenv("P95_PUBLISH_MS_MAX", "60000")
+    )
+)
+P95_SPARK_PROCESSING_MS_MAX = int(os.getenv("P95_SPARK_PROCESSING_MS_MAX", "60000"))
+P95_SPARK_TO_STORED_MS_MAX = int(
+    os.getenv("P95_SPARK_TO_STORED_MS_MAX", os.getenv("P95_SINK_MS_MAX", "60000"))
+)
 P95_E2E_MS_MAX = int(os.getenv("P95_E2E_MS_MAX", "60000"))
 FRESHNESS_MS_MAX = int(os.getenv("FRESHNESS_MS_MAX", "120000"))
 EPS_MIN = float(os.getenv("EPS_MIN", "1"))
@@ -77,6 +87,7 @@ ERROR_RATE_PCT_MAX = float(os.getenv("ERROR_RATE_PCT_MAX", "1"))
 DLQ_RATE_PCT_MAX = float(os.getenv("DLQ_RATE_PCT_MAX", "1"))
 
 _last_alert_at: Dict[str, float] = {}
+_breach_since: Dict[str, float] = {}
 
 
 async def send_alert(message: str) -> None:
@@ -107,6 +118,18 @@ def _should_alert(key: str, now: float) -> bool:
         _last_alert_at[key] = now
         return True
     return False
+
+
+def _breach_ready(key: str, now: float, breached: bool) -> bool:
+    """임계값 초과가 grace 기간 이상 유지되었는지 확인한다."""
+    if not breached:
+        _breach_since.pop(key, None)
+        return False
+    first = _breach_since.get(key)
+    if first is None:
+        _breach_since[key] = now
+        return False
+    return (now - first) >= ALERT_BREACH_GRACE_SEC
 
 
 def _build_ch_url() -> str:
@@ -293,12 +316,12 @@ SELECT
   eps.bucket AS eps_bucket,
   eps.eps AS eps,
   eps.error_rate_pct AS error_rate_pct,
-  lat_s.bucket AS latency_service_bucket,
-  lat_s.queue_p95_ms AS queue_p95_ms,
-  lat_s.publish_p95_ms AS publish_p95_ms,
-  lat.bucket AS latency_bucket,
-  lat.sink_p95_ms AS sink_p95_ms,
-  lat.e2e_p95_ms AS e2e_p95_ms,
+  lat_s.bucket AS latency_bucket,
+  lat_s.producer_to_kafka_p95_ms AS producer_to_kafka_p95_ms,
+  lat_s.kafka_to_spark_ingest_p95_ms AS kafka_to_spark_ingest_p95_ms,
+  lat_s.spark_processing_p95_ms AS spark_processing_p95_ms,
+  lat_s.spark_to_stored_p95_ms AS spark_to_stored_p95_ms,
+  lat_s.e2e_p95_ms AS e2e_p95_ms,
   fresh.freshness_ms AS freshness_ms,
   dlq.dlq_rate_pct AS dlq_rate_pct
 FROM
@@ -326,27 +349,17 @@ LEFT JOIN
   (
     SELECT
       bucket,
-      quantileTDigestMerge(0.95)(queue_state) AS queue_p95_ms,
-      quantileTDigestMerge(0.95)(publish_state) AS publish_p95_ms
+      quantileTDigestMerge(0.95)(producer_to_kafka_state) AS producer_to_kafka_p95_ms,
+      quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_ingest_p95_ms,
+      quantileTDigestMerge(0.95)(spark_processing_state) AS spark_processing_p95_ms,
+      quantileTDigestMerge(0.95)(spark_to_stored_state) AS spark_to_stored_p95_ms,
+      quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms
     FROM analytics.fact_event_latency_service_1m
     WHERE bucket >= now() - INTERVAL 5 MINUTE
     GROUP BY bucket
     ORDER BY bucket DESC
     LIMIT 1
   ) AS lat_s
-ON base.k = 1
-LEFT JOIN
-  (
-    SELECT
-      bucket,
-      quantileTDigestMerge(0.95)(sink_state) AS sink_p95_ms,
-      quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms
-    FROM analytics.fact_event_latency_1m
-    WHERE bucket >= now() - INTERVAL 5 MINUTE
-    GROUP BY bucket
-    ORDER BY bucket DESC
-    LIMIT 1
-  ) AS lat
 ON base.k = 1
 LEFT JOIN
   (
@@ -390,71 +403,143 @@ ON base.k = 1
             eps = _as_float(stage_row.get("eps"))
             err = _as_float(stage_row.get("error_rate_pct"))
             eps_bucket = stage_row.get("eps_bucket")
-            if eps is not None and eps < EPS_MIN and _should_alert("eps_low", now):
+            eps_breached = eps is not None and eps < EPS_MIN
+            if eps_breached and _breach_ready("eps_low", now, True) and _should_alert(
+                "eps_low", now
+            ):
                 await send_alert(
                     f"stage=ingest eps={eps:.2f} threshold={EPS_MIN} bucket={eps_bucket}"
                 )
-            if err is not None and err > ERROR_RATE_PCT_MAX and _should_alert("error_rate", now):
+            if not eps_breached:
+                _breach_ready("eps_low", now, False)
+
+            err_breached = err is not None and err > ERROR_RATE_PCT_MAX
+            if err_breached and _breach_ready(
+                "error_rate", now, True
+            ) and _should_alert("error_rate", now):
                 await send_alert(
                     "stage=ingest error_rate_pct="
                     f"{err:.3f} threshold={ERROR_RATE_PCT_MAX} bucket={eps_bucket}"
                 )
-
-        if stage_row:
-            latency_service_bucket = stage_row.get("latency_service_bucket")
-            queue_p95 = _as_float(stage_row.get("queue_p95_ms"))
-            publish_p95 = _as_float(stage_row.get("publish_p95_ms"))
-            if queue_p95 is not None and queue_p95 > P95_QUEUE_MS_MAX and _should_alert(
-                "queue_p95", now
-            ):
-                await send_alert(
-                    f"stage=queue p95_ms={queue_p95:.0f} "
-                    f"threshold_ms={P95_QUEUE_MS_MAX} bucket={latency_service_bucket}"
-                )
-            if publish_p95 is not None and publish_p95 > P95_PUBLISH_MS_MAX and _should_alert(
-                "publish_p95", now
-            ):
-                await send_alert(
-                    f"stage=publish p95_ms={publish_p95:.0f} "
-                    f"threshold_ms={P95_PUBLISH_MS_MAX} bucket={latency_service_bucket}"
-                )
+            if not err_breached:
+                _breach_ready("error_rate", now, False)
 
         if stage_row:
             latency_bucket = stage_row.get("latency_bucket")
-            sink_p95 = _as_float(stage_row.get("sink_p95_ms"))
+            producer_to_kafka_p95 = _as_float(stage_row.get("producer_to_kafka_p95_ms"))
+            kafka_to_spark_ingest_p95 = _as_float(
+                stage_row.get("kafka_to_spark_ingest_p95_ms")
+            )
+            spark_processing_p95 = _as_float(stage_row.get("spark_processing_p95_ms"))
+            spark_to_stored_p95 = _as_float(stage_row.get("spark_to_stored_p95_ms"))
             e2e_p95 = _as_float(stage_row.get("e2e_p95_ms"))
-            if sink_p95 is not None and sink_p95 > P95_SINK_MS_MAX and _should_alert(
-                "sink_p95", now
+
+            prod_breached = (
+                producer_to_kafka_p95 is not None
+                and producer_to_kafka_p95 > P95_PRODUCER_TO_KAFKA_MS_MAX
+            )
+            if (
+                prod_breached
+                and _breach_ready("producer_to_kafka_p95", now, True)
+                and _should_alert("producer_to_kafka_p95", now)
             ):
                 await send_alert(
-                    f"stage=sink p95_ms={sink_p95:.0f} "
-                    f"threshold_ms={P95_SINK_MS_MAX} bucket={latency_bucket}"
+                    f"stage=producer_to_kafka p95_ms={producer_to_kafka_p95:.0f} "
+                    f"threshold_ms={P95_PRODUCER_TO_KAFKA_MS_MAX} bucket={latency_bucket}"
                 )
-            if e2e_p95 is not None and e2e_p95 > P95_E2E_MS_MAX and _should_alert(
-                "e2e_p95", now
+            if not prod_breached:
+                _breach_ready("producer_to_kafka_p95", now, False)
+
+            ktos_breached = (
+                kafka_to_spark_ingest_p95 is not None
+                and kafka_to_spark_ingest_p95 > P95_KAFKA_TO_SPARK_INGEST_MS_MAX
+            )
+            if (
+                ktos_breached
+                and _breach_ready("kafka_to_spark_ingest_p95", now, True)
+                and _should_alert("kafka_to_spark_ingest_p95", now)
+            ):
+                await send_alert(
+                    "stage=kafka_to_spark_ingest "
+                    f"p95_ms={kafka_to_spark_ingest_p95:.0f} "
+                    f"threshold_ms={P95_KAFKA_TO_SPARK_INGEST_MS_MAX} "
+                    f"bucket={latency_bucket}"
+                )
+            if not ktos_breached:
+                _breach_ready("kafka_to_spark_ingest_p95", now, False)
+
+            sp_breached = (
+                spark_processing_p95 is not None
+                and spark_processing_p95 > P95_SPARK_PROCESSING_MS_MAX
+            )
+            if (
+                sp_breached
+                and _breach_ready("spark_processing_p95", now, True)
+                and _should_alert("spark_processing_p95", now)
+            ):
+                await send_alert(
+                    f"stage=spark_processing p95_ms={spark_processing_p95:.0f} "
+                    f"threshold_ms={P95_SPARK_PROCESSING_MS_MAX} bucket={latency_bucket}"
+                )
+            if not sp_breached:
+                _breach_ready("spark_processing_p95", now, False)
+
+            s2s_breached = (
+                spark_to_stored_p95 is not None
+                and spark_to_stored_p95 > P95_SPARK_TO_STORED_MS_MAX
+            )
+            if (
+                s2s_breached
+                and _breach_ready("spark_to_stored_p95", now, True)
+                and _should_alert("spark_to_stored_p95", now)
+            ):
+                await send_alert(
+                    f"stage=spark_to_stored p95_ms={spark_to_stored_p95:.0f} "
+                    f"threshold_ms={P95_SPARK_TO_STORED_MS_MAX} bucket={latency_bucket}"
+                )
+            if not s2s_breached:
+                _breach_ready("spark_to_stored_p95", now, False)
+
+            e2e_breached = e2e_p95 is not None and e2e_p95 > P95_E2E_MS_MAX
+            if (
+                e2e_breached
+                and _breach_ready("e2e_p95", now, True)
+                and _should_alert("e2e_p95", now)
             ):
                 await send_alert(
                     f"stage=e2e p95_ms={e2e_p95:.0f} "
                     f"threshold_ms={P95_E2E_MS_MAX} bucket={latency_bucket}"
                 )
+            if not e2e_breached:
+                _breach_ready("e2e_p95", now, False)
 
         if stage_row:
             freshness = _as_float(stage_row.get("freshness_ms"))
-            if freshness is not None and freshness > FRESHNESS_MS_MAX and _should_alert(
-                "freshness", now
+            freshness_breached = freshness is not None and freshness > FRESHNESS_MS_MAX
+            if (
+                freshness_breached
+                and _breach_ready("freshness", now, True)
+                and _should_alert("freshness", now)
             ):
                 await send_alert(
                     f"stage=freshness ms={freshness:.0f} threshold_ms={FRESHNESS_MS_MAX}"
                 )
+            if not freshness_breached:
+                _breach_ready("freshness", now, False)
 
         if stage_row:
             dlq_rate = _as_float(stage_row.get("dlq_rate_pct"))
-            if dlq_rate is not None and dlq_rate > DLQ_RATE_PCT_MAX and _should_alert(
-                "dlq_rate", now
+            dlq_breached = dlq_rate is not None and dlq_rate > DLQ_RATE_PCT_MAX
+            if (
+                dlq_breached
+                and _breach_ready("dlq_rate", now, True)
+                and _should_alert("dlq_rate", now)
             ):
                 await send_alert(
                     f"stage=dlq rate_pct={dlq_rate:.3f} threshold={DLQ_RATE_PCT_MAX}"
                 )
+            if not dlq_breached:
+                _breach_ready("dlq_rate", now, False)
 
         await asyncio.sleep(CH_QUERY_INTERVAL_SEC)
 
