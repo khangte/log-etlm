@@ -16,6 +16,17 @@ ORDER BY (bucket, service)
 -- 변경: 파티션(일) 단위 TTL
 TTL toDate(bucket) + INTERVAL 2 DAY;
 
+CREATE TABLE IF NOT EXISTS analytics.fact_event_created_stored_1m
+(
+    bucket      DateTime,
+    created_cnt UInt64,
+    stored_cnt  UInt64
+)
+ENGINE = SummingMergeTree
+PARTITION BY toDate(bucket)
+ORDER BY bucket
+TTL toDate(bucket) + INTERVAL 2 DAY;
+
 
 CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 (
