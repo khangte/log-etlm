@@ -14,6 +14,25 @@ SELECT
 FROM analytics.fact_event
 GROUP BY bucket, service;
 
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_created_stored_1m
+TO analytics.fact_event_created_stored_1m
+AS
+SELECT
+    toStartOfMinute(created_ts) AS bucket,
+    count() AS created_cnt,
+    toUInt64(0) AS stored_cnt
+FROM analytics.fact_event
+WHERE created_ts IS NOT NULL
+GROUP BY bucket
+UNION ALL
+SELECT
+    toStartOfMinute(stored_ts) AS bucket,
+    toUInt64(0) AS created_cnt,
+    count() AS stored_cnt
+FROM analytics.fact_event
+WHERE stored_ts IS NOT NULL
+GROUP BY bucket;
+
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
 TO analytics.fact_event_lag_1m
