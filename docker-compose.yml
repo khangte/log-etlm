@@ -175,11 +175,11 @@ services:
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_RESET_CHECKPOINT_ON_START=true
-      - SPARK_FACT_TRIGGER_INTERVAL=10 seconds
+      - SPARK_FACT_TRIGGER_INTERVAL=4 seconds
       - SPARK_STORE_RAW_JSON=false
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
       - SPARK_MAX_OFFSETS_PER_TRIGGER=    # 비어있으면 자동 계산
-      - SPARK_MAX_OFFSETS_SAFETY=1.0
+      - SPARK_MAX_OFFSETS_SAFETY=1.1
       - SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=1
       # --- DLQ/에러 스트림 (선택) ---
       - SPARK_DLQ_TOPIC=logs.dlq
@@ -193,8 +193,8 @@ services:
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=30000
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=1
+      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=20000
+      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=3
       - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false    # 다운스케일은 sink.py에서 coalesce로 진행
     volumes:
       - ./common:/app/common:ro
