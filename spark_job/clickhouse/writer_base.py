@@ -52,7 +52,16 @@ class ClickHouseStreamWriterBase:
 
             if skip_empty and batch_df.isEmpty():
                 elapsed = time.perf_counter() - start_time
-                line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
+                line = (
+                    f"{prefix} batch_id={batch_id} stage=transform empty=true "
+                    f"duration={elapsed:.3f}s"
+                )
+                print(line)
+                append_batch_log(line)
+                line = (
+                    f"{prefix} batch_id={batch_id} stage=write empty=true "
+                    "duration=0.000s"
+                )
                 print(line)
                 append_batch_log(line)
                 batch_df.unpersist()  # 캐시 해제
@@ -90,12 +99,23 @@ class ClickHouseStreamWriterBase:
                         ),
                     )
 
+            transform_elapsed = time.perf_counter() - start_time
+            line = (
+                f"{prefix} batch_id={batch_id} stage=transform "
+                f"duration={transform_elapsed:.3f}s"
+            )
+            print(line)
+            append_batch_log(line)
+
+            write_start = time.perf_counter()
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
+            write_elapsed = time.perf_counter() - write_start
 
             batch_df.unpersist()  # 캐시 해제
-
-            elapsed = time.perf_counter() - start_time
-            line = f"{prefix} batch_id={batch_id} duration={elapsed:.3f}s"
+            line = (
+                f"{prefix} batch_id={batch_id} stage=write "
+                f"duration={write_elapsed:.3f}s"
+            )
             print(line)
             append_batch_log(line)
 
