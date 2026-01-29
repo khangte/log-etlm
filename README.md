@@ -2,7 +2,8 @@
 
 ## 개요
 
-![대시보드](images/dashboard_capture.jpg)
+![ops대시보드](images/화면%20캡처%202026-01-29%20151906.jpg)
+![dim대시보드](images/화면%20캡처%202026-01-28%20154256.jpg)
 
 대규모 로그 데이터에 대한 **수집, 처리, 모니터링**을 목표로 하는 **PoC(Proof of Concept) 프로젝트**입니다.
 
@@ -12,10 +13,23 @@
 
 ## 목표
 
-- 대규모 로그 스트림의 실시간 제약 하 안정 처리 가능성 검증.
-- FastAPI → Kafka → Spark → ClickHouse → Grafana 엔드투엔드 파이프라인의 성능/지연 목표 충족 여부 확인.
-- 각 단계별 병목 지점 식별 및 개선 방안 도출.
-- 추가: Slack 연동 Watchdog과 Grafana 대시보드 기반 최소 운영 감시 체계 구성 및 실시간 알림/가시성 확보 가능성 검증.
+- 대규모 로그 스트림의 ~~real-time(실시간)~~ 제약 하 안정 처리 가능성 검증
+- 대규모 로그 스트림의 **near-real-time(준실시간)** 제약 하 안정 처리 가능성 검증
+- FastAPI → Kafka → Spark → ClickHouse → Grafana 엔드투엔드 파이프라인의 **지연/처리량 목표** 충족 여부 확인
+- 각 단계별 병목 지점 식별 및 개선 방안 도출
+- 추가: Slack 연동 Watchdog과 Grafana 대시보드 기반 최소 운영 감시 체계 구성 및 실시간 알림/가시성 확보 가능성 검증
+
+
+## 실험 환경 / 제약 및 결정(SLA)
+
+- **환경** : VirtualBox Ubuntu 단일 VM에서 Simulator, Kafka, Spark(Structured Streaming), ClickHouse, Grafana를 Docker Compose로 동시 구동
+- **리소스 변경 과정**:
+  - vCPU 4로 시작 → Spark 처리(워커/코어) 병목 확인 후 증설
+  - vCPU 6까지 증설해도 CPU 포화가 지속(컴포넌트 간 CPU 경합)
+  - vCPU 8은 VM 강제 종료 문제로 운영 불가 
+  - **vCPU 7도 포화 상태이지만 그나마 안정 구동 확인**
+  - **관찰 결과**: 단일 VM에서 여러 컴포넌트가 CPU를 경쟁적으로 점유하여 “초저지연 실시간(수 초)” 목표는 비현실적임을 확인
+  - **결정(SLA 재정의)**: 안정적인 지속 처리를 우선하여 **약 10초 수준의 지연을 허용하는 near-real-time** 목표로 조정  
 
 
 ## 기술 스택
@@ -47,14 +61,25 @@
    - `spark_job/main.py`가 `spark_job/stream_ingest.py`를 실행하고, fact/DLQ 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
    - fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
    - DLQ 스트리밍을 끄려면 `SPARK_ENABLE_DLQ_STREAM=false`.
+   - `SPARK_PROGRESS_LOG_PATH`에 StreamingQuery 진행 로그(JSON lines)를 기록(기본 경로: `/data/log-etlm/spark-events/spark_progress.log`).
+   - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그를 남길 수 있다.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
+   - 체크포인트가 있으면 `SPARK_STARTING_OFFSETS=latest` 설정은 무시되고 기존 오프셋에서 재개된다.
 4. **로그 저장**
    - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
    - 초기 스키마는 `infra/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
-   - 대시보드 JSON: `infra/grafana/dashboards/overview.json`(파이프라인), `infra/grafana/dashboards/dim_overview.json`(DIM).
-   - `infra/monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지.
+   - 대시보드 JSON:
+     - `infra/grafana/dashboards/ops_monitoring.json` (운영/1m 집계)
+     - `infra/grafana/dashboards/realtime.json` (실시간/10s 집계)
+     - `infra/grafana/dashboards/dim_overview.json` (DIM)
+   - 실시간 대시보드는 10초 집계 테이블을 사용한다. 
+     - 부하가 크면 **10s MV를 DETACH해서 비활성화**할 수 있다.
+   - 기본 refresh: ops 2m / realtime 30s / dim 비활성화(빈 문자열).
+   - 운영 대시보드는 Freshness, Kafka→Spark ingest 지연, Spark 처리/ClickHouse INSERT/Grafana 쿼리 p95, **생성 대비 적재 비율(1m)** 등의 운영 지표가 포함된다.
+   - `infra/monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지한다.
+     - `ALERT_BREACH_GRACE_SEC`로 지연 스파이크가 일정 시간 이상 지속될 때만 알림을 보낼 수 있다.
 
 
 ## 실행 방법
@@ -73,11 +98,8 @@
 # 1. Kafka + Kafka UI 우선 기동
 docker compose up -d kafka kafka-ui
 
-# 1-1. 도메인별 토픽 생성(수동, 파티션 수 조정이 필요할 때만)
-# mix = auth 0.5 / order 0.3 / payment 0.2, logs.auth/order/payment 합계 8 파티션 기준
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
+# 1-1. 도메인별 토픽 파티션 관리(필요할 때만)
+# 토픽 파티션 생성/증설은 아래 "Kafka 토픽 파티션 분배(도메인 기준)" 섹션 참고
 
 # 2. ClickHouse 기동
 docker compose up -d clickhouse ch-ui
@@ -113,29 +135,23 @@ crontab -e
 
 ## Kafka 토픽 파티션 분배(도메인 기준)
 
-`KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`인 경우에도 파티션 수를 맞추려면 수동 생성이 필요하다.
-
-예시(mix = auth 0.5 / order 0.3 / payment 0.2, logs.auth/order/payment 합계 8 파티션 유지):
+`KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`여도 기본 파티션은 1개이므로,
+초기 한 번은 명시적으로 생성하고 이후 `--alter --partitions N`으로 증설한다.
 
 ```bash
-# 토픽 생성
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 4 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 2 --replication-factor 1
+# 생성 예시(자동 생성이 켜져 있어도 명시적으로 1회)
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 5 --replication-factor 1
 
-# DLQ/ERROR/UNKNOWN은 낮게 유지
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq --partitions 1 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error --partitions 1 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1
+# 증설 예시(줄이기 불가)
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.auth --partitions 5
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.order --partitions 3
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.payment --partitions 2
 
 # 확인
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.auth
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.order
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.payment
 ```
 
-파티션 증설은 `--alter --partitions N`으로 가능하지만 줄이기는 불가하므로,
-필요 시 토픽 삭제 후 재생성한다.
+> 파티션 감소는 불가하므로 필요 시 토픽 삭제 후 재생성한다.
 
 
 ## 프로파일 & 튜닝 포인트
@@ -143,11 +159,26 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 시뮬레이터 부하 프로파일: `log_simulator/config/profiles.yml`
   - `eps`, `mix`, `error_rate`, `time_weights` 등 부하 패턴 조정
 - 라우트/도메인 이벤트 설정: `log_simulator/config/routes.yml`
+- 시뮬레이터 런타임 설정: `docker-compose.yml`의 simulator environment
+  - `TARGET_INTERVAL_SEC`: 서비스 루프 목표 간격(초)
+  - `LOG_BATCH_SIZE`, `LOOPS_PER_SERVICE`, `PUBLISHER_WORKERS`로 부하/백프레셔 조정
 - Spark 환경 프로파일: `config/env/{low,mid,high}.env.example`
-  - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 값 조정
+  - `SPARK_MAX_OFFSETS_PER_TRIGGER`, `SPARK_MAX_OFFSETS_SAFETY`, `SPARK_TARGET_EPS` 값 조정
+    - `SPARK_MAX_OFFSETS_PER_TRIGGER`를 비워두면 `target_eps * trigger * safety`로 자동 계산되고, 값을 명시하면 safety는 무시된다.
+  - `SPARK_KAFKA_MIN_PARTITIONS`, `SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER`로 스큐 완화
+  - 파티션 수는 시작 시 Kafka 메타데이터로 자동 계산
+  - `SPARK_TARGET_EPS_PROFILE_PATH`로 `profiles.yml` 기반 EPS 자동 계산 경로 지정
+  - 기본 경로: `/app/log_simulator/config/profiles.yml`
 - 스트림 분리 설정: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
-  - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 파일 경로 지정 가능
+  - `SPARK_FACT_TRIGGER_INTERVAL`로 마이크로배치 주기 제어
+  - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그 경로 지정
+  - `SPARK_PROGRESS_LOG_PATH`로 StreamingQuery 진행 로그 경로 지정
+- ClickHouse 적재 튜닝
+  - `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`로 sink 파티션/배치 크기 조정
+- near-real-time 운용 팁(단일 VM 기준)
+  - CPU 포화 시 `SPARK_FACT_TRIGGER_INTERVAL`(마이크로배치 주기)와 `SPARK_MAX_OFFSETS_PER_TRIGGER`를 조정해 지연(SLA)을 안정적으로 맞추는 것을 우선한다.
+  - 실시간(10s) 집계가 과부하를 유발하면 10s MV를 DETACH해 운영(1m) 지표 중심으로 관찰한다.
 - ClickHouse 설정(conf/users.d): `infra/clickhouse/`
   - `config.d/`에서 서버 설정(예: listen_host, async insert 로그)
   - `users.d/`에서 사용자/프로파일 설정(예: log_user async_insert)
@@ -162,21 +193,11 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - ingest: `event_ts → ingest_ts` (수집 지연)
 - process: `ingest_ts → processed_ts` (Spark 처리 지연)
 - sink: `processed_ts → stored_ts` (Spark → ClickHouse 적재 지연)
-- end-to-end: `event_ts → stored_ts` (전체 지연)
+- end-to-end(ops): `ingest_ts → stored_ts` (전체 지연)
+- 생성 대비 적재 비율: `created_ts` 대비 `stored_ts` 비율 (1분 버킷 기준, 지연이 크면 0%로 보일 수 있음)
 - DLQ: `analytics.fact_event_dlq_agg_1m` (service, error_type, total)
 
 
-## Grafana용 기본 집계 쿼리
+## ClickHouse 집계/권한/백필 가이드
 
-- 정상 EPS(서비스별): `analytics.fact_event_agg_1m`
-- E2E 지연: `analytics.fact_event_latency_1m`
-- 과정별 지연: `analytics.fact_event_latency_service_1m`
-- DLQ TopN: `analytics.fact_event_dlq_agg_1m` (error_type 기준)
-- Freshness: `analytics.fact_event_freshness_1m`
-
-
-## 결과 기록
-
-| 시나리오 | EPS | Spark 프로파일 | E2E p95 | process p95 | sink p95 | 비고 |
-| --- | --- | --- | --- | --- | --- | --- |
-| baseline | 5k | mid | ~3.3s | ~1.3s | ~2.0s | EPS 약 5k, CH insert p95 약 0.1-0.3s, 스파이크 0.8s 미만 |
+[ClickHouse 집계/권한/백필 가이드](docs/clickhouse_aggregate_guide.md)
