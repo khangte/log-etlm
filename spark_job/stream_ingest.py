@@ -48,10 +48,13 @@ class StreamIngestJob:
         event_df, bad_df = parse_fact_event_with_errors(
             event_kafka_df,
             store_raw_json=self.fact_settings.store_raw_json,
+            build_bad_df=self.settings.enable_dlq_stream,
         )
 
         self.fact_writer.write_fact_event_stream(event_df)
         if self.settings.enable_dlq_stream:
+            if bad_df is None:
+                raise ValueError("DLQ stream enabled but bad_df is missing")
             self._run_dlq_streams(spark, bad_df)
         else:
             print("[ℹ️ spark] DLQ 스트림 비활성화: bad_df는 저장하지 않음")
