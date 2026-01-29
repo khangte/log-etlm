@@ -1295,7 +1295,7 @@
       "id": 55
     }
   ],
-  "refresh": "2m",
+  "refresh": "",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [
