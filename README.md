@@ -13,13 +13,13 @@
 
 ## 목표
 
-- 대규모 로그 스트림의 ~~real-time(실시간)~~ **near-real-time(준실시간)** 제약 하 안정 처리 가능성 검증
+- 대규모 로그 스트림의 ~~real-time(실시간)~~ **near-real-time(준실시간)** 제약 하 안정적인 지속 처리 가능성 검증
 - FastAPI → Kafka → Spark → ClickHouse → Grafana 엔드투엔드 파이프라인의 **지연/처리량 목표** 충족 여부 확인
 - 각 단계별 병목 지점 식별 및 개선 방안 도출
 - 추가: Slack 연동 Watchdog과 Grafana 대시보드 기반 최소 운영 감시 체계 구성 및 실시간 알림/가시성 확보 가능성 검증
 
 
-## 실험 환경 / 제약 및 결정(SLA)
+## 실험 환경 / 제약 및 결정
 
 - **환경** : VirtualBox Ubuntu 단일 VM에서 Simulator, Kafka, Spark(Structured Streaming), ClickHouse, Grafana를 Docker Compose로 동시 구동
 - **리소스 변경 과정**:
@@ -28,7 +28,7 @@
   - vCPU 8은 VM 강제 종료 문제로 운영 불가 
   - **vCPU 7도 포화 상태이지만 그나마 안정 구동 확인**
   - **관찰 결과**: 단일 VM에서 여러 컴포넌트가 CPU를 경쟁적으로 점유하여 “초저지연 실시간(수 초)” 목표는 비현실적임을 확인
-  - **결정(SLA 재정의)**: 안정적인 지속 처리를 우선하여 **약 10초 수준의 지연을 허용하는 near-real-time** 목표로 조정  
+  - **결정**: 안정적인 지속 처리를 우선하여 **약 10초 수준의 지연을 허용하는 near-real-time** 목표로 조정  
 
 
 ## 기술 스택
