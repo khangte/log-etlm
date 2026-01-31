@@ -78,10 +78,53 @@ class JsonProgressListener(StreamingQueryListener):
         )
 
 
+def _mask_env_value(key: str, value: str) -> str:
+    """민감 정보는 마스킹한다."""
+    key_upper = key.upper()
+    if any(token in key_upper for token in ("PASSWORD", "SECRET", "TOKEN", "KEY")):
+        return "***"
+    return value
+
+
+def _load_env_keys_from_profile() -> list[str]:
+    """config/env/<profile>.env.example에 있는 키 목록을 읽는다."""
+    profile = (os.getenv("SPARK_ENV_PROFILE") or "").strip()
+    if not profile:
+        return []
+    env_dir = os.getenv("SPARK_ENV_DIR", "/app/config/env")
+    env_path = os.path.join(env_dir, f"{profile}.env.example")
+    try:
+        keys: list[str] = []
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                raw = line.strip()
+                if not raw or raw.startswith("#") or "=" not in raw:
+                    continue
+                key = raw.split("=", 1)[0].strip()
+                if key:
+                    keys.append(key)
+        return keys
+    except FileNotFoundError:
+        print(f"[env] profile file not found: {env_path}")
+        return []
+
+
+def _log_runtime_env() -> None:
+    """config/env에 정의된 키만 출력한다."""
+    keys = _load_env_keys_from_profile()
+    if not keys:
+        print("[env] no profile keys to log")
+        return
+    for key in sorted(dict.fromkeys(keys)):
+        value = os.environ.get(key, "")
+        print(f"[env] {key}={_mask_env_value(key, value)}")
+
+
 def run_event_ingest() -> None:
     """Spark 스트리밍 적재 작업을 실행한다."""
     spark = None
     try:
+        _log_runtime_env()
         master_url = get_env_str(os.environ, "SPARK_MASTER_URL")
         spark = build_streaming_spark(master=master_url)
         spark.sparkContext.setLogLevel("INFO")
