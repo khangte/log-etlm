@@ -15,6 +15,7 @@ class StreamIngestSettings:
     dlq_topic: Optional[str]
     starting_offsets: Optional[str]
     max_offsets_per_trigger: Optional[str]
+    max_offsets_cap: Optional[int]
     target_eps: Optional[int]
     max_offsets_safety: Optional[float]
     target_eps_profile_path: Optional[str]
@@ -35,6 +36,7 @@ def load_stream_ingest_settings(
         dlq_topic=get_env_str(source, "SPARK_DLQ_TOPIC"),
         starting_offsets=get_env_str(source, "SPARK_STARTING_OFFSETS"),
         max_offsets_per_trigger=get_env_str(source, "SPARK_MAX_OFFSETS_PER_TRIGGER"),
+        max_offsets_cap=get_env_int(source, "SPARK_MAX_OFFSETS_CAP"),
         target_eps=get_env_int(source, "SPARK_TARGET_EPS"),
         max_offsets_safety=get_env_float(source, "SPARK_MAX_OFFSETS_SAFETY"),
         target_eps_profile_path=get_env_str(
