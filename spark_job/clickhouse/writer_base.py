@@ -31,6 +31,7 @@ class ClickHouseStreamWriterBase:
         deduplicate_keys: list[str] | None = None,
         skip_empty: bool = False,
         trigger_processing_time: str | None = None,
+        pre_coalesce_partitions: int | None = None,
     ):
         """스트리밍 데이터를 ClickHouse로 적재한다."""
         resolved_stream = stream_name or query_name or table_name
@@ -47,10 +48,18 @@ class ClickHouseStreamWriterBase:
             """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
 
-            # 불필요한 Spark Job 실행을 막기 위해 데이터프레임을 메모리에 캐시
-            batch_df.persist()
+            working_df = batch_df
+            if pre_coalesce_partitions and pre_coalesce_partitions > 0:
+                current = working_df.rdd.getNumPartitions()
+                if current > pre_coalesce_partitions:
+                    working_df = working_df.coalesce(pre_coalesce_partitions)
 
-            if skip_empty and batch_df.isEmpty():
+            persisted = False
+            if skip_empty:
+                # 불필요한 Spark Job 재실행을 피하기 위해 empty 체크 시 캐시
+                working_df.persist()
+                persisted = True
+            if skip_empty and working_df.isEmpty():
                 elapsed = time.perf_counter() - start_time
                 line = (
                     f"{prefix} batch_id={batch_id} stage=transform empty=true "
@@ -64,10 +73,11 @@ class ClickHouseStreamWriterBase:
                 )
                 print(line)
                 append_batch_log(line)
-                batch_df.unpersist()  # 캐시 해제
+                if persisted:
+                    working_df.unpersist()  # 캐시 해제
                 return
 
-            out_df = batch_df
+            out_df = working_df
 
             if deduplicate_keys:
                 # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
@@ -111,7 +121,8 @@ class ClickHouseStreamWriterBase:
             self._foreach_writer(out_df, table_name, batch_id=batch_id)
             write_elapsed = time.perf_counter() - write_start
 
-            batch_df.unpersist()  # 캐시 해제
+            if persisted:
+                working_df.unpersist()  # 캐시 해제
             line = (
                 f"{prefix} batch_id={batch_id} stage=write "
                 f"duration={write_elapsed:.3f}s"
