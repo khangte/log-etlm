@@ -16,6 +16,15 @@ def get_env_str(
     return value if value else default
 
 
+def get_env_optional_str(
+    env: Mapping[str, str],
+    key: str,
+) -> Optional[str]:
+    """빈 문자열은 None으로 정규화해 반환한다."""
+    value = get_env_str(env, key)
+    return value if value else None
+
+
 def get_env_int(
     env: Mapping[str, str],
     key: str,
