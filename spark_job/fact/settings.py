@@ -19,6 +19,7 @@ class FactStreamSettings:
     trigger_interval: Optional[str]
     store_raw_json: bool
     num_partitions: Optional[int]
+    skip_empty_batch: bool
 
 
 def load_fact_stream_settings(
@@ -32,6 +33,7 @@ def load_fact_stream_settings(
         trigger_interval=get_env_str(source, "SPARK_FACT_TRIGGER_INTERVAL"),
         store_raw_json=get_env_bool(source, "SPARK_STORE_RAW_JSON", False),
         num_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
+        skip_empty_batch=get_env_bool(source, "SPARK_SKIP_EMPTY_BATCH", False),
     )
 
 
