@@ -6,16 +6,19 @@ services:
       dockerfile: log_simulator/Dockerfile
     container_name: simulator
     cpus: "1.0"
+    mem_limit: "256m"
+    mem_reservation: "128m"
+    oom_score_adj: 500
     # restart: unless-stopped
     ports: 
       - "8000:8000"
     environment:
       # --- Simulator load (전체 부하 프로필) ---
       - SIMULATOR_SHARE=1.0
-      - LOG_BATCH_SIZE=1000
-      - TARGET_INTERVAL_SEC=0.38
-      - LOOPS_PER_SERVICE=2
       - SIM_EVENT_MODE=domain
+      - LOG_BATCH_SIZE=2000
+      - TARGET_INTERVAL_SEC=0.50
+      - LOOPS_PER_SERVICE=1
       # --- Simulator queue (백프레셔/스로틀) ---
       - QUEUE_SIZE=4000
       - SIM_QUEUE_WARN_RATIO=0.8
@@ -33,7 +36,7 @@ services:
       - SIM_DRAIN_TIMEOUT_SEC=5.0
       # --- Publisher worker ---
       - PUBLISHER_WORKERS=3
-      - WORKER_BATCH_SIZE=300
+      - WORKER_BATCH_SIZE=600
       - PUBLISH_QUEUE_WARN_RATIO=0.7
       - IDLE_WARN_SEC=5
       - SEND_WARN_SEC=5
@@ -46,8 +49,8 @@ services:
       - PRODUCER_COMPRESSION=none
       - PRODUCER_LINGER_MS=20
       - PRODUCER_BATCH_NUM_MESSAGES=5000
-      - PRODUCER_QUEUE_MAX_MESSAGES=2000000
-      - PRODUCER_QUEUE_MAX_KBYTES=262144
+      - PRODUCER_QUEUE_MAX_MESSAGES=200000
+      - PRODUCER_QUEUE_MAX_KBYTES=65536
     depends_on:
       kafka:
         condition: service_healthy
@@ -66,6 +69,9 @@ services:
     container_name: kafka
     # cpus: "0.6"
     # restart: unless-stopped
+    mem_limit: "2g"
+    mem_reservation: "1500m"
+    oom_score_adj: 100
     ports: 
       - "29092:29092"
     environment:
@@ -121,6 +127,9 @@ services:
     container_name: kafka-ui
     # cpus: "0.05"
     # restart: unless-stopped
+    mem_limit: "192m"
+    mem_reservation: "128m"
+    oom_score_adj: 500
     ports: 
       - "8080:8080"
     environment:
@@ -139,6 +148,9 @@ services:
     container_name: spark-master
     # # cpus: "0.05"
     # restart: unless-stopped
+    mem_limit: "256m"
+    mem_reservation: "128m"
+    oom_score_adj: 0
     command:
       - "/opt/spark/bin/spark-class"
       - "org.apache.spark.deploy.master.Master"
@@ -165,6 +177,9 @@ services:
     # cpus: "1.0"
     restart: unless-stopped
     user: "1000:185"
+    mem_limit: "2g"
+    mem_reservation: "1500m"
+    oom_score_adj: -100
     ports: 
       - "4040:4040"   # Spark UI (stream)
     environment:
@@ -175,12 +190,17 @@ services:
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_RESET_CHECKPOINT_ON_START=true
-      - SPARK_FACT_TRIGGER_INTERVAL=4 seconds
+      - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
       - SPARK_STORE_RAW_JSON=false
+      - SPARK_STREAM_DRIVER_MEMORY=1g
+      - SPARK_STREAM_EXECUTOR_MEMORY=2g
+      - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-8}"
+      - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
-      - SPARK_MAX_OFFSETS_PER_TRIGGER=    # 비어있으면 자동 계산
-      - SPARK_MAX_OFFSETS_SAFETY=1.1
-      - SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=1
+      - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}"    # 비어있으면 자동 계산
+      - "SPARK_MAX_OFFSETS_SAFETY=${SPARK_MAX_OFFSETS_SAFETY:-1.1}"
+      - "SPARK_MAX_OFFSETS_CAP=${SPARK_MAX_OFFSETS_CAP:-30000}"
+      - "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=${SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER:-1}"
       # --- DLQ/에러 스트림 (선택) ---
       - SPARK_DLQ_TOPIC=logs.dlq
       - SPARK_ENABLE_DLQ_STREAM=false
@@ -193,12 +213,14 @@ services:
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=log_pwd
-      - SPARK_CLICKHOUSE_JDBC_BATCHSIZE=20000
-      - SPARK_CLICKHOUSE_WRITE_PARTITIONS=3
-      - SPARK_CLICKHOUSE_ALLOW_REPARTITION=false    # 다운스케일은 sink.py에서 coalesce로 진행
+      - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-10000}"
+      - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}"
+      - "SPARK_SKIP_EMPTY_BATCH=${SPARK_SKIP_EMPTY_BATCH:-false}"
+      - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}"    # 업스케일은 repartition 필요
     volumes:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
+      - ./config/env:/app/config/env:ro
       - ./log_simulator/config:/app/log_simulator/config:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
@@ -232,6 +254,9 @@ services:
     # cpus: "1.8"
     # restart: unless-stopped
     user: "185:185"
+    mem_limit: "3500m"
+    mem_reservation: "2500m"
+    oom_score_adj: -50
     depends_on:
       - spark-master
     command:
@@ -254,6 +279,9 @@ services:
     # cpus: "1.8"
     # restart: unless-stopped
     user: "185:185"
+    mem_limit: "3500m"
+    mem_reservation: "2500m"
+    oom_score_adj: -50
     depends_on:
       - spark-master
     command:
@@ -275,6 +303,9 @@ services:
     container_name: spark-batch-master
     # # cpus: "0.05"
     # restart: unless-stopped
+    mem_limit: "256m"
+    mem_reservation: "128m"
+    oom_score_adj: 0
     command:
       - "/opt/spark/bin/spark-class"
       - "org.apache.spark.deploy.master.Master"
@@ -299,6 +330,9 @@ services:
     # cpus: "1.0"
     # restart: unless-stopped
     user: "185:185"
+    mem_limit: "2g"
+    mem_reservation: "1g"
+    oom_score_adj: -50
     depends_on:
       - spark-batch-master
     command:
@@ -308,7 +342,7 @@ services:
       - "--cores"
       - "2"
       - "--memory"
-      - "3g"
+      - "2g"
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -321,6 +355,9 @@ services:
       dockerfile: spark_job/Dockerfile
     container_name: spark-batch
     user: "1000:185"
+    mem_limit: "2g"
+    mem_reservation: "1g"
+    oom_score_adj: 200
     command: ["python", "-m", "spark_job.dimension.jobs.batch_job"]
     environment:
       # --- Dimension batch ---
@@ -353,6 +390,9 @@ services:
     container_name: clickhouse
     # cpus: "0.8"
     # restart: unless-stopped
+    mem_limit: "4g"
+    mem_reservation: "3g"
+    oom_score_adj: -200
     ports:
       - "127.0.0.1:8123:8123"
       - "127.0.0.1:9000:9000"
@@ -395,6 +435,9 @@ services:
     container_name: ch-ui
     # cpus: "0.05"
     # restart: always
+    mem_limit: "192m"
+    mem_reservation: "128m"
+    oom_score_adj: 500
     ports:
       - "5521:5521"
     environment:
@@ -420,6 +463,9 @@ services:
     container_name: grafana
     # cpus: "0.05"
     # restart: unless-stopped
+    mem_limit: "384m"
+    mem_reservation: "256m"
+    oom_score_adj: 200
     ports: 
       - "3000:3000"
     environment:
