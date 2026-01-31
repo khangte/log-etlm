@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import os
 from typing import Mapping, Optional
 
-from common.get_env import get_env_float, get_env_int, get_env_str
+from common.get_env import get_env_float, get_env_int, get_env_str, get_env_bool
 
 
 @dataclass(frozen=True)
