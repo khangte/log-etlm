@@ -20,6 +20,15 @@ class FactStreamSettings:
     store_raw_json: bool
     num_partitions: Optional[int]
     skip_empty_batch: bool
+    deduplicate_keys: list[str] | None
+
+
+def _parse_dedup_keys(value: Optional[str]) -> list[str] | None:
+    if not value:
+        return None
+    keys = [k.strip() for k in value.split(",")]
+    keys = [k for k in keys if k]
+    return keys or None
 
 
 def load_fact_stream_settings(
@@ -34,6 +43,7 @@ def load_fact_stream_settings(
         store_raw_json=get_env_bool(source, "SPARK_STORE_RAW_JSON", False),
         num_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
         skip_empty_batch=get_env_bool(source, "SPARK_SKIP_EMPTY_BATCH", False),
+        deduplicate_keys=_parse_dedup_keys(get_env_str(source, "SPARK_FACT_DEDUP_KEYS")),
     )
 
 
