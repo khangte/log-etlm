@@ -23,6 +23,7 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
             self._settings.checkpoint_dir,
             query_name="fact_event_stream",
             stream_name="fact_event",
+            deduplicate_keys=self._settings.deduplicate_keys,
             skip_empty=self._settings.skip_empty_batch,
             trigger_processing_time=trigger_processing_time,
             pre_coalesce_partitions=self._settings.num_partitions,
