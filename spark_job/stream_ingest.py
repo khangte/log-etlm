@@ -102,6 +102,10 @@ class StreamIngestJob:
                 max_offsets = str(auto_offsets)
                 print(f"[ℹ️ spark] maxOffsetsPerTrigger(auto)={max_offsets}")
         if max_offsets:
+            capped = self._apply_max_offsets_cap(max_offsets)
+            if capped and capped != max_offsets:
+                print(f"[ℹ️ spark] maxOffsetsPerTrigger(cap)={capped}")
+            max_offsets = capped or max_offsets
             reader = reader.option("maxOffsetsPerTrigger", max_offsets)
 
         min_partitions = self._resolve_min_partitions(spark, topics)
@@ -164,6 +168,22 @@ class StreamIngestJob:
         safety = self.settings.max_offsets_safety or 1.0
         computed = int(target_eps * trigger_seconds * safety)
         return max(1, computed)
+
+    def _apply_max_offsets_cap(self, value: str) -> str | None:
+        """maxOffsetsPerTrigger에 하드 캡을 적용한다."""
+        cap = self.settings.max_offsets_cap
+        if not cap or cap <= 0:
+            return value
+        try:
+            current = int(float(value))
+        except (TypeError, ValueError):
+            print(f"[⚠️ spark] maxOffsetsPerTrigger cap skipped: invalid value={value}")
+            return value
+        if current <= 0:
+            return value
+        if current > cap:
+            return str(max(1, cap))
+        return str(max(1, current))
 
     def _resolve_target_eps(self) -> int | None:
         """target_eps를 환경/프로파일에서 우선순위로 결정한다."""
