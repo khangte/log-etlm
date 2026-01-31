@@ -18,5 +18,5 @@ error_rate:  # 서비스별 오류율
   payment: 0.004 
 
 domain_event_policy:
-  emit_for_get_routes: false   # GET은 도메인 이벤트 안 찍기(추천)
+  emit_for_get_routes: true   # GET은 도메인 이벤트 안 찍기(추천)
   emit_on_fail: true           # 실패도 도메인 이벤트로 남김(추천)
