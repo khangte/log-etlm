@@ -58,9 +58,11 @@ class PaymentSimulator(BaseServiceSimulator):
         now_ms = self.now_utc_ms()
         request_id = self.generate_request_id()
 
+        emit_http = self._emit_http_event()
+        emit_domain = self._emit_domain_event()
         is_err = self._is_err()
-        status_code = self._pick_status_code(is_err)
-        duration_ms = self.sample_duration_ms()
+        status_code = self._pick_status_code(is_err) if emit_http else None
+        duration_ms = self.sample_duration_ms() if emit_http else None
 
         user_id = self.generate_user_id()
         amount = int(self._rng.randint(1000, 500000))
@@ -73,7 +75,7 @@ class PaymentSimulator(BaseServiceSimulator):
         order_id = self.generate_order_id()
 
         events: List[Dict[str, Any]] = []
-        if self._emit_http_event():
+        if emit_http:
             # 1) HTTP 이벤트(조건부)
             http_ev = self.make_http_event(
                 ts_ms=now_ms,
@@ -94,8 +96,12 @@ class PaymentSimulator(BaseServiceSimulator):
             events.append(http_ev)
 
         # 2) 도메인 이벤트(조건부)
-        if self._emit_domain_event() and self._should_emit_domain_event(method, route, is_err):
-            dom_name = self._domain_event_name(route, is_err)
+        if emit_domain:
+            dom_name = None
+            if self._should_emit_domain_event(method, route, is_err):
+                dom_name = self._domain_event_name(route, is_err)
+            if not dom_name and self.event_mode == "domain":
+                dom_name = self._fallback_domain_event_name(route)
             if dom_name:
                 dom_ev = self.make_domain_event(
                     ts_ms=now_ms,
