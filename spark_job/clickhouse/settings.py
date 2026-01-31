@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import os
 from typing import Dict, Mapping, Optional
 
-from common.get_env import get_env_bool, get_env_int, get_env_str
+from common.get_env import get_env_bool, get_env_float, get_env_int, get_env_str
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,9 @@ class ClickHouseSettings:
     jdbc_fetchsize: Optional[int]
     write_partitions: Optional[int]
     allow_repartition: bool
+    retry_max: int
+    retry_backoff_sec: float
+    fail_on_error: bool
 
     def build_jdbc_options(self, table_name: str) -> Dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
@@ -60,6 +63,9 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
             "SPARK_CLICKHOUSE_ALLOW_REPARTITION",
             False,
         ),
+        retry_max=get_env_int(source, "SPARK_CLICKHOUSE_RETRY_MAX", 0) or 0,
+        retry_backoff_sec=get_env_float(source, "SPARK_CLICKHOUSE_RETRY_BACKOFF_SEC", 0.0) or 0.0,
+        fail_on_error=get_env_bool(source, "SPARK_CLICKHOUSE_FAIL_ON_ERROR", True,),
     )
 
 
