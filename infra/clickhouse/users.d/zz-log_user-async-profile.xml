@@ -6,6 +6,10 @@
       <async_insert_busy_timeout_ms>1500</async_insert_busy_timeout_ms>
       <async_insert_max_data_size>67108864</async_insert_max_data_size>
       <async_insert_stale_timeout_ms>3000</async_insert_stale_timeout_ms>
+      <max_memory_usage>4294967296</max_memory_usage>
+      <max_memory_usage_for_user>4294967296</max_memory_usage_for_user>
+      <max_bytes_before_external_group_by>268435456</max_bytes_before_external_group_by>
+      <max_bytes_before_external_sort>268435456</max_bytes_before_external_sort>
     </log_async_profile>
   </profiles>
 
