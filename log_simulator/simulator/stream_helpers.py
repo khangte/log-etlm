@@ -13,19 +13,11 @@ from ..models.messages import BatchMessage
 from .settings import QueueThrottleConfig
 
 
-def adjust_eps_for_event_mode(simulator: Any, eps: float) -> float:
+def adjust_eps_for_event_mode(
+    simulator: Any,
+    eps: float,
+) -> float:
     """adjust_eps_for_event_mode 처리를 수행한다."""
-    mode = getattr(simulator, "event_mode", "all")
-    if mode == "domain":
-        domain_rate = float(getattr(simulator, "domain_event_rate", 1.0))
-        if domain_rate <= 0:
-            domain_rate = 1.0
-        return max(eps / max(domain_rate, 0.01), 0.01)
-    if mode == "http":
-        http_rate = float(getattr(simulator, "http_event_rate", 1.0))
-        if http_rate <= 0:
-            http_rate = 1.0
-        return max(eps / max(http_rate, 0.01), 0.01)
     return max(eps, 0.01)
 
 
@@ -59,6 +51,32 @@ def build_batch_messages(
                 replicate_error=_is_error_event(ev),
             )
         )
+    return batch_items
+
+
+def build_batch_messages_from_simulator(
+    simulator: Any,
+    service: str,
+    count: int,
+) -> list[BatchMessage]:
+    """build_batch_messages_from_simulator 처리를 수행한다."""
+    batch_items: list[BatchMessage] = []
+    append = batch_items.append
+    render = simulator.render_bytes
+    for _ in range(count):
+        events = simulator.generate_events_one()
+        for ev in events:
+            payload = render(ev)
+            request_id = ev.get("request_id")
+            key = str(request_id).encode("utf-8") if request_id else None
+            append(
+                BatchMessage(
+                    service=service,
+                    value=payload,
+                    key=key,
+                    replicate_error=_is_error_event(ev),
+                )
+            )
     return batch_items
 
 
