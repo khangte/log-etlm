@@ -16,7 +16,7 @@ import re
 import shlex
 import sys
 from typing import Dict, Iterable, List
-from urllib import request
+from urllib import request, error
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -31,6 +31,8 @@ LOG_PATTERNS: Dict[str, List[re.Pattern[str]]] = {
         re.compile(r"OutOfMemoryError"),
         re.compile(r"StreamingQueryException"),
         re.compile(r"Job aborted"),
+        re.compile(r"Code:\s*241"),
+        re.compile(r"MEMORY_LIMIT_EXCEEDED", re.IGNORECASE),
     ],
     "clickhouse": [
         re.compile(r"Code:\s*241"),
@@ -63,10 +65,10 @@ ALERT_BREACH_GRACE_SEC = int(os.getenv("ALERT_BREACH_GRACE_SEC", "300"))
 CH_MONITOR_ENABLED = os.getenv("CH_MONITOR_ENABLED", "true").lower() == "true"
 CH_HTTP_URL = os.getenv("CH_HTTP_URL", "http://localhost:8123")
 CH_DB = os.getenv("CH_DB", "analytics")
-CH_USER = os.getenv("CH_USER", os.getenv("CLICKHOUSE_USER", ""))
-CH_PASSWORD = os.getenv("CH_PASSWORD", os.getenv("CLICKHOUSE_PASSWORD", ""))
+CH_USER = os.getenv("CH_USER", os.getenv("CLICKHOUSE_USER", "log_user"))
+CH_PASSWORD = os.getenv("CH_PASSWORD", os.getenv("CLICKHOUSE_PASSWORD", "log_pwd"))
 CH_TIMEOUT_SEC = int(os.getenv("CH_TIMEOUT_SEC", "5"))
-CH_QUERY_INTERVAL_SEC = int(os.getenv("CH_QUERY_INTERVAL_SEC", "300"))
+CH_QUERY_INTERVAL_SEC = int(os.getenv("CH_QUERY_INTERVAL_SEC", "600"))
 
 P95_PRODUCER_TO_KAFKA_MS_MAX = int(
     os.getenv("P95_PRODUCER_TO_KAFKA_MS_MAX", os.getenv("P95_QUEUE_MS_MAX", "60000"))
@@ -148,8 +150,21 @@ def _ch_query_sync(sql: str) -> Dict[str, object] | None:
         data=sql.encode("utf-8"),
         headers={"Content-Type": "text/plain; charset=utf-8"},
     )
-    with request.urlopen(req, timeout=CH_TIMEOUT_SEC) as resp:
-        payload = json.loads(resp.read())
+    try:
+        with request.urlopen(req, timeout=CH_TIMEOUT_SEC) as resp:
+            payload = json.loads(resp.read())
+    except error.HTTPError as exc:
+        body = ""
+        try:
+            raw = exc.read()
+            if raw:
+                body = raw.decode("utf-8", errors="ignore").strip()
+        except Exception:
+            body = ""
+        detail = f"{exc}"
+        if body:
+            detail = f"{detail} body={body}"
+        raise RuntimeError(detail) from None
     rows = payload.get("data", [])
     if not rows:
         return None
@@ -329,14 +344,15 @@ FROM
 LEFT JOIN
   (
     SELECT
+      1 AS k,
       bucket,
       if(total = 0, 0, errors / total) * 100 AS error_rate_pct,
       total / 60 AS eps
     FROM (
       SELECT
         bucket,
-        uniqCombined64Merge(total_state) AS total,
-        uniqCombined64Merge(errors_state) AS errors
+        countMerge(total_state) AS total,
+        countMerge(errors_state) AS errors
       FROM analytics.fact_event_agg_1m
       WHERE bucket >= now() - INTERVAL 5 MINUTE
       GROUP BY bucket
@@ -344,10 +360,11 @@ LEFT JOIN
       LIMIT 1
     )
   ) AS eps
-ON base.k = 1
+ON base.k = eps.k
 LEFT JOIN
   (
     SELECT
+      1 AS k,
       bucket,
       quantileTDigestMerge(0.95)(producer_to_kafka_state) AS producer_to_kafka_p95_ms,
       quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_ingest_p95_ms,
@@ -360,18 +377,20 @@ LEFT JOIN
     ORDER BY bucket DESC
     LIMIT 1
   ) AS lat_s
-ON base.k = 1
+ON base.k = lat_s.k
 LEFT JOIN
   (
     SELECT
+      1 AS k,
       dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms
     FROM analytics.fact_event
     WHERE ingest_ts >= now() - INTERVAL 10 MINUTE
   ) AS fresh
-ON base.k = 1
+ON base.k = fresh.k
 LEFT JOIN
   (
     SELECT
+      1 AS k,
       if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct
     FROM
     (
@@ -381,12 +400,12 @@ LEFT JOIN
     ) AS d
     CROSS JOIN
     (
-      SELECT uniqCombined64Merge(total_state) AS total
+      SELECT countMerge(total_state) AS total
       FROM analytics.fact_event_agg_1m
       WHERE bucket >= now() - INTERVAL 5 MINUTE
     ) AS t
   ) AS dlq
-ON base.k = 1
+ON base.k = dlq.k
 """.strip()
 
     while True:
