@@ -92,6 +92,7 @@ def build_streaming_spark(
     app_name: str = "LogForge_Spark_Job",
 ) -> SparkSession:
     """스트리밍용 SparkSession을 생성한다."""
+    env = os.environ
     packages = [
         "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1",
         "com.clickhouse:clickhouse-jdbc:0.4.6",
@@ -107,6 +108,9 @@ def build_streaming_spark(
             Path("/opt/spark/jars/local"),
             required_streaming_jars,
         )
+    driver_memory = get_env_str(env, "SPARK_STREAM_DRIVER_MEMORY") or None
+    executor_memory = get_env_str(env, "SPARK_STREAM_EXECUTOR_MEMORY") or None
+    shuffle_partitions = get_env_int(env, "SPARK_STREAM_SHUFFLE_PARTITIONS")
     return _build_spark_session(
         app_name=app_name,
         master=master,
@@ -115,9 +119,9 @@ def build_streaming_spark(
         ui_port="4040",
         event_log_enabled=True,
         event_log_dir="/data/log-etlm/spark-events",
-        shuffle_partitions=8,
-        driver_memory=None,
-        executor_memory=None,
+        shuffle_partitions=shuffle_partitions or 8,
+        driver_memory=driver_memory,
+        executor_memory=executor_memory,
     )
 
 
