@@ -1,3 +1,4 @@
+import time
 import traceback
 
 from .settings import ClickHouseSettings, get_clickhouse_settings
@@ -37,28 +38,44 @@ def write_to_clickhouse(
     settings: ClickHouseSettings | None = None,
 ):
     """ClickHouse로 데이터를 적재한다."""
-    try:
-        resolved_settings = settings or get_clickhouse_settings()
+    resolved_settings = settings or get_clickhouse_settings()
+    max_attempts = max(1, resolved_settings.retry_max + 1)
+    backoff_sec = max(0.0, resolved_settings.retry_backoff_sec)
 
-        out_df = _apply_partitioning(
-            df,
-            target_partitions=resolved_settings.write_partitions,
-            allow_repartition=resolved_settings.allow_repartition,
-        )
-
-        writer = out_df.write.format("jdbc")
-        for key, value in resolved_settings.build_jdbc_options(table_name).items():
-            writer = writer.option(key, value)
-        writer = writer.mode(mode)
-        writer.save()
-
-    except Exception as e:
-        print(f"[❌ ERROR] ClickHouse 저장 실패: {table_name} {e}")
-        msg = str(e)
-        if "TABLE_ALREADY_EXISTS" in msg and "detached" in msg.lower():
-            print(
-                "[🛠️ ClickHouse] 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
-                "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
-                f"    --query \"ATTACH TABLE {table_name}\""
+    for attempt in range(1, max_attempts + 1):
+        try:
+            out_df = _apply_partitioning(
+                df,
+                target_partitions=resolved_settings.write_partitions,
+                allow_repartition=resolved_settings.allow_repartition,
             )
-        traceback.print_exc()
+
+            writer = out_df.write.format("jdbc")
+            for key, value in resolved_settings.build_jdbc_options(table_name).items():
+                writer = writer.option(key, value)
+            writer = writer.mode(mode)
+            writer.save()
+            return
+
+        except Exception as e:
+            batch_info = f" batch_id={batch_id}" if batch_id is not None else ""
+            print(
+                f"[❌ ERROR] ClickHouse 저장 실패: {table_name}{batch_info} "
+                f"(attempt {attempt}/{max_attempts}) {e}"
+            )
+            if attempt < max_attempts:
+                if backoff_sec > 0:
+                    time.sleep(backoff_sec * attempt)
+                continue
+
+            msg = str(e)
+            if "TABLE_ALREADY_EXISTS" in msg and "detached" in msg.lower():
+                print(
+                    "[🛠️ ClickHouse] 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
+                    "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
+                    f"    --query \"ATTACH TABLE {table_name}\""
+                )
+            traceback.print_exc()
+            if resolved_settings.fail_on_error:
+                raise
+            return
