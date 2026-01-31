@@ -23,7 +23,7 @@ from ..models.messages import BatchMessage
 from .stream_helpers import (
     adjust_eps_for_event_mode,
     apply_queue_backpressure,
-    build_batch_messages,
+    build_batch_messages_from_simulator,
     log_behind,
 )
 
@@ -58,7 +58,9 @@ async def run_simulator_loop(
         if log_batch_size is None
         else log_batch_size
     )
-    max_batch_size = max(int(resolved_batch_size), 1)
+    base_batch_size = max(int(resolved_batch_size), 1)
+    auto_batch_size = int(math.ceil(target_eps * target_interval_sec))
+    max_batch_size = max(base_batch_size, max(auto_batch_size, 1))
     carry = 0.0
     prev_ts = time.perf_counter()
     behind_log_every_sec = resolved_settings.behind_log_every_sec
@@ -75,7 +77,10 @@ async def run_simulator_loop(
         hour = current_hour_kst()
 
         multiplier = pick_multiplier(bands, hour_kst=hour) if bands else 1.0
-        effective_eps = adjust_eps_for_event_mode(simulator, target_eps * multiplier)
+        effective_eps = adjust_eps_for_event_mode(
+            simulator,
+            target_eps * multiplier,
+        )
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
@@ -89,10 +94,12 @@ async def run_simulator_loop(
 
         enqueue_duration = 0.0
         if batch_size > 0:
-            events = simulator.generate_events(batch_size)  # batch_size = 요청 수
-
             enqueue_start = time.perf_counter()
-            batch_items = build_batch_messages(simulator, service, events)
+            batch_items = build_batch_messages_from_simulator(
+                simulator,
+                service,
+                batch_size,
+            )
 
             if batch_items:
                 await publish_queue.put(batch_items)
