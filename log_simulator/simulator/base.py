@@ -12,14 +12,13 @@ import bisect
 import json
 import random
 import time
-import uuid
 
 
 class BaseServiceSimulator:
     """
     성능 최적화 포인트
     - routes 전처리(누적 weight)로 pick_route 비용 절감
-    - Faker 제거: uuid4 기반 ID 생성으로 속도 향상
+    - Faker 제거: 빠른 난수 기반 ID 생성
     - time.time_ns 기반 now_utc_ms
     - 요청 1건 -> 이벤트 리스트(1~2개) 생성 패턴 지원
     """
@@ -118,25 +117,31 @@ class BaseServiceSimulator:
         """현재 UTC epoch ms (빠른 구현)"""
         return time.time_ns() // 1_000_000
 
+    def _rand_hex(self, length: int) -> str:
+        """고정 길이 hex 문자열 생성."""
+        length = max(int(length), 1)
+        bits = length * 4
+        return f"{self._rng.getrandbits(bits):0{length}x}"
+
     def generate_request_id(self) -> str:
         """generate_request_id 처리를 수행한다."""
-        return "req_" + uuid.uuid4().hex[:12]
+        return "req_" + self._rand_hex(12)
 
     def generate_event_id(self) -> str:
         """generate_event_id 처리를 수행한다."""
-        return "evt_" + uuid.uuid4().hex
+        return "evt_" + self._rand_hex(32)
 
     def generate_user_id(self) -> str:
         """간단 user id(8 hex)"""
-        return uuid.uuid4().hex[:8]
+        return self._rand_hex(8)
 
     def generate_order_id(self) -> str:
         """generate_order_id 처리를 수행한다."""
-        return "o_" + uuid.uuid4().hex[:12]
+        return "o_" + self._rand_hex(12)
 
     def generate_payment_id(self) -> str:
         """generate_payment_id 처리를 수행한다."""
-        return "p_" + uuid.uuid4().hex[:12]
+        return "p_" + self._rand_hex(12)
 
     # ---------- route/method 선택 ----------
 
@@ -188,6 +193,13 @@ class BaseServiceSimulator:
         if not isinstance(de, dict):
             return None
         return de.get("fail" if is_err else "success")
+
+    def _fallback_domain_event_name(self, route: Dict[str, Any]) -> str:
+        """fallback 도메인 이벤트명을 생성한다."""
+        api_group = route.get("api_group")
+        if api_group:
+            return f"{str(api_group).lower()}_event"
+        return f"{self.service}_event"
 
     def _estimate_http_event_rate(self) -> float:
         """estimate_http_event_rate 처리를 수행한다."""
@@ -333,4 +345,4 @@ class BaseServiceSimulator:
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
         """render_bytes 처리를 수행한다."""
-        return json.dumps(log, ensure_ascii=False).encode("utf-8")
+        return json.dumps(log, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
