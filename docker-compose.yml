@@ -44,6 +44,7 @@ services:
       # --- Kafka producer ---
       - KAFKA_BOOTSTRAP=kafka:9092
       - KAFKA_CLIENT_ID=log-monitoring-simulator
+      - PRODUCER_MESSAGE_MAX_BYTES=1048576
       - PRODUCER_ENABLE_IDEMPOTENCE=false
       - PRODUCER_ACKS=0
       - PRODUCER_COMPRESSION=none
@@ -94,6 +95,9 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       # --- Partitions ---
       KAFKA_NUM_PARTITIONS: 1
+      # --- Message size cap ---
+      KAFKA_MESSAGE_MAX_BYTES: 1048576
+      KAFKA_REPLICA_FETCH_MAX_BYTES: 1048576
       # --- Storage / Heap ---
       KAFKA_LOG_DIRS: "/var/lib/kafka/logs"
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
@@ -193,7 +197,9 @@ services:
       - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
       - SPARK_STORE_RAW_JSON=false
       - SPARK_STREAM_DRIVER_MEMORY=1g
+      - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=512m
       - SPARK_STREAM_EXECUTOR_MEMORY=2g
+      - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=768m
       - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-8}"
       - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
@@ -218,7 +224,7 @@ services:
       - "SPARK_SKIP_EMPTY_BATCH=${SPARK_SKIP_EMPTY_BATCH:-false}"
       - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}"    # 업스케일은 repartition 필요
       - SPARK_FACT_DEDUP_KEYS=event_id
-      - SPARK_CLICKHOUSE_RETRY_MAX=0
+      - SPARK_CLICKHOUSE_RETRY_MAX=1
       - SPARK_CLICKHOUSE_RETRY_BACKOFF_SEC=1
       - SPARK_CLICKHOUSE_FAIL_ON_ERROR=true
     volumes:
@@ -373,6 +379,8 @@ services:
       - SPARK_BATCH_MASTER=spark://spark-batch-master:7078
       - SPARK_BATCH_DRIVER_MEMORY=2g
       - SPARK_BATCH_EXECUTOR_MEMORY=2g
+      - SPARK_BATCH_DRIVER_MEMORY_OVERHEAD=0
+      - SPARK_BATCH_EXECUTOR_MEMORY_OVERHEAD=0
       - SPARK_BATCH_SHUFFLE_PARTITIONS=64
       - DIM_BATCH_LOOKBACK_DAYS=1
       - DIM_SERVICE_MAP_PATH=
