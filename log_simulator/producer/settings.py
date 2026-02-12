@@ -21,6 +21,7 @@ class ProducerSettings:
     batch_num_messages: int
     queue_buffering_max_kbytes: int
     queue_buffering_max_messages: int
+    message_max_bytes: Optional[int]
     enable_idempotence: bool
     acks: Optional[str]
     compression_type: Optional[str]
@@ -41,6 +42,8 @@ class ProducerSettings:
             "partitioner": "murmur2_random",
         }
 
+        if self.message_max_bytes:
+            config["message.max.bytes"] = self.message_max_bytes
         if self.client_id:
             config["client.id"] = self.client_id
         if self.acks:
@@ -79,6 +82,7 @@ def load_producer_settings(env: Mapping[str, str] | None = None) -> ProducerSett
             "PRODUCER_QUEUE_MAX_MESSAGES",
             _DEFAULT_QUEUE_MAX_MESSAGES,
         ),
+        message_max_bytes=get_env_int(source, "PRODUCER_MESSAGE_MAX_BYTES"),
         enable_idempotence=get_env_bool(
             source,
             "PRODUCER_ENABLE_IDEMPOTENCE",
