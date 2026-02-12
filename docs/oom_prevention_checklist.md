@@ -11,7 +11,7 @@
 
 ## 컴포넌트별 체크리스트
 
-### 1) Simulator
+### 1. Simulator
 **위험 신호**
 - publish 큐 사용률이 80% 이상으로 지속
 - send latency 증가 또는 queue full 로그 발생
@@ -24,7 +24,7 @@
 - `PRODUCER_QUEUE_MAX_MESSAGES`, `PRODUCER_QUEUE_MAX_KBYTES` 축소
 - simulator 컨테이너 `mem_limit`/`oom_score_adj` 정책 점검(과부하 시 우선 종료 대상)
 
-### 2) Kafka
+### 2. Kafka
 **위험 신호**
 - GC 빈도 증가, latency 급증
 - 디스크 I/O 대기 증가
@@ -34,8 +34,9 @@
 - 시뮬레이터 발행 속도 감소(위 Simulator 조치)
 - 파티션 수 확대(스큐 완화)
 - `KAFKA_HEAP_OPTS`와 컨테이너 메모리 상한 불일치 점검
+- 브로커/프로듀서 `message.max.bytes` 상한 점검(현재 1MiB)
 
-### 3) Spark Driver (Streaming)
+### 3. Spark Driver (Streaming)
 **위험 신호**
 - 마이크로 배치 처리 시간 증가
 - `inputRate > processedRate` 지속
@@ -46,9 +47,11 @@
 - `SPARK_MAX_OFFSETS_CAP` 보수적으로 설정(기본 30000)
 - `SPARK_FACT_TRIGGER_INTERVAL` 늘리기
 - 필요 시 `SPARK_STREAM_DRIVER_MEMORY`, `SPARK_STREAM_EXECUTOR_MEMORY` 상향(여유 있을 때만)
+- 필요 시 `SPARK_STREAM_DRIVER_MEMORY_OVERHEAD`, `SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD`로 off-heap/오버헤드 여유 확보
+- 단일 VM 기준 streaming 오버헤드는 고정값 유지(Driver 512m / Executor 768m)
 - `SPARK_MAX_OFFSETS_SAFETY`를 낮춰 자동 산정치를 보수화(기본 1.1)
 
-### 4) Spark Executors / Workers
+### 4. Spark Executors / Workers
 **위험 신호**
 - shuffle spill 증가
 - 특정 파티션 처리 시간이 비정상적으로 길어짐(스큐)
@@ -61,7 +64,7 @@
 - `SPARK_MAX_OFFSETS_PER_TRIGGER` 낮춰 배치 크기 축소
 - ClickHouse insert 부담이 클 때 `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 축소
 
-### 5) Spark Batch (DIM)
+### 5. Spark Batch (DIM)
 **위험 신호**
 - 배치 실행 시간이 급격히 증가
 - executor/driver OOM 로그
@@ -72,7 +75,7 @@
 - `SPARK_BATCH_SHUFFLE_PARTITIONS` 증가
 - `SPARK_BATCH_DRIVER_MEMORY`, `SPARK_BATCH_EXECUTOR_MEMORY` 상향
 
-### 6) ClickHouse
+### 6. ClickHouse
 **위험 신호**
 - 쿼리 타임아웃, `Code: 241` 발생
 - insert latency 급증, MV 처리 지연
@@ -80,12 +83,12 @@
 
 **즉시 조치**
 - Grafana 조회 범위 축소, refresh 주기 증가
-- `max_memory_usage`, `max_memory_usage_for_user` 상향 또는 조정(현재 4GiB)
+- `max_memory_usage`, `max_memory_usage_for_user` 상향 또는 조정(현재 6GiB)
 - `max_bytes_before_external_group_by/sort`로 spill 유도(현재 256MB)
 - 10s MV 비활성화(부하 감소)
-- ClickHouse 컨테이너 `mem_limit` 상향(현재 4g) 및 여유 확인
+- ClickHouse 컨테이너 `mem_limit` 상향(현재 8g) 및 여유 확인
 
-### 7) Grafana / UI
+### 7. Grafana / UI
 **위험 신호**
 - 대시보드 로딩 지연
 - 쿼리 실패/timeout 증가
