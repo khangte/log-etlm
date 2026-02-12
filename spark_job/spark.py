@@ -40,7 +40,9 @@ def _build_spark_session(
     event_log_dir: str | None,
     shuffle_partitions: int | None,
     driver_memory: str | None,
+    driver_memory_overhead: str | None,
     executor_memory: str | None,
+    executor_memory_overhead: str | None,
 ) -> SparkSession:
     """SparkSession을 생성한다."""
     _reset_stopped_spark_context()
@@ -64,6 +66,10 @@ def _build_spark_session(
         builder = builder.config("spark.driver.memory", driver_memory)
     if executor_memory:
         builder = builder.config("spark.executor.memory", executor_memory)
+    if driver_memory_overhead:
+        builder = builder.config("spark.driver.memoryOverhead", driver_memory_overhead)
+    if executor_memory_overhead:
+        builder = builder.config("spark.executor.memoryOverhead", executor_memory_overhead)
 
     if event_log_enabled:
         builder = builder.config("spark.eventLog.enabled", "true")
@@ -109,7 +115,13 @@ def build_streaming_spark(
             required_streaming_jars,
         )
     driver_memory = get_env_str(env, "SPARK_STREAM_DRIVER_MEMORY") or None
+    driver_memory_overhead = (
+        get_env_str(env, "SPARK_STREAM_DRIVER_MEMORY_OVERHEAD") or None
+    )
     executor_memory = get_env_str(env, "SPARK_STREAM_EXECUTOR_MEMORY") or None
+    executor_memory_overhead = (
+        get_env_str(env, "SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD") or None
+    )
     shuffle_partitions = get_env_int(env, "SPARK_STREAM_SHUFFLE_PARTITIONS")
     return _build_spark_session(
         app_name=app_name,
@@ -121,7 +133,9 @@ def build_streaming_spark(
         event_log_dir="/data/log-etlm/spark-events",
         shuffle_partitions=shuffle_partitions or 8,
         driver_memory=driver_memory,
+        driver_memory_overhead=driver_memory_overhead,
         executor_memory=executor_memory,
+        executor_memory_overhead=executor_memory_overhead,
     )
 
 
@@ -135,7 +149,9 @@ def build_batch_spark(
     resolved_master = master or get_env_str(env, "SPARK_BATCH_MASTER") or "local[*]"
     shuffle_partitions = get_env_int(env, "SPARK_BATCH_SHUFFLE_PARTITIONS")
     driver_memory = get_env_str(env, "SPARK_BATCH_DRIVER_MEMORY")
+    driver_memory_overhead = get_env_str(env, "SPARK_BATCH_DRIVER_MEMORY_OVERHEAD")
     executor_memory = get_env_str(env, "SPARK_BATCH_EXECUTOR_MEMORY")
+    executor_memory_overhead = get_env_str(env, "SPARK_BATCH_EXECUTOR_MEMORY_OVERHEAD")
     packages = [
         "com.clickhouse:clickhouse-jdbc:0.4.6",
     ]
@@ -158,5 +174,7 @@ def build_batch_spark(
         event_log_dir=None,
         shuffle_partitions=shuffle_partitions or 8,
         driver_memory=driver_memory,
+        driver_memory_overhead=driver_memory_overhead,
         executor_memory=executor_memory,
+        executor_memory_overhead=executor_memory_overhead,
     )
