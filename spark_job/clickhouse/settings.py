@@ -20,6 +20,9 @@ class ClickHouseSettings:
     retry_max: int
     retry_backoff_sec: float
     fail_on_error: bool
+    dlq_on_final_failure: bool
+    dlq_topic: Optional[str]
+    kafka_bootstrap: Optional[str]
 
     def build_jdbc_options(self, table_name: str) -> Dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
@@ -66,6 +69,9 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
         retry_max=get_env_int(source, "SPARK_CLICKHOUSE_RETRY_MAX", 0) or 0,
         retry_backoff_sec=get_env_float(source, "SPARK_CLICKHOUSE_RETRY_BACKOFF_SEC", 0.0) or 0.0,
         fail_on_error=get_env_bool(source, "SPARK_CLICKHOUSE_FAIL_ON_ERROR", True,),
+        dlq_on_final_failure=get_env_bool(source, "SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE", True),
+        dlq_topic=get_env_str(source, "SPARK_DLQ_TOPIC"),
+        kafka_bootstrap=get_env_str(source, "KAFKA_BOOTSTRAP"),
     )
 
 
