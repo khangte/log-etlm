@@ -67,3 +67,17 @@ PARTITION BY toDate(ingest_ts)
 ORDER BY (ingest_ts, error_type, source_topic)
 TTL ingest_ts + INTERVAL 7 DAY
 SETTINGS allow_nullable_key=1;
+
+
+-- Stream batch guard table (best-effort idempotency for foreachBatch sink)
+CREATE TABLE IF NOT EXISTS analytics.stream_batch_guard
+(
+    stream_name   LowCardinality(String),
+    target_table  LowCardinality(String),
+    batch_id      Int64,
+    committed_at  DateTime64(3) DEFAULT now64(3)
+)
+ENGINE = MergeTree
+PARTITION BY toYYYYMM(committed_at)
+ORDER BY (stream_name, target_table, batch_id)
+TTL committed_at + INTERVAL 30 DAY;

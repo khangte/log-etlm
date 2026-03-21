@@ -23,6 +23,8 @@ class ClickHouseSettings:
     dlq_on_final_failure: bool
     dlq_topic: Optional[str]
     kafka_bootstrap: Optional[str]
+    batch_guard_enabled: bool
+    batch_guard_table: str
 
     def build_jdbc_options(self, table_name: str) -> Dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
@@ -72,6 +74,19 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
         dlq_on_final_failure=get_env_bool(source, "SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE", True),
         dlq_topic=get_env_str(source, "SPARK_DLQ_TOPIC"),
         kafka_bootstrap=get_env_str(source, "KAFKA_BOOTSTRAP"),
+        batch_guard_enabled=get_env_bool(
+            source,
+            "SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED",
+            True,
+        ),
+        batch_guard_table=(
+            get_env_str(
+                source,
+                "SPARK_CLICKHOUSE_BATCH_GUARD_TABLE",
+                "analytics.stream_batch_guard",
+            )
+            or "analytics.stream_batch_guard"
+        ),
     )
 
 

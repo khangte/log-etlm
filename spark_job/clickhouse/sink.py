@@ -1,10 +1,14 @@
 import time
 import traceback
+import re
 
 from pyspark.sql import DataFrame, functions as F
 
 from ..dlq.schema import DLQ_VALUE_COLUMNS
 from .settings import ClickHouseSettings, get_clickhouse_settings
+
+
+_TABLE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 def _apply_partitioning(
@@ -124,10 +128,96 @@ def _write_failed_fact_batch_to_dlq(
     return True
 
 
+def _ensure_table_identifier(name: str) -> str:
+    """JDBC query에 사용할 테이블 식별자 안전성을 검증한다."""
+    if not _TABLE_IDENTIFIER_PATTERN.fullmatch(name):
+        raise ValueError(f"invalid table identifier: {name}")
+    return name
+
+
+def _escape_sql_literal(value: str) -> str:
+    """SQL literal 문자열을 이스케이프한다."""
+    return (value or "").replace("\\", "\\\\").replace("'", "''")
+
+
+def _load_single_count(
+    df: DataFrame,
+    *,
+    settings: ClickHouseSettings,
+    query: str,
+) -> int:
+    """JDBC 단건 count 조회를 수행한다."""
+    reader = (
+        df.sparkSession.read.format("jdbc")
+        .option("driver", "com.clickhouse.jdbc.ClickHouseDriver")
+        .option("url", settings.url)
+        .option("dbtable", f"({query}) AS t")
+    )
+    if settings.user:
+        reader = reader.option("user", settings.user)
+    if settings.password:
+        reader = reader.option("password", settings.password)
+    row = reader.load().first()
+    if not row:
+        return 0
+    return int(row["cnt"] or 0)
+
+
+def _is_already_committed_batch(
+    df: DataFrame,
+    *,
+    settings: ClickHouseSettings,
+    stream_name: str,
+    table_name: str,
+    batch_id: int,
+) -> bool:
+    """배치 커밋 가드 테이블에서 중복 배치 여부를 확인한다."""
+    guard_table = _ensure_table_identifier(settings.batch_guard_table)
+    escaped_stream = _escape_sql_literal(stream_name)
+    escaped_table = _escape_sql_literal(table_name)
+    query = (
+        "SELECT count() AS cnt "
+        f"FROM {guard_table} "
+        f"WHERE stream_name = '{escaped_stream}' "
+        f"AND target_table = '{escaped_table}' "
+        f"AND batch_id = {int(batch_id)}"
+    )
+    return _load_single_count(df, settings=settings, query=query) > 0
+
+
+def _mark_batch_committed(
+    df: DataFrame,
+    *,
+    settings: ClickHouseSettings,
+    stream_name: str,
+    table_name: str,
+    batch_id: int,
+) -> None:
+    """배치 커밋 가드 테이블에 성공 배치를 기록한다."""
+    marker_df = df.sparkSession.createDataFrame(
+        [(stream_name, table_name, int(batch_id))],
+        ["stream_name", "target_table", "batch_id"],
+    )
+    writer = marker_df.write.format("jdbc")
+    for key, value in settings.build_jdbc_options(settings.batch_guard_table).items():
+        writer = writer.option(key, value)
+    writer.mode("append").save()
+
+
+def _is_missing_guard_table_error(error: Exception, guard_table: str) -> bool:
+    """가드 테이블 미존재 오류인지 판별한다."""
+    msg = str(error).lower()
+    table = (guard_table or "").lower()
+    if table and table not in msg:
+        return False
+    return ("unknown table" in msg) or ("doesn't exist" in msg)
+
+
 def write_to_clickhouse(
     df,
     table_name,
     batch_id: int | None = None,
+    stream_name: str | None = None,
     mode: str = "append",
     *,
     settings: ClickHouseSettings | None = None,
@@ -136,9 +226,42 @@ def write_to_clickhouse(
     resolved_settings = settings or get_clickhouse_settings()
     max_attempts = max(1, resolved_settings.retry_max + 1)
     backoff_sec = max(0.0, resolved_settings.retry_backoff_sec)
+    use_batch_guard = bool(
+        resolved_settings.batch_guard_enabled
+        and batch_id is not None
+        and stream_name
+    )
+
+    if use_batch_guard:
+        try:
+            if _is_already_committed_batch(
+                df,
+                settings=resolved_settings,
+                stream_name=stream_name or "",
+                table_name=table_name,
+                batch_id=int(batch_id),
+            ):
+                print(
+                    "[clickhouse sink] 중복 배치 skip "
+                    f"stream={stream_name} table={table_name} batch_id={batch_id}"
+                )
+                return
+        except Exception as guard_error:
+            if _is_missing_guard_table_error(
+                guard_error,
+                resolved_settings.batch_guard_table,
+            ):
+                print(
+                    "[⚠️ clickhouse sink] batch guard 비활성화: "
+                    f"guard table missing ({resolved_settings.batch_guard_table})"
+                )
+                use_batch_guard = False
+            else:
+                raise
 
     for attempt in range(1, max_attempts + 1):
         out_df = df
+        data_written = False
         try:
             out_df = _apply_partitioning(
                 df,
@@ -151,10 +274,29 @@ def write_to_clickhouse(
                 writer = writer.option(key, value)
             writer = writer.mode(mode)
             writer.save()
+            data_written = True
+
+            if use_batch_guard:
+                _mark_batch_committed(
+                    out_df,
+                    settings=resolved_settings,
+                    stream_name=stream_name or "",
+                    table_name=table_name,
+                    batch_id=int(batch_id),
+                )
             return
 
         except Exception as e:
             batch_info = f" batch_id={batch_id}" if batch_id is not None else ""
+            if data_written and use_batch_guard:
+                print(
+                    f"[❌ ERROR] 배치 가드 기록 실패: {table_name}{batch_info} "
+                    "데이터는 이미 저장됨(자동 재시도 중단)"
+                )
+                if resolved_settings.fail_on_error:
+                    raise
+                return
+
             print(
                 f"[❌ ERROR] ClickHouse 저장 실패: {table_name}{batch_info} "
                 f"(attempt {attempt}/{max_attempts}) {e}"
