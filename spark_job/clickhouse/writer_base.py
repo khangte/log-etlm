@@ -118,7 +118,12 @@ class ClickHouseStreamWriterBase:
             append_batch_log(line)
 
             write_start = time.perf_counter()
-            self._foreach_writer(out_df, table_name, batch_id=batch_id)
+            self._foreach_writer(
+                out_df,
+                table_name,
+                batch_id=batch_id,
+                stream_name=resolved_stream,
+            )
             write_elapsed = time.perf_counter() - write_start
 
             if persisted:
