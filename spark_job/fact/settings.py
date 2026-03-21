@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import os
 from typing import Mapping, Optional
 
-from common.get_env import get_env_bool, get_env_int, get_env_str
+from common.get_env import get_env_bool, get_env_int, get_env_optional_str, get_env_str
 
 
 FACT_EVENT_TABLE = "analytics.fact_event"
@@ -21,6 +21,7 @@ class FactStreamSettings:
     num_partitions: Optional[int]
     skip_empty_batch: bool
     deduplicate_keys: list[str] | None
+    deduplicate_watermark: Optional[str]
 
 
 def _parse_dedup_keys(value: Optional[str]) -> list[str] | None:
@@ -44,6 +45,7 @@ def load_fact_stream_settings(
         num_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
         skip_empty_batch=get_env_bool(source, "SPARK_SKIP_EMPTY_BATCH", False),
         deduplicate_keys=_parse_dedup_keys(get_env_str(source, "SPARK_FACT_DEDUP_KEYS")),
+        deduplicate_watermark=get_env_optional_str(source, "SPARK_FACT_DEDUP_WATERMARK"),
     )
 
 
