@@ -68,6 +68,7 @@
 4. **로그 저장**
    - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
    - 초기 스키마는 `infra/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
+   - 기존 ClickHouse 데이터 볼륨을 재사용하는 환경이면 `analytics.stream_batch_guard`가 자동 생성되지 않을 수 있으므로, 필요 시 `infra/clickhouse/sql/10_fact.sql`의 DDL을 1회 수동 적용한다.
 5. **로그 시각화 및 모니터링**
    - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
    - 대시보드 JSON:
@@ -212,7 +213,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 환경 프로파일 값은 `config/env/{low,mid,high}.env.example` 참고(적용은 `docker-compose.yml`)
 - 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
-  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START`
+  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `false`)
   - `SPARK_STREAM_SHUFFLE_PARTITIONS`, `SPARK_SKIP_EMPTY_BATCH`
   - `SPARK_DLQ_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_LOG_EMPTY`
   - `SPARK_BATCH_TIMING_LOG_PATH`, `SPARK_PROGRESS_LOG_PATH`
@@ -229,6 +230,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 ### ClickHouse
 
 - 적재 튜닝: `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`
+- 배치 가드(중복 배치 skip): `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED`, `SPARK_CLICKHOUSE_BATCH_GUARD_TABLE`
 - 읽기/리파티션: `SPARK_CLICKHOUSE_JDBC_FETCHSIZE`, `SPARK_CLICKHOUSE_ALLOW_REPARTITION`
 - 서버/사용자 설정: `infra/clickhouse/`
   - `config.d/` (예: listen_host, async insert 로그)
