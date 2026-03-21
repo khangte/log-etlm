@@ -60,6 +60,7 @@
    - `spark_job/main.py`가 `spark_job/stream_ingest.py`를 실행하고, fact/DLQ 스트림이 토픽을 분리 구독해 정규화/적재를 수행.
    - fact 토픽 목록은 `SPARK_FACT_TOPICS`, DLQ 토픽은 `SPARK_DLQ_TOPIC`으로 설정.
    - DLQ 스트리밍을 끄려면 `SPARK_ENABLE_DLQ_STREAM=false`.
+   - fact 스트림은 `event_ts` 워터마크와 `event_id` 기준 상태 저장 중복 제거를 적용할 수 있으며, 기본 실행 환경에서는 `SPARK_FACT_DEDUP_KEYS=event_id`, `SPARK_FACT_DEDUP_WATERMARK=1 hour`를 사용한다.
    - `SPARK_PROGRESS_LOG_PATH`에 StreamingQuery 진행 로그(JSON lines)를 기록(기본 경로: `/data/log-etlm/spark-events/spark_progress.log`).
    - `SPARK_BATCH_TIMING_LOG_PATH`로 배치 타이밍 로그를 남길 수 있다.
    - Spark 스트림의 `/data/log-etlm/spark_checkpoints` 체크포인트 활용, 장애 복구 시점 유지.
@@ -202,6 +203,9 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 런타임 설정: `docker-compose.yml`의 simulator environment
   - `TARGET_INTERVAL_SEC`, `LOG_BATCH_SIZE`, `LOOPS_PER_SERVICE`, `PUBLISHER_WORKERS`
   - `SIMULATOR_SHARE`, `SIM_BEHIND_LOG_EVERY_SEC`
+- 시뮬레이터 이벤트의 `event_id`는 난수 대신 canonical seed 기반으로 생성한다.
+  - 고정 필드(`service`, `domain`, `event_name`, `request_id`, `ts_ms` 등)를 정규화한 뒤 해시해 `evt_v1_<hash>` 형식으로 부여한다.
+  - allowlist 외 추가 필드는 `event_id` seed에 포함하지 않아, 스키마 확장만으로 기존 이벤트 식별자가 바뀌지 않도록 한다.
 
 ### Spark 스트리밍
 
@@ -212,6 +216,9 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
   - `SPARK_STREAM_SHUFFLE_PARTITIONS`, `SPARK_SKIP_EMPTY_BATCH`
   - `SPARK_DLQ_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_TRIGGER_INTERVAL`, `SPARK_DLQ_KAFKA_LOG_EMPTY`
   - `SPARK_BATCH_TIMING_LOG_PATH`, `SPARK_PROGRESS_LOG_PATH`
+- fact 중복 제거: `spark_job/fact/writers/fact_writer.py`
+  - `SPARK_FACT_DEDUP_KEYS`와 `SPARK_FACT_DEDUP_WATERMARK`가 모두 설정되면 `withWatermark("event_ts", ...)` + `dropDuplicatesWithinWatermark(...)`를 사용한다.
+  - 현재 기본값은 `event_id` 기준, 워터마크 `1 hour`이며 상태 기반 dedup이 켜지면 `foreachBatch` 단의 배치 dedup은 생략한다.
 
 ### Spark 배치(DIM)
 
