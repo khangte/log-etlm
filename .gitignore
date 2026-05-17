@@ -217,3 +217,8 @@ docker_compose_command.md
 data/*
 logs/*
 .tmp
+
+CLAUDE.md
+.claudeignore
+.claude/
+.serena/
