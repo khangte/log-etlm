@@ -1,6 +1,19 @@
 # Docker Watchdog
 
-경량 Python 스크립트 `main.py` 로 Kafka/Spark/ClickHouse 컨테이너 상태를 실시간 감시합니다. Prometheus 없이도 빠르게 알림을 받을 수 있도록 설계됐습니다.
+경량 Python 패키지 `watchdog/` 로 Kafka/Spark/ClickHouse 컨테이너 상태를 실시간 감시합니다. Prometheus 없이도 빠르게 알림을 받을 수 있도록 설계됐습니다.
+
+## 구조
+
+```
+infra/monitor/
+├── main.py                 # 진입점 — asyncio.gather 로 모든 probe 병렬 실행
+└── watchdog/
+    ├── config.py           # 환경변수 상수, LOG_PATTERNS
+    ├── alert.py            # Webhook/stdout 알림, cooldown/grace 제어
+    ├── docker_probes.py    # docker events/logs/health check
+    ├── service_probes.py   # Spark REST, Grafana health
+    └── clickhouse_probe.py # ClickHouse 집계 임계값 점검
+```
 
 ## 실행 방법
 ```bash
@@ -29,7 +42,11 @@ python3 infra/monitor/main.py
 - `CH_DB`: ClickHouse DB (기본 analytics)
 - `CH_USER`, `CH_PASSWORD`: ClickHouse 인증 (필요 시)
 - `CH_QUERY_INTERVAL_SEC`: 지표 조회 주기 (기본 300)
-- `P95_QUEUE_MS_MAX`, `P95_PUBLISH_MS_MAX`, `P95_SINK_MS_MAX`, `P95_E2E_MS_MAX`: 단계별 p95 임계값 ms (기본 60000)
+- `P95_PRODUCER_TO_KAFKA_MS_MAX`: Producer→Kafka 지연 임계값 ms (기본 60000)
+- `P95_KAFKA_TO_SPARK_INGEST_MS_MAX`: Kafka→Spark 지연 임계값 ms (기본 60000)
+- `P95_SPARK_PROCESSING_MS_MAX`: Spark 처리 지연 임계값 ms (기본 60000)
+- `P95_SPARK_TO_STORED_MS_MAX`: Spark→ClickHouse 적재 지연 임계값 ms (기본 60000)
+- `P95_E2E_MS_MAX`: E2E 지연 임계값 ms (기본 60000)
 - `FRESHNESS_MS_MAX`: freshness 임계값 ms (기본 120000)
 - `EPS_MIN`: EPS 최소값 (기본 1)
 - `ERROR_RATE_PCT_MAX`: 에러율 임계값 % (기본 1)
