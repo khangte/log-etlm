@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import subprocess
 import sys
 
+logging.basicConfig(level=logging.INFO, format="%(message)s")
+logger = logging.getLogger(__name__)
 
 TOPICS = ["logs.auth", "logs.order", "logs.payment", "logs.error"]
 KAFKA_CONTAINER = "kafka"
@@ -15,10 +18,12 @@ CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event/offsets"
 
 
 def sh(cmd: list[str]) -> str:
-    return subprocess.check_output(cmd, text=True)
+    result = subprocess.run(cmd, text=True, capture_output=True, check=True)
+    return result.stdout
 
 
 def main() -> int:
+    topics_str = " ".join(TOPICS)
     k_out = sh(
         [
             "docker",
@@ -27,7 +32,7 @@ def main() -> int:
             KAFKA_CONTAINER,
             "bash",
             "-lc",
-            "for t in logs.auth logs.order logs.payment logs.error; do "
+            f"for t in {topics_str}; do "
             "kafka-run-class kafka.tools.GetOffsetShell --broker-list localhost:9092 --topic \"$t\" --time -1; "
             "done",
         ]
@@ -41,8 +46,8 @@ def main() -> int:
             latest.setdefault(t, {})[p] = o
 
     if not latest:
-        print("ERROR: kafka_latest 파싱 실패")
-        print("RAW_KAFKA_OUT:\n", k_out)
+        logger.error("ERROR: kafka_latest 파싱 실패")
+        logger.error("RAW_KAFKA_OUT:\n%s", k_out)
         return 1
 
     cp_file = (
@@ -60,7 +65,10 @@ def main() -> int:
         .strip()
     )
     if not cp_file:
-        print(f"ERROR: checkpoint 파일 없음: {CHECKPOINT_DIR}")
+        logger.error("ERROR: checkpoint 파일 없음: %s", CHECKPOINT_DIR)
+        return 1
+    if not cp_file.isdigit():
+        logger.error("ERROR: 예상치 못한 checkpoint 파일명: %r", cp_file)
         return 1
 
     cp_text = sh(
@@ -83,25 +91,26 @@ def main() -> int:
             break
 
     if not chk:
-        print(f"ERROR: checkpoint JSON 파싱 실패: {cp_file}")
-        print("TAIL:\n", "\n".join(lines[-5:]))
+        logger.error("ERROR: checkpoint JSON 파싱 실패: %s", cp_file)
+        logger.error("TAIL:\n%s", "\n".join(lines[-5:]))
         return 1
 
     total = 0
-    print("checkpoint_file:", cp_file)
+    logger.info("checkpoint_file: %s", cp_file)
     for topic in sorted(latest.keys()):
         parts = latest[topic]
         ct = chk.get(topic, {})
         for part in sorted(parts.keys()):
             latest_offset = parts[part]
+            # 체크포인트 JSON의 파티션 키는 문자열·정수 양쪽으로 존재할 수 있어 양쪽 시도
             checkpoint_offset = int(ct.get(str(part), ct.get(part, 0)))
             lag = max(0, latest_offset - checkpoint_offset)
             total += lag
-            print(
-                f"{topic} p{part}: checkpoint={checkpoint_offset} "
-                f"latest={latest_offset} lag={lag}"
+            logger.info(
+                "%s p%s: checkpoint=%s latest=%s lag=%s",
+                topic, part, checkpoint_offset, latest_offset, lag,
             )
-    print("TOTAL_LAG:", total)
+    logger.info("TOTAL_LAG: %s", total)
     return 0
 
 
