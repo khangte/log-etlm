@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
-from typing import List, Dict, Tuple
+from typing import Any, Dict, List, Tuple
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 from datetime import datetime
@@ -34,12 +34,18 @@ def _parse_range(r: str) -> Tuple[int, int]:
     "8-11" 같은 범위를 (8, 11)로 파싱.
     Args: r: "start-end" 형태 문자열(0~23 범위)
     Returns: (start, end)
+    Raises: ValueError: 형식이 잘못됐거나 0~23 범위를 벗어난 경우
     """
-    s, e = r.split("-")
-    return int(s), int(e)
+    parts = r.split("-")
+    if len(parts) != 2:
+        raise ValueError(f"time_weights range 형식 오류: '{r}' (예: '0-7')")
+    start, end = int(parts[0]), int(parts[1])
+    if not (0 <= start <= end <= 23):
+        raise ValueError(f"time_weights range 범위 오류: '{r}' (0~23 내 start <= end)")
+    return start, end
 
 
-def load_bands(raw_bands: List[Dict]) -> List[Band]:
+def load_bands(raw_bands: List[Dict[str, Any]]) -> List[Band]:
     """
     프로파일의 time_weights 배열을 Band 리스트로 변환한다.
     Args: raw_bands: [{range:"0-7", weight:[0.2,0.4]}, ...]
