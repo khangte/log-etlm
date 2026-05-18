@@ -42,7 +42,7 @@ class ProducerSettings:
             "partitioner": "murmur2_random",
         }
 
-        if self.message_max_bytes:
+        if self.message_max_bytes is not None:
             config["message.max.bytes"] = self.message_max_bytes
         if self.client_id:
             config["client.id"] = self.client_id
