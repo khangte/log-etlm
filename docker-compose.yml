@@ -69,7 +69,7 @@ services:
     image: confluentinc/cp-kafka:7.6.1
     container_name: kafka
     # cpus: "0.6"
-    # restart: unless-stopped
+    # restart: unless-stopped  # PoC: 수동 재시작으로 로그 보존
     mem_limit: "2g"
     mem_reservation: "1500m"
     oom_score_adj: 100
@@ -77,7 +77,7 @@ services:
       - "29092:29092"
     environment:
       # --- KRaft 기본 ---
-      CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"
+      CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"  # KRaft 단일 노드 고정 ID
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
       # --- Listener / Quorum ---
@@ -103,10 +103,10 @@ services:
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
       # --- Retention / Segment ---
-      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000  # 10분
       KAFKA_LOG_RETENTION_HOURS: 2
-      KAFKA_LOG_RETENTION_BYTES: 21474836480
-      KAFKA_LOG_SEGMENT_BYTES: 536870912
+      KAFKA_LOG_RETENTION_BYTES: 21474836480  # 20GB
+      KAFKA_LOG_SEGMENT_BYTES: 536870912  # 512MB
     volumes:
       - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
       - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
@@ -165,8 +165,8 @@ services:
       - "--webui-port"
       - "8081"
     ports:
-      - 7077:7077
-      - 8081:8081
+      - "7077:7077"
+      - "8081:8081"
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -218,7 +218,7 @@ services:
       # --- ClickHouse sink tuning ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
-      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      - SPARK_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-10000}"
       - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}"
       - "SPARK_SKIP_EMPTY_BATCH=${SPARK_SKIP_EMPTY_BATCH:-false}"
@@ -377,7 +377,7 @@ services:
       # --- Dimension batch ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=0&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
       - SPARK_CLICKHOUSE_USER=log_user
-      - SPARK_CLICKHOUSE_PASSWORD=log_pwd
+      - SPARK_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - SPARK_CLICKHOUSE_JDBC_FETCHSIZE=10000
       # --- Batch options ---
       - SPARK_BATCH_MASTER=spark://spark-batch-master:7078
@@ -405,7 +405,7 @@ services:
     image: clickhouse/clickhouse-server:25.8.1.5101
     container_name: clickhouse
     # cpus: "0.8"
-    # restart: unless-stopped
+    # restart: unless-stopped  # PoC: 수동 재시작으로 로그 보존
     mem_limit: "8g"
     mem_reservation: "6g"
     oom_score_adj: -200
@@ -422,8 +422,9 @@ services:
     environment:
       # --- ClickHouse auth / access ---
       - CLICKHOUSE_USER=log_user
-      - CLICKHOUSE_PASSWORD=log_pwd
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - CLICKHOUSE_GRAFANA_PASSWORD=${CLICKHOUSE_GRAFANA_PASSWORD}
     volumes:
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
@@ -433,7 +434,7 @@ services:
       - ./infra/clickhouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
       - ./infra/clickhouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
       - ./infra/clickhouse/sql/21_materialized_views.sql:/docker-entrypoint-initdb.d/21_materialized_views.sql:ro
-      - ./infra/clickhouse/sql/90_grants.sql:/docker-entrypoint-initdb.d/90_grants.sql:ro
+      - ./infra/clickhouse/sql/90_grants.sh:/docker-entrypoint-initdb.d/90_grants.sh:ro
     networks: [logetlm-net]
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
@@ -445,7 +446,7 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
- 
+
   ch-ui:
     image: ghcr.io/caioricciuti/ch-ui:latest    
     container_name: ch-ui
@@ -460,7 +461,7 @@ services:
       # --- CH-UI connection ---
       VITE_CLICKHOUSE_URL: "http://localhost:8123"
       VITE_CLICKHOUSE_USER: "log_user"
-      VITE_CLICKHOUSE_PASS: "log_pwd"
+      VITE_CLICKHOUSE_PASS: "${CLICKHOUSE_PASSWORD}"
       # Optional: Advanced Features
       VITE_CLICKHOUSE_USE_ADVANCED: "false"
       VITE_CLICKHOUSE_CUSTOM_PATH: ""
@@ -487,8 +488,10 @@ services:
     environment:
       # --- Grafana auth / security ---
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
+      # --- ClickHouse datasource 패스워드 (provisioning YAML에서 ${} 치환용) ---
+      - CLICKHOUSE_GRAFANA_PASSWORD=${CLICKHOUSE_GRAFANA_PASSWORD}
       # --- Plugins (optional) ---
       # - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
