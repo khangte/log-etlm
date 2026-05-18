@@ -15,7 +15,7 @@ mix:  # 서비스별 트래픽 비중(합계 1.0)
 error_rate:  # 서비스별 오류율
   auth: 0.003
   order: 0.002
-  payment: 0.004 
+  payment: 0.004
 
 domain_event_policy:
   emit_for_get_routes: true   # GET은 도메인 이벤트 안 찍기(추천)
