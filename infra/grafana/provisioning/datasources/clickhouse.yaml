@@ -2,7 +2,7 @@
 apiVersion: 1
 
 # 기존 Grafana DB에 저장된 datasource가 남아있으면(특히 secureJsonData)
-# 파일 변경이 적용되지 않고 예전 자격증명(log_user)으로 계속 조회할 수 있다.
+# 파일 변경이 적용되지 않고 예전 자격증명(grafana_user)으로 계속 조회할 수 있다.
 # 아래 deleteDatasources 로 항상 프로비저닝 파일을 source-of-truth로 만든다.
 deleteDatasources:
   - name: ClickHouse
@@ -32,4 +32,4 @@ datasources:
       # 큰 값은 오히려 원본 fact_event 스캔 같은 비정상 쿼리를 오래 살려 ingest를 막을 수 있어 보수적으로 설정.
       queryTimeout: "60"
     secureJsonData:
-      password: grafana_pwd
+      password: ${CLICKHOUSE_GRAFANA_PASSWORD}

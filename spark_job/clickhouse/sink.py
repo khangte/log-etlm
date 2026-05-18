@@ -313,7 +313,7 @@ def write_to_clickhouse(
             if "TABLE_ALREADY_EXISTS" in msg and "detached" in msg.lower():
                 logger.error(
                     "[ERROR] ClickHouse 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
-                    "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
+                    "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password $CLICKHOUSE_PASSWORD \\\n"
                     "    --query \"ATTACH TABLE %s\"",
                     table_name,
                 )
