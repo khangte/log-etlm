@@ -28,13 +28,6 @@ from .stream_helpers import (
 )
 
 _logger = logging.getLogger("log_simulator.simulator.stream_pipeline")
-_logger.setLevel(logging.INFO)
-if not _logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    _logger.addHandler(handler)
 
 
 async def run_simulator_loop(
@@ -77,10 +70,7 @@ async def run_simulator_loop(
         hour = current_hour_kst()
 
         multiplier = pick_multiplier(bands, hour_kst=hour) if bands else 1.0
-        effective_eps = adjust_eps_for_event_mode(
-            simulator,
-            target_eps * multiplier,
-        )
+        effective_eps = adjust_eps_for_event_mode(target_eps * multiplier)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
