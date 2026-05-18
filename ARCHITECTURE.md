@@ -26,7 +26,7 @@ FastAPI 시뮬레이터가 Kafka에 이벤트를 발행하면, Spark Structured 
 │  └──────────────┘      └──────────────┘     └───────────────┘  │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
-│  │  kafka-ui    │  │    ch-ui     │  │   docker_watchdog    │  │
+│  │  kafka-ui    │  │    ch-ui     │  │      watchdog        │  │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -331,9 +331,9 @@ fact_event (최근 DIM_BATCH_LOOKBACK_DAYS일)
 
 ---
 
-### 7. docker_watchdog
+### 7. watchdog
 
-**위치**: `infra/monitor/docker_watchdog.py`  
+**위치**: `infra/monitor/main.py`  
 **역할**: asyncio 기반 경량 모니터링. Prometheus 없이 최소 방어선 구성.
 
 ```
@@ -412,7 +412,7 @@ log-etlm/
 │   │   ├── dashboards/     # ops_monitoring.json, realtime.json, dim_overview.json
 │   │   └── provisioning/   # datasources/clickhouse.yaml, dashboards/default.yaml
 │   └── monitor/
-│       └── docker_watchdog.py
+│       └── main.py
 │
 ├── scripts/                # 운영 유틸 (Spark 프로파일 전환, DIM 배치, 진단)
 ├── config/env/             # low·mid·high.env (Spark 튜닝 프로파일)

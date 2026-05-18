@@ -47,7 +47,7 @@
      - 부하가 크면 **10s MV를 DETACH해서 비활성화**할 수 있다.
    - 기본 refresh: ops 2m / realtime 30s / dim 비활성화(빈 문자열).
    - 운영 대시보드는 Freshness, Kafka→Spark ingest 지연, Spark 처리/ClickHouse INSERT/Grafana 쿼리 p95, **생성 대비 적재 비율(1m)** 등의 운영 지표가 포함된다.
-   - `infra/monitor/docker_watchdog.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지한다.
+   - `infra/monitor/main.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지한다.
      - `ALERT_BREACH_GRACE_SEC`로 지연 스파이크가 일정 시간 이상 지속될 때만 알림을 보낼 수 있다.
 
 
@@ -113,7 +113,7 @@ docker compose up -d grafana
 docker compose up -d simulator
 
 # 6. (선택) CLI 모니터링
-python infra/monitor/docker_watchdog.py
+python infra/monitor/main.py
 
 # 7. (선택) Spark 프로파일 자동 전환 크론 등록
 #   - ClickHouse 지연 p95 기반 Spark 프로파일 주기 조정
