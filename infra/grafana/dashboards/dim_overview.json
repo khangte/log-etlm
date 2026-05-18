@@ -974,7 +974,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  d.status_class,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d\n  ON f.status_code = d.status_code\nWHERE f.ingest_ts >= now() - INTERVAL 24 HOUR\nGROUP BY d.status_class\nORDER BY cnt DESC",
+          "rawSql": "SELECT\n  d.status_class,\n  count() AS cnt\nFROM analytics.fact_event f\nLEFT JOIN analytics.dim_status_code d\n  ON f.status_code = d.status_code\nWHERE f.ingest_ts >= now() - INTERVAL 24 HOUR\nGROUP BY d.status_class\nORDER BY cnt DESC\nLIMIT 50",
           "refId": "A"
         }
       ],
@@ -1108,7 +1108,7 @@
       "id": 20
     }
   ],
-  "refresh": "",
+  "refresh": "5m",
   "schemaVersion": 38,
   "style": "dark",
   "tags": [
