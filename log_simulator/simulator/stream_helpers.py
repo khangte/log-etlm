@@ -13,11 +13,8 @@ from ..models.messages import BatchMessage
 from .settings import QueueThrottleConfig
 
 
-def adjust_eps_for_event_mode(
-    simulator: Any,
-    eps: float,
-) -> float:
-    """adjust_eps_for_event_mode 처리를 수행한다."""
+def adjust_eps_for_event_mode(eps: float) -> float:
+    """EPS 하한(0.01)을 보장한다."""
     return max(eps, 0.01)
 
 
