@@ -1,13 +1,13 @@
 # Docker Watchdog
 
-경량 Python 스크립트 `docker_watchdog.py` 로 Kafka/Spark/ClickHouse 컨테이너 상태를 실시간 감시합니다. Prometheus 없이도 빠르게 알림을 받을 수 있도록 설계됐습니다.
+경량 Python 스크립트 `main.py` 로 Kafka/Spark/ClickHouse 컨테이너 상태를 실시간 감시합니다. Prometheus 없이도 빠르게 알림을 받을 수 있도록 설계됐습니다.
 
 ## 실행 방법
 ```bash
 cd /home/kang/log-etlm
 chmod 774 ./infra/monitor/.env
 set -a && source infra/monitor/.env && set +a
-python3 infra/monitor/docker_watchdog.py
+python3 infra/monitor/main.py
 ```
 
 - `ALERT_WEBHOOK_URL` 을 지정하면 Slack 등 Webhook 으로 알림을 보냅니다. 미지정 시 표준 출력 로그만 남깁니다.
@@ -46,7 +46,7 @@ After=docker.service
 [Service]
 WorkingDirectory=/home/kang/log-etlm
 Environment=ALERT_WEBHOOK_URL=https://hooks.slack.com/services/XXX/YYY/ZZZ
-ExecStart=/usr/bin/python3 infra/monitor/docker_watchdog.py
+ExecStart=/usr/bin/python3 infra/monitor/main.py
 Restart=always
 
 [Install]
