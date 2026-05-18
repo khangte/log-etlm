@@ -45,7 +45,7 @@
      - `infra/grafana/dashboards/dim_overview.json` (DIM)
    - 실시간 대시보드는 10초 집계 테이블을 사용한다. 
      - 부하가 크면 **10s MV를 DETACH해서 비활성화**할 수 있다.
-   - 기본 refresh: ops 2m / realtime 30s / dim 비활성화(빈 문자열).
+   - 기본 refresh: ops 30s / realtime 10s / dim 비활성화(빈 문자열).
    - 운영 대시보드는 Freshness, Kafka→Spark ingest 지연, Spark 처리/ClickHouse INSERT/Grafana 쿼리 p95, **생성 대비 적재 비율(1m)** 등의 운영 지표가 포함된다.
    - `infra/monitor/main.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지한다.
      - `ALERT_BREACH_GRACE_SEC`로 지연 스파이크가 일정 시간 이상 지속될 때만 알림을 보낼 수 있다.
@@ -82,6 +82,9 @@
 
 ```bash
 # 0. 사전 준비 단계
+# - .env 파일 생성 (최초 1회)
+#     cp .env.example .env
+#     # .env를 열어 각 값을 실제 패스워드로 교체
 # - Docker / Docker Compose 설치
 # - VM 환경: /data 파티션 마운트 및 디렉터리 생성, rw 권한 부여
 #     sudo mkdir -p /data/log-etlm/kafka-logs /data/log-etlm/kafka-meta \

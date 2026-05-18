@@ -1,0 +1,174 @@
+# 기술 스택 선택 근거
+
+이 문서는 대용량 로그 처리 파이프라인 PoC에서 각 기술을 선택한 이유, 장단점, 그리고 대안 스택과의 비교를 정리합니다.
+
+---
+
+## 프로젝트 맥락
+
+**목표**: 대용량 이벤트 로그(~5,000 EPS)를 수집·처리·시각화하는 near-real-time 파이프라인 검증  
+**제약**: 단일 VM(vCPU 7, Docker Compose) 환경. 컴포넌트 간 자원 경합으로 초저지연 실시간은 비현실적이며, **E2E 지연 p95 ~10초를 목표**로 설계됨.
+
+---
+
+## 1. FastAPI
+
+### 선택 이유
+
+이벤트 생성 시뮬레이터의 실행 환경으로 Python 비동기 런타임이 필요했다.
+
+- **`asyncio` lifespan**: 앱 기동/종료 훅(`@asynccontextmanager lifespan`)으로 토큰 버킷 루프와 퍼블리셔 워커를 HTTP 서버 생명주기에 바인딩. 별도 프로세스 관리 불필요
+- **`asyncio.Queue` 기반 backpressure**: 큐 점유율에 따른 2단계 backpressure(soft 85% scale down / hard 90% drain 대기)를 락 없이 단일 스레드에서 구현
+- **비동기 I/O 효율**: Kafka 퍼블리셔는 네트워크 I/O 바운드 작업. 스레드 기반 대비 컨텍스트 스위치 비용이 낮은 `asyncio` 코루틴이 적합
+
+### 장점
+
+- lifespan 이벤트로 엔진 생명주기를 서버와 일치시켜 기동·종료 관리 단순화
+- `loops_per_service`로 서비스당 N개 루프를 `asyncio.gather`로 병렬 실행해 단일 스레드 한계를 우회
+- HTTP 엔드포인트 확장 시 라우터만 추가하면 돼 시뮬레이터 제어 API 추가 용이
+
+### 단점
+
+- **프레임워크 과잉**: 시뮬레이터가 순수 이벤트 생성기로 동작하는 현재 구조에서 HTTP 서버 프레임워크는 다소 과도한 선택. 단순 Python asyncio 스크립트로도 동일한 기능 구현 가능
+- **GIL 제약**: 단일 uvicorn 워커(`--workers 1`) 환경에서 CPU 집약 작업 발생 시 병목 가능
+- **단일 워커 한계**: 시뮬레이터 컨테이너 자체가 cpus 1.0으로 제한되어 있어 멀티 워커 이점 없음
+
+### 대안 비교
+
+| 대안 | 비교 |
+|------|------|
+| **순수 asyncio 스크립트** | 가장 경량. 그러나 HTTP 기반 상태 조회·제어 엔드포인트가 필요한 시점에 재구조화 필요 |
+| **Locust** | 부하 생성 도구로 EPS 제어 기능 내장. 그러나 Kafka 직접 발행, 커스텀 이벤트 스키마, 토큰 버킷 로직을 구현하기 위한 유연성이 낮음 |
+
+---
+
+## 2. Apache Kafka
+
+### 선택 이유
+
+시뮬레이터(생산자)와 Spark(소비자) 사이에는 처리 속도 차이가 필연적으로 발생한다. EPS 스파이크 시에도 Spark가 자기 페이스로 소비할 수 있으려면 두 컴포넌트 사이에 메시지 버퍼가 필요했다.
+
+- **오프셋 기반 재처리**: Spark 체크포인트와 결합해 장애 복구 시 오프셋부터 재개 가능. 데이터 유실 없이 at-least-once 보장
+- **토픽 분리**: 서비스별 토픽(`logs.auth`, `logs.order`, `logs.payment`)으로 독립 소비, `logs.dlq`로 파싱 실패 이벤트 우회 경로 자연스럽게 구성
+- **KRaft 모드**: ZooKeeper 의존성 제거. 단일 VM에서 컴포넌트 하나를 줄여 자원 절감
+- **`maxOffsetsPerTrigger` 연동**: Spark 소비 속도를 직접 제어해 다운스트림(ClickHouse) 과부하 방지
+
+### 장점
+
+- 높은 처리량과 낮은 지연. 파티션 수 조정만으로 병렬 처리 규모 확장 가능
+- 로그 보존 기간(`KAFKA_LOG_RETENTION_HOURS=2`) 설정으로 로컬 디스크 사용량 제어
+- 생산자-소비자 결합도를 낮춰 각 컴포넌트를 독립적으로 스케일링·장애격리 가능
+
+### 단점
+
+- **단일 브로커 한계**: 브로커 장애 시 전체 파이프라인 중단. 실 운영이라면 최소 3개 브로커 + 복제 구성 필요
+- **메모리 소비 큼**: `-Xms1g -Xmx1536m` 설정으로 단일 VM에서 다른 컴포넌트와 메모리 경합 발생
+- **보존 기간 초과 장애는 재처리 불가**: 2시간을 초과한 장애 발생 시 해당 구간 데이터 복구 불가능
+
+### 대안 비교
+
+| 대안 | 비교 |
+|------|------|
+| **RabbitMQ** | 큐 기반으로 메시지 소비 후 삭제됨. 오프셋 재처리 불가. 로그 스트리밍 용도로 부적합 |
+| **AWS Kinesis** | 관리형 서비스로 운영 부담 낮음. 그러나 단일 VM 로컬 환경 구성 불가. PoC 재현성 낮아짐 |
+| **Pulsar** | Kafka와 유사한 스트리밍 기능 + 기본 멀티 테넌시 지원. 그러나 생태계·레퍼런스가 Kafka 대비 부족하고 설정 복잡도가 높음 |
+
+---
+
+## 3. Apache Spark Structured Streaming
+
+### 선택 이유
+
+Kafka에서 소비한 이벤트를 정규화·중복 제거하여 ClickHouse에 안정적으로 적재하는 스트림 프로세서가 필요했다.
+
+- **워터마크 dedup 내장**: `dropDuplicatesWithinWatermark(["event_id"])` API 한 줄로 상태 기반 중복 제거 가능. 별도 Redis·DB 조회 없이 Spark 내부 상태로 처리
+- **`foreachBatch` 패턴**: 마이크로배치를 JDBC로 ClickHouse에 쓰면서 `stream_batch_guard` 테이블 체크(멱등성)를 같은 트랜잭션 흐름 안에 자연스럽게 결합 가능
+- **스트리밍·배치 통일 API**: 실시간 적재(fact 스트림)와 차원 테이블 갱신(DIM 배치 잡)을 동일한 SparkSession API로 처리해 코드 재사용
+- **`maxOffsetsPerTrigger` 배압**: 트리거당 소비할 Kafka 오프셋 수를 제한해 ClickHouse 과부하를 Spark 레벨에서 선제 방어
+
+### 장점
+
+- 선언적 스트리밍 API로 파싱 → 검증 → 정규화 → 적재 파이프라인을 단계별로 명확히 분리
+- 체크포인트 기반 장애 복구. 재시작 시 마지막 오프셋부터 자동 재개
+- `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_MAX_OFFSETS_PER_TRIGGER` 등 환경변수로 부하에 맞게 동적 튜닝 가능
+
+### 단점
+
+- **JVM 메모리 압박**: executor 2개(각 3GB), driver 1GB 등 단일 VM에서 최대 메모리 소비 컴포넌트. CPU 포화의 주요 원인
+- **PySpark 직렬화 오버헤드**: Python ↔ JVM 간 데이터 직렬화 비용 존재. Scala/Java 대비 처리량 불리
+- **진정한 실시간 불가**: 4초 트리거 + 단일 VM 자원 포화로 E2E 지연이 ~10초 수준에 그침
+- **Shuffle 수동 튜닝 필요**: `SPARK_STREAM_SHUFFLE_PARTITIONS=8` 등 환경에 따라 수동 조정 필요
+
+### 대안 비교
+
+| 대안 | 비교 |
+|------|------|
+| **Apache Flink** | 진정한 이벤트 단위 스트리밍(레코드 단위 처리)으로 지연이 Spark 대비 낮음. 그러나 Python API 성숙도가 낮고, 단일 VM에서 JobManager + TaskManager 구성이 Spark보다 복잡 |
+| **Kafka Streams** | Kafka와 네이티브 통합으로 별도 클러스터 불필요. 그러나 Java 전용이고, ClickHouse JDBC 싱크 구성이 Spark 대비 번거로움 |
+| **직접 구현 (confluent-kafka-python)** | 경량. 그러나 워터마크 dedup, 체크포인트, 분산 처리를 직접 구현해야 해 PoC 범위를 크게 벗어남 |
+
+---
+
+## 4. ClickHouse
+
+### 선택 이유
+
+수집된 이벤트를 저장하고 Grafana가 실시간으로 EPS·지연·에러율 등을 쿼리할 수 있는 OLAP 저장소가 필요했다.
+
+- **Materialized View 자동 집계**: `fact_event` INSERT 시 MV가 자동으로 1분/10초 집계 테이블을 갱신. Spark는 원본 데이터만 쓰면 되고, 별도 집계 잡 스케줄링이 불필요
+- **`AggregatingMergeTree` + `quantileTDigest`**: p95 지연을 컬럼 스토리지 레벨에서 점진적으로 집계. Grafana 쿼리 시 집계 테이블만 SELECT하면 되어 응답 속도 빠름
+- **`async_insert` 프로파일**: Spark JDBC 소량 배치를 비동기 버퍼링해 INSERT 피크를 흡수. `log_user`에만 적용해 ingest 경로를 읽기 경로(`grafana_user`)와 자원 격리
+- **`stream_batch_guard` 테이블**: `foreachBatch` 재실행 시 중복 배치를 DB 레벨에서 skip해 Spark의 at-least-once를 effectively-once로 보완
+
+### 장점
+
+- 컬럼 스토리지 + `LowCardinality(String)` 타입으로 반복값 컬럼(service, domain 등) 압축률·조회 성능 향상
+- `Delta + ZSTD` 코덱으로 타임스탬프 컬럼 압축 최대화
+- TTL 정책(`fact_event` 1일, `fact_event_dlq` 7일 등)으로 디스크 사용량을 자동 관리
+
+### 단점
+
+- **MV 다수 시 INSERT CPU 급증**: 10초 MV(`mv_fact_event_agg_10s` 등)가 INSERT마다 실행되어 단일 VM 부하 시 DETACH해야 하는 상황 발생
+- **JDBC 기반 연동 한계**: Spark-ClickHouse 간 네이티브 커넥터 대비 JDBC 처리량이 제한적
+- **비동기 dedup**: MergeTree 파트 병합이 비동기로 처리되어 즉각적인 중복 제거가 보장되지 않음. Spark 레벨 dedup을 반드시 병행해야 함
+- **단일 노드 한계**: 장애 시 읽기·쓰기 모두 중단. 실 운영이라면 Replica 구성 필요
+
+### 대안 비교
+
+| 대안 | 비교 |
+|------|------|
+| **Elasticsearch** | 로그 검색에 강점. 그러나 집계 쿼리 성능이 ClickHouse 대비 낮고, 메모리 소비가 커서 단일 VM에서 공존이 부담 |
+| **Apache Druid** | 실시간 OLAP에 특화. 그러나 컴포넌트가 많아(Broker/Historical/Coordinator 등) 단일 VM PoC에 과도하게 복잡 |
+| **PostgreSQL + TimescaleDB** | 친숙한 SQL 환경. 그러나 컬럼 스토리지 기반이 아니어서 대용량 집계 쿼리 성능이 ClickHouse 대비 불리 |
+
+---
+
+## 5. Grafana
+
+### 선택 이유
+
+ClickHouse 집계 테이블을 실시간으로 시각화하는 대시보드가 필요했다.
+
+- **`grafana-clickhouse-datasource`**: ClickHouse 전용 공식 플러그인으로 집계 테이블에 SQL을 직접 쿼리. 별도 API 레이어나 데이터 변환 없이 바로 패널 구성 가능
+- **프로비저닝 코드화**: datasource(`provisioning/datasources/`), dashboard JSON(`provisioning/dashboards/`)을 파일로 관리해 컨테이너 재기동 시 자동 복원
+- **`allowUiUpdates: false`**: UI에서 임시로 수정한 내용이 소스 파일을 덮어쓰지 않도록 강제. 소스 파일이 항상 source-of-truth
+
+### 장점
+
+- 대시보드별 새로고침 주기 분리(ops 30초 / realtime 10초 / dim 비활성)로 ClickHouse 읽기 부하를 의도적으로 제한
+- `ops_monitoring.json`(1분 집계), `realtime.json`(10초 집계), `dim_overview.json`(차원 테이블) 3개 대시보드로 운영·실시간·데이터 품질 가시성 분리
+- 플러그인 기반이라 ClickHouse 이외의 데이터 소스(Prometheus, Loki 등)도 패널 단위로 혼합 가능
+
+### 단점
+
+- **`AggregateFunction` 쿼리 문법**: ClickHouse 집계 상태 타입을 읽으려면 `finalizeAggregation()` 함수가 필요하는 등 일반 SQL과 다른 문법이 요구되어 학습 비용 존재
+- **단일 인스턴스 SPOF**: Grafana 장애 시 모니터링 화면 전체 불가. Watchdog이 Grafana 자체를 감시하지만, 복구 전까지 맹점 구간 발생
+- **플러그인 버전 의존성**: `grafana-clickhouse-datasource` 플러그인이 Grafana 버전 업그레이드 시 호환성 문제가 생길 수 있어 버전을 고정(`grafana:10.4.2`)해 운영
+
+### 대안 비교
+
+| 대안 | 비교 |
+|------|------|
+| **Apache Superset** | ClickHouse 연동 가능하고 SQL 기반 대시보드 구성 가능. 그러나 설치·관리 복잡도가 Grafana 대비 높고, 스트리밍 실시간 새로고침 지원이 약함 |
+| **Metabase** | 비기술자 친화적 UI. 그러나 ClickHouse 공식 지원이 미흡하고 커스텀 쿼리 유연성 부족 |
+| **직접 구현 (Streamlit 등)** | 완전한 커스터마이징 가능. 그러나 대시보드·알림·프로비저닝을 직접 구현해야 해 PoC 범위를 벗어남 |

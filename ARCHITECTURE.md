@@ -323,8 +323,8 @@ fact_event (최근 DIM_BATCH_LOOKBACK_DAYS일)
 
 | 대시보드 | 집계 소스 | 새로고침 | 주요 패널 |
 |---|---|---|---|
-| `ops_monitoring.json` | 1분 집계 | 2분 | EPS, 에러율, E2E 지연 p95, Freshness, 생성·적재 비율, 단계별 지연 |
-| `realtime.json` | 10초 집계 | 30초 | 실시간 EPS, 지연 |
+| `ops_monitoring.json` | 1분 집계 | 30초 | EPS, 에러율, E2E 지연 p95, Freshness, 생성·적재 비율, 단계별 지연 |
+| `realtime.json` | 10초 집계 | 10초 | 실시간 EPS, 지연 |
 | `dim_overview.json` | dim 테이블 | 비활성 | 서비스·상태코드 현황 |
 
 > 프로비저닝 파일(`provisioning/`)이 source-of-truth. `allowUiUpdates: false`로 UI 수정이 파일을 덮지 않도록 설정되어 있다.
@@ -405,14 +405,20 @@ log-etlm/
 │
 ├── infra/
 │   ├── clickhouse/
-│   │   ├── sql/            # DDL (00_database, 10_fact, 20_aggregates, 21_mv, 30_dim, 90_grants)
+│   │   ├── sql/            # DDL (00_database, 10_fact, 20_aggregates, 21_mv, 30_dim) + 90_grants.sh (init)
 │   │   ├── config.d/       # listen_host, async insert 로그
 │   │   └── users.d/        # log_user async 프로파일
 │   ├── grafana/
 │   │   ├── dashboards/     # ops_monitoring.json, realtime.json, dim_overview.json
 │   │   └── provisioning/   # datasources/clickhouse.yaml, dashboards/default.yaml
 │   └── monitor/
-│       └── main.py
+│       ├── main.py             # 진입점 (asyncio.gather)
+│       └── watchdog/           # 모니터링 패키지
+│           ├── config.py       # 환경변수 상수, LOG_PATTERNS
+│           ├── alert.py        # Webhook/stdout 알림, cooldown/grace
+│           ├── docker_probes.py  # docker events/logs/health
+│           ├── service_probes.py # Spark REST, Grafana health
+│           └── clickhouse_probe.py  # ClickHouse 집계 임계값 점검
 │
 ├── scripts/                # 운영 유틸 (Spark 프로파일 전환, DIM 배치, 진단)
 ├── config/env/             # low·mid·high.env (Spark 튜닝 프로파일)
