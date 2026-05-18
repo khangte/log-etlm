@@ -27,15 +27,14 @@ class PaymentSimulator(BaseServiceSimulator):
     )
 
     def _pick_status_code(self, is_err: bool) -> int:
-        # 기존 분포 유지: 실패(400/402/408/500), 성공(200/201/204)
-        """pick_status_code 처리를 수행한다."""
+        """실패(400/402/408/500), 성공(200/201/204) 분포로 상태 코드를 반환한다."""
         if is_err:
             return self._rng.choice([400, 402, 408, 500])
         return self._rng.choice([200, 201, 204])
 
     def _pick_reason_code(self) -> str:
         """pick_reason_code 처리를 수행한다."""
-        return self._rng.choice(list(self.PAYMENT_REASON_CODES))
+        return self._rng.choice(self.PAYMENT_REASON_CODES)
 
     def _infer_ids_for_route(self, route_path: str, method: str) -> Dict[str, Optional[str]]:
         """
