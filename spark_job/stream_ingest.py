@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -59,7 +62,7 @@ class StreamIngestJob:
                 raise ValueError("DLQ stream enabled but bad_df is missing")
             self._run_dlq_streams(spark, bad_df)
         else:
-            print("[ℹ️ spark] DLQ 스트림 비활성화: bad_df는 저장하지 않음")
+            logger.info("[INFO] DLQ 스트림 비활성화: bad_df는 저장하지 않음")
 
     def _run_dlq_streams(self, spark: SparkSession, bad_df: DataFrame) -> None:
         """DLQ 스트림을 구성해 실행한다."""

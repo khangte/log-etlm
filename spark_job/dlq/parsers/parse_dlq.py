@@ -17,6 +17,7 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
             "timestamp AS kafka_ts",
         )
         .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
+        .where(F.col("json").isNotNull())
     )
     dlq_df = dlq_parsed.select(
         F.col("kafka_ts").alias("ingest_ts"),

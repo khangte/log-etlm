@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import os
 import shutil
 import time
+
+logger = logging.getLogger(__name__)
 
 
 def maybe_reset_checkpoint(
@@ -14,9 +17,10 @@ def maybe_reset_checkpoint(
     exists = os.path.exists(checkpoint_dir)
     if not enabled:
         if exists:
-            print(
-                "[ℹ️ checkpoint] reset 비활성 "
-                f"(SPARK_RESET_CHECKPOINT_ON_START=false), 기존 사용: {checkpoint_dir}"
+            logger.info(
+                "[INFO] checkpoint reset 비활성 "
+                "(SPARK_RESET_CHECKPOINT_ON_START=false), 기존 사용: %s",
+                checkpoint_dir,
             )
         return
     if not exists:
@@ -24,6 +28,6 @@ def maybe_reset_checkpoint(
 
     ts = time.strftime("%Y%m%d-%H%M%S")
     backup = f"{checkpoint_dir}.bak.{ts}"
-    print(f"[⚠️ checkpoint] reset 활성: 이동 {checkpoint_dir} -> {backup}")
+    logger.info("[INFO] checkpoint reset 활성: 이동 %s -> %s", checkpoint_dir, backup)
     shutil.move(checkpoint_dir, backup)
     os.makedirs(checkpoint_dir, exist_ok=True)

@@ -44,6 +44,11 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
                 F.lit("unknown"),
             ).alias("event_name"),
             F.coalesce(
+                F.col("json.event_name"),
+                F.col("json.event"),
+                F.lit("unknown"),
+            ).alias("event"),
+            F.coalesce(
                 F.col("json.result"),
                 F.when(F.col("json.status_code") >= 400, F.lit("fail"))
                  .when(F.col("json.status_code").isNotNull(), F.lit("success")),
@@ -93,14 +98,8 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.col("partition").cast("int").alias("kafka_partition"),
             F.col("offset").cast("long").alias("kafka_offset"),
             F.col("kafka_ts"),
-            F.coalesce(
-                F.col("spark_ingest_ts"),
-            ).alias("spark_ingest_ts"),
+            F.col("spark_ingest_ts"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
-        )
-        .withColumn(
-            "event",
-            F.col("event_name"),
         )
         .withColumn(
             "ingest_ts",

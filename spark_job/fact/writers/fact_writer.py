@@ -16,7 +16,7 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
 
     def write_fact_event_stream(self, df: DataFrame):
         """팩트 이벤트 스트림을 적재한다."""
-        trigger_processing_time = self._settings.trigger_interval or None
+        trigger_processing_time = self._settings.trigger_interval
         out_df = df
         batch_dedup_keys = self._settings.deduplicate_keys
         dedup_watermark = self._settings.deduplicate_watermark

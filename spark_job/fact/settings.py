@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Mapping, Optional
+from typing import Mapping
 
 from common.get_env import get_env_bool, get_env_int, get_env_optional_str, get_env_str
 
@@ -16,15 +16,15 @@ class FactStreamSettings:
     """팩트 이벤트 스트림 설정을 담는다."""
     table_name: str
     checkpoint_dir: str
-    trigger_interval: Optional[str]
+    trigger_interval: str | None
     store_raw_json: bool
-    num_partitions: Optional[int]
+    num_partitions: int | None
     skip_empty_batch: bool
     deduplicate_keys: list[str] | None
-    deduplicate_watermark: Optional[str]
+    deduplicate_watermark: str | None
 
 
-def _parse_dedup_keys(value: Optional[str]) -> list[str] | None:
+def _parse_dedup_keys(value: str | None) -> list[str] | None:
     if not value:
         return None
     keys = [k.strip() for k in value.split(",")]

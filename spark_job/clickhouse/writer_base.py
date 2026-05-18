@@ -5,11 +5,14 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from pyspark.sql import DataFrame, functions as F
 
 from ..batch_log import append_batch_log
 from .sink import write_to_clickhouse
+
+logger = logging.getLogger(__name__)
 
 
 class ClickHouseStreamWriterBase:
@@ -65,13 +68,13 @@ class ClickHouseStreamWriterBase:
                     f"{prefix} batch_id={batch_id} stage=transform empty=true "
                     f"duration={elapsed:.3f}s"
                 )
-                print(line)
+                logger.info(line)
                 append_batch_log(line)
                 line = (
                     f"{prefix} batch_id={batch_id} stage=write empty=true "
                     "duration=0.000s"
                 )
-                print(line)
+                logger.info(line)
                 append_batch_log(line)
                 if persisted:
                     working_df.unpersist()  # 캐시 해제
@@ -114,7 +117,7 @@ class ClickHouseStreamWriterBase:
                 f"{prefix} batch_id={batch_id} stage=transform "
                 f"duration={transform_elapsed:.3f}s"
             )
-            print(line)
+            logger.info(line)
             append_batch_log(line)
 
             write_start = time.perf_counter()
@@ -132,7 +135,7 @@ class ClickHouseStreamWriterBase:
                 f"{prefix} batch_id={batch_id} stage=write "
                 f"duration={write_elapsed:.3f}s"
             )
-            print(line)
+            logger.info(line)
             append_batch_log(line)
 
         writer = (

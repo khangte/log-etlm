@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Mapping, Optional
+from typing import Mapping
 
 from common.get_env import (
     get_env_bool,
@@ -18,15 +18,15 @@ class StreamIngestSettings:
     """스트리밍 적재 설정을 담는다."""
     kafka_bootstrap: str
     fact_topics: str
-    dlq_topic: Optional[str]
-    starting_offsets: Optional[str]
-    max_offsets_per_trigger: Optional[str]
-    max_offsets_cap: Optional[int]
-    target_eps: Optional[int]
-    max_offsets_safety: Optional[float]
-    target_eps_profile_path: Optional[str]
-    kafka_min_partitions: Optional[int]
-    kafka_min_partitions_multiplier: Optional[float]
+    dlq_topic: str | None
+    starting_offsets: str | None
+    max_offsets_per_trigger: str | None
+    max_offsets_cap: int | None
+    target_eps: int | None
+    max_offsets_safety: float | None
+    target_eps_profile_path: str | None
+    kafka_min_partitions: int | None
+    kafka_min_partitions_multiplier: float | None
     enable_dlq_stream: bool
     reset_checkpoint_on_start: bool
 
