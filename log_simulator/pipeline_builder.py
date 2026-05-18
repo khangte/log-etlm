@@ -7,7 +7,7 @@
 from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from .simulator.task_builder import create_simulator_tasks
 from .simulator.settings import QueueThrottleConfig, SimulatorSettings
@@ -22,16 +22,16 @@ from .models.messages import BatchMessage
 class Pipeline:
     # 파이프라인 구성요소를 명확히 묶어 호출부 실수를 줄인다.
     publish_queue: asyncio.Queue[list[BatchMessage]]
-    stats_queue: asyncio.Queue[Tuple[str, int]]
+    stats_queue: asyncio.Queue[tuple[str, int]]
     service_tasks: list[asyncio.Task]
     publisher_tasks: list[asyncio.Task]
 
 
 def assemble_pipeline(
-    simulators: Dict[str, Any],
+    simulators: dict[str, Any],
     base_eps: float,
-    service_eps: Dict[str, float],
-    bands: List[Any],
+    service_eps: dict[str, float],
+    bands: list[Any],
     *,
     simulator_settings: SimulatorSettings | None = None,
     queue_config: QueueThrottleConfig | None = None,
@@ -57,7 +57,7 @@ def assemble_pipeline(
     )
 
     # 퍼블리셔가 stats를 넣고 리포터가 소비하는 큐.
-    stats_queue: "asyncio.Queue[Tuple[str, int]]" = asyncio.Queue()
+    stats_queue: asyncio.Queue[tuple[str, int]] = asyncio.Queue()
     publisher_tasks = create_publisher_workers(
         publish_queue=publish_queue,
         stats_queue=stats_queue,
