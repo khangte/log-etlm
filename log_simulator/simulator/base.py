@@ -101,17 +101,17 @@ class BaseServiceSimulator:
         # -------- routes 전처리(핵심 최적화) --------
         # 1) methods 대문자화(매번 upper 하지 않게)
         # 2) weight 누적합(prefix sums) 만들기
+        # 공유 dict를 직접 변경하지 않도록 복사본으로 정규화한다.
+        normalized: List[Dict[str, Any]] = []
         prefix: List[int] = []
         total = 0
         for r in self.routes:
-            # methods 정규화
             ms = r.get("methods") or ["GET"]
             if isinstance(ms, list):
-                r["methods"] = [str(m).upper() for m in ms] if ms else ["GET"]
+                methods = [str(m).upper() for m in ms] if ms else ["GET"]
             else:
-                r["methods"] = ["GET"]
+                methods = ["GET"]
 
-            # weight 정규화
             w = r.get("weight", 1)
             try:
                 wi = int(w)
@@ -119,10 +119,12 @@ class BaseServiceSimulator:
                 wi = 1
             if wi < 1:
                 wi = 1
-            r["weight"] = wi
 
+            normalized.append({**r, "methods": methods, "weight": wi})
             total += wi
             prefix.append(total)
+
+        self.routes = normalized
 
         if total <= 0:
             raise ValueError("routes total weight must be > 0")
