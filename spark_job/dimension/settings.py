@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Mapping, Optional
+from typing import Mapping
 
 from common.get_env import get_env_int, get_env_str
 
@@ -11,7 +11,7 @@ from common.get_env import get_env_int, get_env_str
 class DimensionBatchSettings:
     """디멘전 배치 설정 값을 담는다."""
     lookback_days: int
-    service_map_path: Optional[str]
+    service_map_path: str | None
 
 
 _DEFAULT_LOOKBACK_DAYS = 1

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 
@@ -8,6 +9,8 @@ from pyspark.sql import DataFrame, SparkSession
 from .fact.settings import FactStreamSettings
 from .stream_settings import StreamIngestSettings
 from .stream_utils import parse_duration_seconds, read_eps_from_profile
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,10 +36,9 @@ class KafkaStreamBuilder:
             .option("failOnDataLoss", "false")
         )
         if self.settings.starting_offsets:
-            print(
-                "[ℹ️ spark] "
-                f"startingOffsets={self.settings.starting_offsets} "
-                "(체크포인트가 있으면 무시될 수 있음)"
+            logger.info(
+                "[INFO] startingOffsets=%s (체크포인트가 있으면 무시될 수 있음)",
+                self.settings.starting_offsets,
             )
             reader = reader.option("startingOffsets", self.settings.starting_offsets)
         max_offsets = self.settings.max_offsets_per_trigger
@@ -44,11 +46,11 @@ class KafkaStreamBuilder:
             auto_offsets = self._compute_max_offsets_per_trigger()
             if auto_offsets:
                 max_offsets = str(auto_offsets)
-                print(f"[ℹ️ spark] maxOffsetsPerTrigger(auto)={max_offsets}")
+                logger.info("[INFO] maxOffsetsPerTrigger(auto)=%s", max_offsets)
         if max_offsets:
             capped = self._apply_max_offsets_cap(max_offsets)
             if capped and capped != max_offsets:
-                print(f"[ℹ️ spark] maxOffsetsPerTrigger(cap)={capped}")
+                logger.info("[INFO] maxOffsetsPerTrigger(cap)=%s", capped)
             max_offsets = capped or max_offsets
             reader = reader.option("maxOffsetsPerTrigger", max_offsets)
 
@@ -100,7 +102,7 @@ class KafkaStreamBuilder:
             finally:
                 admin.close()
         except Exception as exc:
-            print(f"[⚠️ spark] Kafka 파티션 수 조회 실패: {exc}")
+            logger.warning("[WARN] Kafka 파티션 수 조회 실패: %s", exc)
             return None
 
     def _compute_max_offsets_per_trigger(self) -> int | None:
@@ -123,7 +125,7 @@ class KafkaStreamBuilder:
         try:
             current = int(float(value))
         except (TypeError, ValueError):
-            print(f"[⚠️ spark] maxOffsetsPerTrigger cap skipped: invalid value={value}")
+            logger.warning("[WARN] maxOffsetsPerTrigger cap skipped: invalid value=%s", value)
             return value
         if current <= 0:
             return value

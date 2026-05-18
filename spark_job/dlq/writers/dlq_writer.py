@@ -16,7 +16,7 @@ class ClickHouseDlqWriter(ClickHouseStreamWriterBase):
 
     def write_dlq_stream(self, df: DataFrame):
         """DLQ 스트림을 적재한다."""
-        trigger_processing_time = self._settings.trigger_interval or None
+        trigger_processing_time = self._settings.trigger_interval
         return self.write_stream(
             df,
             self._settings.table_name,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Dict, Mapping, Optional
+from typing import Mapping
 
 from common.get_env import get_env_bool, get_env_float, get_env_int, get_env_str
 
@@ -11,26 +11,26 @@ from common.get_env import get_env_bool, get_env_float, get_env_int, get_env_str
 class ClickHouseSettings:
     """ClickHouse 접속 및 쓰기 설정을 담는다."""
     url: str
-    user: Optional[str]
-    password: Optional[str]
-    jdbc_batchsize: Optional[int]
-    jdbc_fetchsize: Optional[int]
-    write_partitions: Optional[int]
+    user: str | None
+    password: str | None
+    jdbc_batchsize: int | None
+    jdbc_fetchsize: int | None
+    write_partitions: int | None
     allow_repartition: bool
     retry_max: int
     retry_backoff_sec: float
     fail_on_error: bool
     dlq_on_final_failure: bool
-    dlq_topic: Optional[str]
-    kafka_bootstrap: Optional[str]
+    dlq_topic: str | None
+    kafka_bootstrap: str | None
     batch_guard_enabled: bool
     batch_guard_table: str
 
-    def build_jdbc_options(self, table_name: str) -> Dict[str, str]:
+    def build_jdbc_options(self, table_name: str) -> dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
         if not self.url:
             raise ValueError("SPARK_CLICKHOUSE_URL is required")
-        options: Dict[str, str] = {
+        options: dict[str, str] = {
             "driver": "com.clickhouse.jdbc.ClickHouseDriver",
             "url": self.url,
             "dbtable": table_name,
@@ -50,7 +50,7 @@ class ClickHouseSettings:
 @dataclass(frozen=True)
 class BatchTimingLogSettings:
     """배치 타이밍 로그 설정을 담는다."""
-    log_path: Optional[str]
+    log_path: str | None
 
 
 def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouseSettings:

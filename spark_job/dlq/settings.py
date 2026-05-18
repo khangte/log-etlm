@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
-from typing import Mapping, Optional
+from typing import Mapping
 
 from common.get_env import get_env_bool, get_env_str
 
@@ -17,7 +17,7 @@ class DlqStreamSettings:
     """DLQ 스트림 설정을 담는다."""
     table_name: str
     checkpoint_dir: str
-    trigger_interval: Optional[str]
+    trigger_interval: str | None
 
 
 @dataclass(frozen=True)
@@ -25,7 +25,7 @@ class DlqKafkaSettings:
     """DLQ Kafka 적재 설정을 담는다."""
     bootstrap: str
     checkpoint_dir: str
-    trigger_interval: Optional[str]
+    trigger_interval: str | None
     log_empty: bool
 
 

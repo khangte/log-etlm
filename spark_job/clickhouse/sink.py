@@ -1,5 +1,5 @@
+import logging
 import time
-import traceback
 import re
 
 from pyspark.sql import DataFrame, functions as F
@@ -7,25 +7,26 @@ from pyspark.sql import DataFrame, functions as F
 from ..dlq.schema import DLQ_VALUE_COLUMNS
 from .settings import ClickHouseSettings, get_clickhouse_settings
 
+logger = logging.getLogger(__name__)
 
 _TABLE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
 
 
 def _apply_partitioning(
-    df,
+    df: DataFrame,
     *,
     target_partitions: int | None,
     allow_repartition: bool,
-):
+) -> DataFrame:
     """파티션 수를 조정한다."""
     if target_partitions is None or target_partitions <= 0:
         return df
 
     n = target_partitions
     current = df.rdd.getNumPartitions()
-    print(
-        "[clickhouse sink] 파티션 조정 target=%s current=%s allow_repartition=%s"
-        % (n, current, allow_repartition)
+    logger.info(
+        "[clickhouse sink] 파티션 조정 target=%s current=%s allow_repartition=%s",
+        n, current, allow_repartition,
     )
 
     if n < current:
@@ -36,7 +37,7 @@ def _apply_partitioning(
     return df
 
 
-def _dlq_project(df: DataFrame, col_name: str, cast_type: str):
+def _dlq_project(df: DataFrame, col_name: str, cast_type: str) -> F.Column:
     """컬럼 존재 여부에 따라 DLQ 컬럼을 안전하게 구성한다."""
     if col_name in df.columns:
         return F.col(col_name).cast(cast_type)
@@ -96,9 +97,10 @@ def _write_failed_fact_batch_to_dlq(
     if table_name != "analytics.fact_event":
         return False
     if not settings.dlq_topic or not settings.kafka_bootstrap:
-        print(
-            f"[⚠️ DLQ bypass skipped] table={table_name} batch_id={batch_id} "
-            "reason=missing SPARK_DLQ_TOPIC or KAFKA_BOOTSTRAP"
+        logger.warning(
+            "[WARN] DLQ bypass skipped table=%s batch_id=%s "
+            "reason=missing SPARK_DLQ_TOPIC or KAFKA_BOOTSTRAP",
+            table_name, batch_id,
         )
         return False
 
@@ -121,9 +123,9 @@ def _write_failed_fact_batch_to_dlq(
         settings.dlq_topic,
     ).save()
 
-    print(
-        f"[⚠️ DLQ bypass] table={table_name} batch_id={batch_id} "
-        f"topic={settings.dlq_topic} reason=clickhouse_final_failure"
+    logger.info(
+        "[INFO] DLQ bypass table=%s batch_id=%s topic=%s reason=clickhouse_final_failure",
+        table_name, batch_id, settings.dlq_topic,
     )
     return True
 
@@ -214,14 +216,14 @@ def _is_missing_guard_table_error(error: Exception, guard_table: str) -> bool:
 
 
 def write_to_clickhouse(
-    df,
-    table_name,
+    df: DataFrame,
+    table_name: str,
     batch_id: int | None = None,
     stream_name: str | None = None,
     mode: str = "append",
     *,
     settings: ClickHouseSettings | None = None,
-):
+) -> None:
     """ClickHouse로 데이터를 적재한다."""
     resolved_settings = settings or get_clickhouse_settings()
     max_attempts = max(1, resolved_settings.retry_max + 1)
@@ -241,9 +243,9 @@ def write_to_clickhouse(
                 table_name=table_name,
                 batch_id=int(batch_id),
             ):
-                print(
-                    "[clickhouse sink] 중복 배치 skip "
-                    f"stream={stream_name} table={table_name} batch_id={batch_id}"
+                logger.info(
+                    "[clickhouse sink] 중복 배치 skip stream=%s table=%s batch_id=%s",
+                    stream_name, table_name, batch_id,
                 )
                 return
         except Exception as guard_error:
@@ -251,9 +253,10 @@ def write_to_clickhouse(
                 guard_error,
                 resolved_settings.batch_guard_table,
             ):
-                print(
-                    "[⚠️ clickhouse sink] batch guard 비활성화: "
-                    f"guard table missing ({resolved_settings.batch_guard_table})"
+                logger.warning(
+                    "[WARN] clickhouse sink batch guard 비활성화: "
+                    "guard table missing (%s)",
+                    resolved_settings.batch_guard_table,
                 )
                 use_batch_guard = False
             else:
@@ -289,17 +292,17 @@ def write_to_clickhouse(
         except Exception as e:
             batch_info = f" batch_id={batch_id}" if batch_id is not None else ""
             if data_written and use_batch_guard:
-                print(
-                    f"[❌ ERROR] 배치 가드 기록 실패: {table_name}{batch_info} "
-                    "데이터는 이미 저장됨(자동 재시도 중단)"
+                logger.error(
+                    "[ERROR] 배치 가드 기록 실패: %s%s 데이터는 이미 저장됨(자동 재시도 중단)",
+                    table_name, batch_info,
                 )
                 if resolved_settings.fail_on_error:
                     raise
                 return
 
-            print(
-                f"[❌ ERROR] ClickHouse 저장 실패: {table_name}{batch_info} "
-                f"(attempt {attempt}/{max_attempts}) {e}"
+            logger.error(
+                "[ERROR] ClickHouse 저장 실패: %s%s (attempt %s/%s) %s",
+                table_name, batch_info, attempt, max_attempts, e,
             )
             if attempt < max_attempts:
                 if backoff_sec > 0:
@@ -308,12 +311,13 @@ def write_to_clickhouse(
 
             msg = str(e)
             if "TABLE_ALREADY_EXISTS" in msg and "detached" in msg.lower():
-                print(
-                    "[🛠️ ClickHouse] 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
+                logger.error(
+                    "[ERROR] ClickHouse 테이블이 DETACHED 상태입니다. 아래 명령으로 복구하세요:\n"
                     "  sudo docker exec -it clickhouse clickhouse-client -u log_user --password log_pwd \\\n"
-                    f"    --query \"ATTACH TABLE {table_name}\""
+                    "    --query \"ATTACH TABLE %s\"",
+                    table_name,
                 )
-            traceback.print_exc()
+            logger.exception("[ERROR] ClickHouse 저장 최종 실패: %s%s", table_name, batch_info)
             try:
                 bypassed = _write_failed_fact_batch_to_dlq(
                     out_df,
@@ -323,10 +327,10 @@ def write_to_clickhouse(
                     error=e,
                 )
             except Exception as dlq_error:
-                print(
-                    f"[❌ ERROR] DLQ 우회 적재 실패: {table_name}{batch_info} {dlq_error}"
+                logger.exception(
+                    "[ERROR] DLQ 우회 적재 실패: %s%s %s",
+                    table_name, batch_info, dlq_error,
                 )
-                traceback.print_exc()
                 bypassed = False
 
             if bypassed:

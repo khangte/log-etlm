@@ -23,7 +23,7 @@ def parse_dim_date(fact_df: DataFrame, *, time_col: str = "event_ts") -> DataFra
         .withColumn("year", F.year("date").cast("int"))
         .withColumn("month", F.month("date").cast("int"))
         .withColumn("day", F.dayofmonth("date").cast("int"))
-        .withColumn("week", F.weekofyear("date").cast("int"))
+        .withColumn("week", F.week_of_year("date").cast("int"))
         .withColumn("day_of_week", F.dayofweek("date").cast("int"))
         .withColumn(
             "is_weekend",

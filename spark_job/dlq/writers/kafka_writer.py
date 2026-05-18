@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import time
 
 from pyspark.sql import DataFrame, functions as F
+
+logger = logging.getLogger(__name__)
 
 from ...batch_log import append_batch_log
 from ..schema import DLQ_VALUE_COLUMNS
@@ -25,7 +28,7 @@ class KafkaDlqWriter:
         bootstrap = self._settings.bootstrap
         if not bootstrap:
             raise ValueError("KAFKA_BOOTSTRAP is required for DLQ Kafka writer")
-        trigger_processing_time = self._settings.trigger_interval or None
+        trigger_processing_time = self._settings.trigger_interval
         log_empty = self._settings.log_empty
         query_name = "fact_event_dlq_kafka_stream"
         stream_name = "dlq_kafka"
@@ -41,7 +44,7 @@ class KafkaDlqWriter:
                 if log_empty:
                     elapsed = time.perf_counter() - start_time
                     line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"
-                    print(line)
+                    logger.info(line)
                     append_batch_log(line)
                 return
             payload_df = build_dlq_kafka_df(batch_df)
@@ -58,7 +61,7 @@ class KafkaDlqWriter:
             )
             elapsed = time.perf_counter() - start_time
             line = f"{prefix} batch_id={batch_id} duration={elapsed:.3f}s"
-            print(line)
+            logger.info(line)
             append_batch_log(line)
 
         writer = (

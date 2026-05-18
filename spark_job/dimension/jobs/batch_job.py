@@ -5,10 +5,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 import time
-from typing import Optional
 
 from pyspark.sql import DataFrame, SparkSession
+
+logger = logging.getLogger(__name__)
 
 from ...clickhouse.settings import ClickHouseSettings, get_clickhouse_settings
 from ...spark import build_batch_spark
@@ -55,7 +57,7 @@ class DimensionBatchJob:
         finally:
             spark.stop()
             elapsed = time.monotonic() - started
-            print(f"[spark batch] completed in {elapsed:.2f}s")
+            logger.info("[spark batch] completed in %.2fs", elapsed)
 
     def _read_fact_event(self, spark: SparkSession) -> DataFrame:
         """팩트 이벤트를 읽는다."""
@@ -71,7 +73,7 @@ class DimensionBatchJob:
             reader = reader.option(key, value)
         return reader.load()
 
-    def _read_service_map(self, spark: SparkSession) -> Optional[DataFrame]:
+    def _read_service_map(self, spark: SparkSession) -> DataFrame | None:
         """서비스 메타 매핑 파일을 읽는다."""
         path = (self.settings.service_map_path or "").strip()
         if not path:

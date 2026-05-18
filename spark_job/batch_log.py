@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import time
 
@@ -19,4 +20,4 @@ def append_batch_log(line: str) -> None:
         with open(log_path, "a", encoding="utf-8") as logfile:
             logfile.write(f"{utc_ts} {line}\n")
     except Exception as exc:
-        print(f"[spark batch] log write failed: {exc}")
+        logging.getLogger(__name__).warning("[spark batch] log write failed: %s", exc)

@@ -5,12 +5,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+import logging
 import os
 from pyspark.sql.streaming import StreamingQueryException, StreamingQueryListener
 
 from common.get_env import get_env_str
 from spark_job.stream_ingest import start_event_ingest_streams
 from spark_job.spark import build_streaming_spark
+
+logger = logging.getLogger(__name__)
 
 
 def _progress_log_path() -> str:
@@ -35,7 +38,7 @@ class JsonProgressListener(StreamingQueryListener):
             with open(self._log_path, "a", encoding="utf-8") as logfile:
                 logfile.write(json.dumps(payload, ensure_ascii=False) + "\n")
         except Exception as exc:
-            print(f"[spark progress] log write failed: {exc}")
+            logger.warning("[spark progress] log write failed: %s", exc)
 
     def onQueryStarted(self, event) -> None:  # type: ignore[override]
         ts = datetime.now(timezone.utc).isoformat()
@@ -105,7 +108,7 @@ def _load_env_keys_from_profile() -> list[str]:
                     keys.append(key)
         return keys
     except FileNotFoundError:
-        print(f"[env] profile file not found: {env_path}")
+        logger.warning("[env] profile file not found: %s", env_path)
         return []
 
 
@@ -113,11 +116,11 @@ def _log_runtime_env() -> None:
     """config/env에 정의된 키만 출력한다."""
     keys = _load_env_keys_from_profile()
     if not keys:
-        print("[env] no profile keys to log")
+        logger.info("[env] no profile keys to log")
         return
     for key in sorted(dict.fromkeys(keys)):
         value = os.environ.get(key, "")
-        print(f"[env] {key}={_mask_env_value(key, value)}")
+        logger.info("[env] %s=%s", key, _mask_env_value(key, value))
 
 
 def run_event_ingest() -> None:
@@ -137,16 +140,16 @@ def run_event_ingest() -> None:
             spark.streams.awaitAnyTermination()
         except StreamingQueryException as exc:
             # 드라이버 종료 원인 파악을 위해 전체 예외 메시지 출력
-            print(f"[❌ 스트리밍 쿼리 예외] {exc}")
+            logger.error("[ERROR] 스트리밍 쿼리 예외: %s", exc)
             raise
 
     except Exception as exc:
-        print(f"[❌ SparkSession] 예기치 않은 오류: {exc}")
+        logger.error("[ERROR] SparkSession 예기치 않은 오류: %s", exc)
         raise
 
     finally:
         if spark:
-            print("[ℹ️ SparkSession] 세션 종료.")
+            logger.info("[INFO] SparkSession 세션 종료.")
             spark.stop()
 
 
