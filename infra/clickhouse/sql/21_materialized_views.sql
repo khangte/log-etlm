@@ -83,7 +83,7 @@ WHERE ingest_ts IS NOT NULL
 GROUP BY bucket;
 
 
--- ⚠️ 이 MV는 가장 CPU가 비싼 편. 중복 제거 + WITH로 diff 재사용.
+-- 이 MV는 가장 CPU가 비싼 편. 중복 제거 + WITH로 diff 재사용.
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1m
 TO analytics.fact_event_latency_service_1m
 AS
