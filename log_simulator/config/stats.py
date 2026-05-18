@@ -12,14 +12,6 @@ from typing import List, Tuple
 
 
 _logger = logging.getLogger("log_simulator.stats")
-_logger.setLevel(logging.INFO)
-
-if not _logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    _logger.addHandler(handler)
 
 
 async def stats_reporter(
@@ -38,6 +30,7 @@ async def stats_reporter(
         logger: 기본 logger 대체용
     """
     log = logger or _logger
+    pid = os.getpid()
 
     loop = asyncio.get_running_loop()
     last_report = loop.time()
@@ -51,7 +44,7 @@ async def stats_reporter(
             eps = total / elapsed if elapsed > 0 else 0.0
             log.info(
                 "[stats pid=%d] eps=%.1f window=%.2fs total=%d by_svc=(%s)",
-                os.getpid(),
+                pid,
                 eps,
                 elapsed,
                 total,
