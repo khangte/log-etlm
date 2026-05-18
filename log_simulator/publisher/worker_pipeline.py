@@ -23,13 +23,6 @@ from .worker_helpers import (
 )
 
 _logger = logging.getLogger("log_simulator.publisher.worker_pipeline")
-_logger.setLevel(logging.INFO)
-if not _logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    _logger.addHandler(handler)
 
 
 def _build_metrics_config(settings: PublisherSettings) -> WorkerMetricsConfig:

@@ -17,13 +17,6 @@ from ..producer.topic import get_topic
 
 
 _logger = logging.getLogger("log_simulator.dlq")
-_logger.setLevel(logging.INFO)
-if not _logger.handlers:
-    handler = logging.StreamHandler()
-    handler.setFormatter(
-        logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-    )
-    _logger.addHandler(handler)
 
 
 def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
@@ -35,7 +28,7 @@ def build_dlq_message(message: BatchMessage, error: Exception) -> BatchMessage:
         payload = json.loads(raw_json)
         event_id = payload.get("event_id")
         request_id = payload.get("request_id")
-    except Exception:
+    except json.JSONDecodeError:
         pass
 
     dlq_payload = {
