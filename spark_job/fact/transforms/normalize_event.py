@@ -44,11 +44,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
                 F.lit("unknown"),
             ).alias("event_name"),
             F.coalesce(
-                F.col("json.event_name"),
-                F.col("json.event"),
-                F.lit("unknown"),
-            ).alias("event"),
-            F.coalesce(
                 F.col("json.result"),
                 F.when(F.col("json.status_code") >= 400, F.lit("fail"))
                  .when(F.col("json.status_code").isNotNull(), F.lit("success")),

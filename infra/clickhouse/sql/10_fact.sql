@@ -24,7 +24,6 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
     status_code    Int32,
     duration_ms    Nullable(UInt32),
     level          LowCardinality(String),
-    event          String,
 
     user_id     Nullable(String),
     order_id    Nullable(String),
