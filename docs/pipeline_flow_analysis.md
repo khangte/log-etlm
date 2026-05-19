@@ -99,6 +99,15 @@ bad_df (JSON 파싱 실패)
 - `SPARK_CLICKHOUSE_WRITE_PARTITIONS` → `sink.py` `_apply_partitioning` (JDBC 커넥션 수 제어용, 기본값 3)
 - `FactStreamSettings.num_partitions` → `pre_coalesce_partitions`로 필드명 변경
 
+**추가 개선 (no-op `getNumPartitions()` 제거)**:
+
+두 값이 같을 때(기본값 `pre=3, write=3`) 1단계 coalesce 후 이미 파티션 수가 확정됨에도
+2단계 `_apply_partitioning`이 매 배치마다 `rdd.getNumPartitions()` action을 유발하는 문제를 제거했다.
+
+1단계에서 추적한 `current_parts`를 `write_to_clickhouse(current_partitions=…)`로 전달해
+스트리밍 경로에서는 2단계의 `getNumPartitions()` 호출을 생략한다.
+배치 경로(`write_batch`)는 `current_partitions=None`으로 기존 동작을 유지한다.
+
 ---
 
 ### 3-3. `isEmpty()` 호출 방식이 계층별로 다르다
@@ -186,7 +195,7 @@ def _run_dlq_streams(self, spark, bad_df):
 | 항목 | 심각도 | 현재 영향 | 개선 필요 시점 |
 |---|---|---|---|
 | ~~`time.sleep()` in foreachBatch~~ | ~~중간~~ | ✅ 해결 — sleep 제거, 즉시 재시도로 변경 | — |
-| ~~파티션 조정 이중화~~ | ~~낮음~~ | ✅ 해결 — 환경변수 분리로 역할 명확화 | — |
+| ~~파티션 조정 이중화~~ | ~~낮음~~ | ✅ 해결 — 환경변수 분리 + no-op `getNumPartitions()` 제거 | — |
 | `rdd.isEmpty()` 비일관 | 낮음 | 성능 영향 미미 | 코드 정리 시 |
 | async insert + 배치 가드 충돌 | 중간 | PoC 허용 범위 | 운영 전환 전 |
 | DLQ produce/consume 동일 job | 설계 | 단일 VM에서 무해 | 운영 스케일아웃 전 |
