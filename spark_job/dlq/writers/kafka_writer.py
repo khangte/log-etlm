@@ -40,7 +40,7 @@ class KafkaDlqWriter:
         def _foreach(batch_df: DataFrame, batch_id: int) -> None:
             """DLQ Kafka 배치 적재와 타이밍 로그를 처리한다."""
             start_time = time.perf_counter()
-            if batch_df.rdd.isEmpty():
+            if batch_df.isEmpty():
                 if log_empty:
                     elapsed = time.perf_counter() - start_time
                     line = f"{prefix} batch_id={batch_id} empty=true duration={elapsed:.3f}s"

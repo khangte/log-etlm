@@ -110,25 +110,14 @@ bad_df (JSON 파싱 실패)
 
 ---
 
-### 3-3. `isEmpty()` 호출 방식이 계층별로 다르다
+### 3-3. ~~`isEmpty()` 호출 방식이 계층별로 다르다~~ ✅ 해결됨
 
 **위치**: `spark_job/clickhouse/writer_base.py`, `spark_job/dlq/writers/kafka_writer.py`
 
-```python
-# writer_base: DataFrame.isEmpty() — persist 후 호출
-working_df.persist()
-if skip_empty and working_df.isEmpty(): ...
+**변경 내용**: `kafka_writer`의 `batch_df.rdd.isEmpty()`를 `batch_df.isEmpty()`로 통일했다.
 
-# kafka_writer: rdd.isEmpty() — persist 없이 호출
-if batch_df.rdd.isEmpty(): ...
-```
-
-`rdd.isEmpty()`는 불필요한 RDD 변환을 거치며, persist 없이 호출하면
-이후 실제 처리에서 action이 한 번 더 실행된다.
-
-**현재 영향**: 성능상 미미한 차이. DLQ 배치는 정상 배치보다 소량이라 실질적 문제는 없다.
-
-**개선 방향**: `kafka_writer`도 `DataFrame.isEmpty()`로 통일한다.
+- `rdd.isEmpty()`는 불필요한 RDD 변환을 거치며, persist 없이 호출하면 이후 실제 처리에서 action이 한 번 더 실행된다.
+- 두 계층 모두 `DataFrame.isEmpty()`로 일관성을 확보했다.
 
 ---
 
@@ -196,6 +185,6 @@ def _run_dlq_streams(self, spark, bad_df):
 |---|---|---|---|
 | ~~`time.sleep()` in foreachBatch~~ | ~~중간~~ | ✅ 해결 — sleep 제거, 즉시 재시도로 변경 | — |
 | ~~파티션 조정 이중화~~ | ~~낮음~~ | ✅ 해결 — 환경변수 분리 + no-op `getNumPartitions()` 제거 | — |
-| `rdd.isEmpty()` 비일관 | 낮음 | 성능 영향 미미 | 코드 정리 시 |
+| ~~`rdd.isEmpty()` 비일관~~ | ~~낮음~~ | ✅ 해결 — `DataFrame.isEmpty()`로 통일 | — |
 | async insert + 배치 가드 충돌 | 중간 | PoC 허용 범위 | 운영 전환 전 |
 | DLQ produce/consume 동일 job | 설계 | 단일 VM에서 무해 | 운영 스케일아웃 전 |
