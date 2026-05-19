@@ -396,9 +396,12 @@ services:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
     depends_on:
-      - clickhouse
-      - spark-batch-master
-      - spark-batch-worker-1
+      clickhouse:
+        condition: service_healthy
+      spark-batch-master:
+        condition: service_started
+      spark-batch-worker-1:
+        condition: service_started
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -425,9 +428,9 @@ services:
       - SYS_NICE
     environment:
       # --- ClickHouse auth / access ---
-      - CLICKHOUSE_USER=log_user
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      # CLICKHOUSE_USER/PASSWORD는 entrypoint가 users.d/default-user.xml을 덮어쓰므로 사용 안 함
+      # CH_LOG_USER_PASSWORD는 10_log_user.xml의 from_env가 읽는 전용 변수
+      - CH_LOG_USER_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_GRAFANA_PASSWORD=${CLICKHOUSE_GRAFANA_PASSWORD}
     volumes:
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
@@ -441,11 +444,11 @@ services:
       - ./infra/clickhouse/sql/90_grants.sh:/docker-entrypoint-initdb.d/90_grants.sh:ro
     networks: [logetlm-net]
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --host localhost --query 'SELECT 1' >/dev/null"]
-      interval: 45s
+      test: ["CMD-SHELL", "clickhouse-client --host localhost --user log_user --password \"$$CH_LOG_USER_PASSWORD\" --query 'SELECT 1' >/dev/null"]
+      interval: 5s
       timeout: 5s
-      retries: 5
-      start_period: 45s
+      retries: 10
+      start_period: 20s
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }

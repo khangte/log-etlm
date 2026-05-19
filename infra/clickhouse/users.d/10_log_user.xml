@@ -10,7 +10,7 @@
       <networks>
         <ip>::/0</ip>
       </networks>
-      <password from_env="CLICKHOUSE_PASSWORD"/>
+      <password from_env="CH_LOG_USER_PASSWORD"/>
       <quota>default</quota>
       <access_management>1</access_management>
     </log_user>
