@@ -288,16 +288,21 @@ du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
 
 ---
 
-### 🔧 `raw_json` 컬럼 조건부 생성 제거
+### ✅ `raw_json` 컬럼 조건부 생성 제거
 
-**위치**: `spark_job/fact/transforms/parse_event.py`, `normalize_event.py`
+**위치**: `spark_job/fact/transforms/parse_event.py`, `spark_job/fact/parsers/fact_event.py`
 
 `SPARK_STORE_RAW_JSON=false`(현재 기본값)일 때도 `parse_event`에서
-`raw_json` 컬럼을 항상 생성하고 `normalize_event`에서 `F.lit("")`로 교체한다.
-컬럼 생성 → 셔플 전달 → 빈 문자열 교체 순서로 불필요한 데이터가 파티션을 이동한다.
+`raw_json` 컬럼을 항상 생성하고 `normalize_event`에서 `F.lit("")`로 교체했다.
+컬럼 생성 → 셔플 전달 → 빈 문자열 교체 순서로 불필요한 데이터가 파티션을 이동했다.
 
-개선 방향: `store_raw_json` 플래그를 `parse_event`까지 내려보내
-`false`일 때 `raw_json` 컬럼 자체를 만들지 않는다.
+**변경 내용**:
+- `parse_event`에 `need_raw_json: bool = False` 파라미터 추가.
+  `False`이면 `from_json` 직후 `raw_json`을 즉시 `drop`해 이후 단계로 전달하지 않는다.
+- `parse_fact_event_with_errors`에서 `need_raw_json = store_raw_json or build_bad_df`로 전달.
+  기존 `parsed.drop("raw_json")` 사후 처리 제거.
+- 기본 경로(`store_raw_json=False`, `enable_dlq_stream=False`)에서 `raw_json`이
+  `validate_event` → `normalize_event` 셔플 단계를 통과하지 않는다.
 
 **비교 방법**:
 
@@ -347,7 +352,7 @@ python3 scripts/kafka_spark_lag.py
 | 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
 | 2 | ClickHouse Native Connector | 중 | 높음 | 🔧 |
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | 🔧 |
-| 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | 🔧 |
+| 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |

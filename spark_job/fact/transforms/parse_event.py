@@ -5,9 +5,9 @@ from pyspark.sql import DataFrame, functions as F
 from ..schema import log_value_schema
 
 
-def parse_event(kafka_df: DataFrame) -> DataFrame:
+def parse_event(kafka_df: DataFrame, *, need_raw_json: bool = False) -> DataFrame:
     """Kafka 원본을 파싱된 구조로 변환한다."""
-    return (
+    df = (
         kafka_df.selectExpr(
             "CAST(value AS STRING) AS raw_json",
             "CAST(key AS STRING) AS kafka_key",
@@ -25,3 +25,6 @@ def parse_event(kafka_df: DataFrame) -> DataFrame:
             F.current_timestamp(),
         )
     )
+    if not need_raw_json:
+        df = df.drop("raw_json")
+    return df
