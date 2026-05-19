@@ -226,30 +226,51 @@ warmup 로직을 추가하는 방향으로 접근한다.
 
 ---
 
-### 🔧 ClickHouse Native Connector로 JDBC 대체
+### ✅ ClickHouse Native Connector로 JDBC 대체
+
+**수정일**: 2026-05-20
 
 **위치**: `spark_job/clickhouse/sink.py`, `spark_job/clickhouse/settings.py`
 
-현재 `com.clickhouse.jdbc.ClickHouseDriver`를 통한 JDBC write는
+`com.clickhouse.jdbc.ClickHouseDriver`를 통한 JDBC write는 JSON-over-HTTP 방식으로
 ClickHouse의 columnar bulk insert 강점을 활용하지 못한다.
-`spark-clickhouse-connector`는 `FORMAT Native` 또는 `FORMAT RowBinary`로
-직렬화해 JDBC 대비 3~5배 throughput을 낼 수 있다.
+`spark-clickhouse-connector` (0.10.0, Spark 4.0/Scala 2.13)는 `FORMAT RowBinary`로
+직렬화해 JDBC 대비 높은 throughput을 낸다.
+
+**변경 내용**:
+
+- `spark_job/jars/clickhouse-spark-runtime-4.0_2.13-0.10.0.jar` 추가 (fat JAR, 20MB)
+- `settings.py`: `_parse_jdbc_host_port()` 추가 — 기존 `SPARK_CLICKHOUSE_URL`에서 host/port 추출 (새 환경변수 불필요)
+- `settings.py`: `build_native_options(table_name)` 추가 — `host`, `http_port`, `protocol`, `table`, `user`, `password` 옵션 반환
+- `sink.py` `write_to_clickhouse()`: 메인 data write만 `format("jdbc")` → `format("clickhouse")` 전환
+  - 배치 가드(read/write)는 단건 SQL 조회가 필요하므로 JDBC 유지
 
 ```python
-# 현재
+# 변경 전 (JDBC)
 out_df.write.format("jdbc").option("driver", "com.clickhouse.jdbc.ClickHouseDriver")...
 
-# 개선
-out_df.write.format("clickhouse").option("clickhouse.url", ...)...
+# 변경 후 (Native Connector)
+out_df.write.format("clickhouse") \
+    .option("host", "clickhouse").option("http_port", "8123") \
+    .option("protocol", "http").option("table", "analytics.fact_event") \
+    .option("user", ...).option("password", ...) \
+    .mode("append").save()
 ```
 
-적용 범위: `build_jdbc_options()` 대체 + JAR 교체 (`spark-clickhouse-connector_*.jar`).
-`write_to_clickhouse()` 바깥 로직(배치 가드, DLQ, 재시도)은 변경 불필요.
+**테스트 결과** (`tests/spark_job/test_clickhouse_settings.py`):
 
-**비교 방법**:
+단위 테스트 21개 케이스 모두 ✅
+
+| 그룹 | 케이스 | 결과 |
+|------|--------|------|
+| `_parse_jdbc_host_port` | host:port 명시·쿼리파라미터·포트생략·IP주소·잘못된URL | 5/5 ✅ |
+| `build_native_options` | host/port/protocol/table/user/password·auth없음·테이블변경 | 11/11 ✅ |
+| `build_jdbc_options` (기존 유지) | driver/url/dbtable/isolationLevel/batchsize | 5/5 ✅ |
+
+**런타임 비교 방법**:
 
 ```bash
-# 변경 전 write duration 평균 (5분 분량)
+# 변경 전/후 write duration 평균 (5분 분량)
 grep "stream=fact_event.*stage=write" /data/log-etlm/spark-events/batch_timing.log \
   | tail -80 \
   | grep -oP 'duration=\K[0-9.]+' \
@@ -261,6 +282,8 @@ grep "stream=fact_event.*stage=write" /data/log-etlm/spark-events/batch_timing.l
 | `stage=write` duration | `batch_timing.log` | 50~70% 단축 |
 | Avg Processing Rate | Spark UI Streaming | 증가 |
 | spark-driver CPU % | `docker stats spark-driver` | 감소 |
+
+> **런타임 측정 미완료**: 컨테이너 미실행 환경에서 변경을 적용했다. 다음 파이프라인 기동 시 위 지표로 실측값을 보완할 것.
 
 **난이도**: 중 | **예상 효과**: 높음
 
@@ -378,7 +401,7 @@ python3 scripts/kafka_spark_lag.py
 | 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
 |------|------|--------|-----------|------|
 | 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
-| 2 | ClickHouse Native Connector | 중 | 높음 | 🔧 |
+| 2 | ClickHouse Native Connector | 중 | 높음 | ✅ |
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |

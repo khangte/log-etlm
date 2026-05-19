@@ -2,9 +2,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import os
+import re
 from typing import Mapping
 
 from common.get_env import get_env_bool, get_env_int, get_env_str
+
+_JDBC_HOST_PORT_RE = re.compile(r"jdbc:clickhouse://([^:/]+)(?::(\d+))?")
+
+
+def _parse_jdbc_host_port(url: str) -> tuple[str, int]:
+    """JDBC URL에서 host와 http_port를 추출한다."""
+    m = _JDBC_HOST_PORT_RE.match(url)
+    if not m:
+        raise ValueError(f"JDBC URL에서 host:port를 파싱할 수 없습니다: {url!r}")
+    return m.group(1), int(m.group(2) or "8123")
 
 
 @dataclass(frozen=True)
@@ -43,6 +54,23 @@ class ClickHouseSettings:
             options["batchsize"] = str(self.jdbc_batchsize)
         if self.jdbc_fetchsize is not None:
             options["fetchsize"] = str(self.jdbc_fetchsize)
+        return options
+
+    def build_native_options(self, table_name: str) -> dict[str, str]:
+        """spark-clickhouse-connector Native 옵션 딕셔너리를 생성한다."""
+        if not self.url:
+            raise ValueError("SPARK_CLICKHOUSE_URL is required")
+        host, http_port = _parse_jdbc_host_port(self.url)
+        options: dict[str, str] = {
+            "host": host,
+            "http_port": str(http_port),
+            "protocol": "http",
+            "table": table_name,
+        }
+        if self.user:
+            options["user"] = self.user
+        if self.password:
+            options["password"] = self.password
         return options
 
 
