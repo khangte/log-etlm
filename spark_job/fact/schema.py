@@ -33,7 +33,6 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("timestamp_ms",      T.LongType(),    True),
         T.StructField("level",             T.StringType(),  True),
         T.StructField("path",              T.StringType(),  True),
-        T.StructField("event",             T.StringType(),  True),
         T.StructField("product_id",        T.IntegerType(), True),
     ]
 )
@@ -76,7 +75,6 @@ FACT_EVENT_COLUMNS: list[str] = [
 
     # 5) 로그 레벨/메시지
     "level",
-    "event",
 
     # 6) 비즈니스 필드
     "user_id",
