@@ -87,12 +87,12 @@ def _mask_env_value(key: str, value: str) -> str:
 
 
 def _load_env_keys_from_profile() -> list[str]:
-    """config/env/<profile>.env.example에 있는 키 목록을 읽는다."""
+    """config/env/<profile>.env에 있는 키 목록을 읽는다."""
     profile = (os.getenv("SPARK_ENV_PROFILE") or "").strip()
     if not profile:
         return []
     env_dir = os.getenv("SPARK_ENV_DIR", "/app/config/env")
-    env_path = os.path.join(env_dir, f"{profile}.env.example")
+    env_path = os.path.join(env_dir, f"{profile}.env")
     try:
         keys: list[str] = []
         with open(env_path, "r", encoding="utf-8") as f:

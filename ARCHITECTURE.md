@@ -415,7 +415,7 @@ log-etlm/
 │       └── docker_watchdog.py
 │
 ├── scripts/                # 운영 유틸 (Spark 프로파일 전환, DIM 배치, 진단)
-├── config/env/             # low·mid·high.env.example (Spark 튜닝 프로파일)
+├── config/env/             # low·mid·high.env (Spark 튜닝 프로파일)
 ├── docs/
 │   ├── clickhouse_aggregate_guide.md
 │   └── oom_prevention_checklist.md

@@ -16,7 +16,7 @@ while IFS='=' read -r key value; do
 done < <(docker exec -i spark-driver env | grep '^SPARK_')
 
 for profile in low mid high; do
-  env_file="${ENV_DIR}/${profile}.env.example"
+  env_file="${ENV_DIR}/${profile}.env"
   if [ ! -f "$env_file" ]; then
     continue
   fi
