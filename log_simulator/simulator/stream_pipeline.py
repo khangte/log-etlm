@@ -85,7 +85,8 @@ async def run_simulator_loop(
         enqueue_duration = 0.0
         if batch_size > 0:
             enqueue_start = time.perf_counter()
-            batch_items = build_batch_messages_from_simulator(
+            batch_items = await asyncio.to_thread(
+                build_batch_messages_from_simulator,
                 simulator,
                 service,
                 batch_size,
