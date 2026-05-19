@@ -177,7 +177,7 @@ return orjson.dumps(log)  # Rust 구현, bytes 직접 반환, GIL 해제
 
 | 방법 | 효과 | 비고 |
 |------|------|------|
-| Python 3.13 free-threaded 빌드 | `asyncio.to_thread`가 진짜 병렬 실행 | `python:3.13t-slim`으로 base image 교체 |
+| Python 3.13 free-threaded 빌드 | `asyncio.to_thread`가 진짜 병렬 실행 | Docker Hub에 공식 free-threaded 이미지 미제공(`python:3.13t-slim` 등 부재) — 소스 빌드 필요로 보류 |
 | `ProcessPoolExecutor` 전환 | 멀티코어 완전 활용, GIL 우회 | picklable 검증 + `cpus` 증설 필요 |
 
 > **참고**: `LOOPS_PER_SERVICE` 증가는 Python GIL + `cpus: "1.0"` 환경에서 효과 없음 (스레드 경합만 증가).
