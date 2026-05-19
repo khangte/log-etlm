@@ -8,12 +8,11 @@
     <log_user>
       <profile>default</profile>
       <networks>
-        <ip>172.16.0.0/12</ip>
-        <ip>10.0.0.0/8</ip>
-        <ip>127.0.0.1</ip>
+        <ip>::/0</ip>
       </networks>
       <password><![CDATA[${CLICKHOUSE_PASSWORD}]]></password>
       <quota>default</quota>
+      <access_management>1</access_management>
     </log_user>
   </users>
 </clickhouse>
