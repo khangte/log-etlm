@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional
 import bisect
 import hashlib
-import json
+import orjson
 import random
 import time
 import unicodedata
@@ -412,4 +412,4 @@ class BaseServiceSimulator:
 
     def render_bytes(self, log: Dict[str, Any]) -> bytes:
         """render_bytes 처리를 수행한다."""
-        return json.dumps(log, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        return orjson.dumps(log)
