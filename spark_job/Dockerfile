@@ -25,7 +25,7 @@ COPY spark_job ./spark_job
 COPY spark_job/jars /opt/spark/jars/local
 
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH="/app"
+ENV PYTHONPATH="/app:/opt/spark/python:/opt/spark/python/lib/py4j-0.10.9.9-src.zip"
 
 # 비루트 유저
 RUN useradd -m appuser && chown -R appuser:appuser /app
