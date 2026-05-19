@@ -117,7 +117,7 @@ Kafka에서 소비한 이벤트를 정규화·중복 제거하여 ClickHouse에 
 
 - **Materialized View 자동 집계**: `fact_event` INSERT 시 MV가 자동으로 1분/10초 집계 테이블을 갱신. Spark는 원본 데이터만 쓰면 되고, 별도 집계 잡 스케줄링이 불필요
 - **`AggregatingMergeTree` + `quantileTDigest`**: p95 지연을 컬럼 스토리지 레벨에서 점진적으로 집계. Grafana 쿼리 시 집계 테이블만 SELECT하면 되어 응답 속도 빠름
-- **`async_insert` 프로파일**: Spark JDBC 소량 배치를 비동기 버퍼링해 INSERT 피크를 흡수. `log_user`에만 적용해 ingest 경로를 읽기 경로(`grafana_user`)와 자원 격리
+- **`async_insert` 프로파일**: Spark JDBC 소량 배치를 비동기 버퍼링해 INSERT 피크를 흡수. `log_user`에만 적용해 ingest 경로를 읽기 경로(`grafana_user`)와 자원 격리. `wait_for_async_insert=0`으로 설정해 JDBC `.save()` 반환을 flush 완료가 아닌 버퍼 수신 완료 시점으로 둠 — **throughput 우선 설계 선택**. flush 직전 재시작 시 데이터 유실 위험이 있으나 MergeTree 버퍼 손실은 실운영 기준으로도 드문 케이스여서 수용한다
 - **`stream_batch_guard` 테이블**: `foreachBatch` 재실행 시 중복 배치를 DB 레벨에서 skip해 Spark의 at-least-once를 effectively-once로 보완
 
 ### 장점
