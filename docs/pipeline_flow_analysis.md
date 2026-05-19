@@ -349,4 +349,5 @@ python3 scripts/kafka_spark_lag.py
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | 🔧 |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | 🔧 |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
+| — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
