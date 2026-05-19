@@ -40,7 +40,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.coalesce(F.col("json.api_group"), F.lit("unknown")).alias("api_group"),
             F.coalesce(
                 F.col("json.event_name"),
-                F.col("json.event"),
                 F.lit("unknown"),
             ).alias("event_name"),
             F.coalesce(
