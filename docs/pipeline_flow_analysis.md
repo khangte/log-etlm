@@ -144,12 +144,16 @@ data_written = True  # 디스크 flush는 아직 보장되지 않음
 부가적으로, `stored_ts DEFAULT now64(3)`도 async insert 버퍼 수신 시각을 찍으므로
 E2E 지연 측정에서 실제 디스크 반영 시각과 차이가 있을 수 있다.
 
-**현재 영향**: PoC 환경에서는 허용 범위다. 단일 VM이라 ClickHouse 재시작이 드물고,
-MergeTree의 async insert 버퍼 손실은 실운영 기준으로도 매우 드문 케이스다.
+**설계 선택**: `wait_for_async_insert=0`은 의도적인 결정이다.
+이 파이프라인은 정합성보다 **처리량(throughput)을 우선**하며,
+ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다.
 
-**개선 방향**: 정합성이 중요한 경우 `wait_for_async_insert=1`로 변경하거나,
-배치 가드 기록을 `wait_for_async_insert` 완료 확인 후로 이동한다.
-단, throughput과 지연의 트레이드오프가 생긴다.
+- 허용되는 위험: flush 직전 ClickHouse 재시작 시 데이터 유실 + 가드 성공 기록 → 재처리 불가
+- 수용 근거: MergeTree의 async insert 버퍼 손실은 실운영 기준으로도 매우 드문 케이스이며, PoC 단일 VM 환경에서는 더욱 드물다
+
+**운영 전환 시 고려사항**: 정합성 요구가 높아지면 `wait_for_async_insert=1`로 변경하거나
+배치 가드 대신 `ReplacingMergeTree` + `event_id` 기반 멱등 적재로 전환한다.
+단, 전자는 insert latency 증가, 후자는 배치 가드 로직 전체 제거가 필요하다.
 
 ---
 
@@ -186,5 +190,5 @@ def _run_dlq_streams(self, spark, bad_df):
 | ~~`time.sleep()` in foreachBatch~~ | ~~중간~~ | ✅ 해결 — sleep 제거, 즉시 재시도로 변경 | — |
 | ~~파티션 조정 이중화~~ | ~~낮음~~ | ✅ 해결 — 환경변수 분리 + no-op `getNumPartitions()` 제거 | — |
 | ~~`rdd.isEmpty()` 비일관~~ | ~~낮음~~ | ✅ 해결 — `DataFrame.isEmpty()`로 통일 | — |
-| async insert + 배치 가드 충돌 | 중간 | PoC 허용 범위 | 운영 전환 전 |
+| async insert + 배치 가드 충돌 | 중간 | throughput 우선 설계 선택 — 유실 위험 인지하고 수용 | 운영 전환 전 정합성 요구 시 |
 | DLQ produce/consume 동일 job | 설계 | 단일 VM에서 무해 | 운영 스케일아웃 전 |
