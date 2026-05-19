@@ -36,4 +36,4 @@ COPY log_simulator ./log_simulator
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
-CMD ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
