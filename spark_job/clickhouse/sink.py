@@ -16,13 +16,14 @@ def _apply_partitioning(
     *,
     target_partitions: int | None,
     allow_repartition: bool,
+    current_partitions: int | None = None,
 ) -> DataFrame:
     """파티션 수를 조정한다."""
     if target_partitions is None or target_partitions <= 0:
         return df
 
     n = target_partitions
-    current = df.rdd.getNumPartitions()
+    current = current_partitions if current_partitions is not None else df.rdd.getNumPartitions()
     logger.info(
         "[clickhouse sink] 파티션 조정 target=%s current=%s allow_repartition=%s",
         n, current, allow_repartition,
@@ -221,6 +222,7 @@ def write_to_clickhouse(
     stream_name: str | None = None,
     mode: str = "append",
     *,
+    current_partitions: int | None = None,
     settings: ClickHouseSettings | None = None,
 ) -> None:
     """ClickHouse로 데이터를 적재한다."""
@@ -268,6 +270,7 @@ def write_to_clickhouse(
                 df,
                 target_partitions=resolved_settings.write_partitions,
                 allow_repartition=resolved_settings.allow_repartition,
+                current_partitions=current_partitions,
             )
 
             writer = out_df.write.format("jdbc")

@@ -52,10 +52,14 @@ class ClickHouseStreamWriterBase:
             start_time = time.perf_counter()
 
             working_df = batch_df
+            current_parts: int | None = None
             if pre_coalesce_partitions and pre_coalesce_partitions > 0:
-                current = working_df.rdd.getNumPartitions()
-                if current > pre_coalesce_partitions:
+                raw_parts = working_df.rdd.getNumPartitions()
+                if raw_parts > pre_coalesce_partitions:
                     working_df = working_df.coalesce(pre_coalesce_partitions)
+                    current_parts = pre_coalesce_partitions
+                else:
+                    current_parts = raw_parts
 
             persisted = False
             if skip_empty:
@@ -126,6 +130,7 @@ class ClickHouseStreamWriterBase:
                 table_name,
                 batch_id=batch_id,
                 stream_name=resolved_stream,
+                current_partitions=current_parts,
             )
             write_elapsed = time.perf_counter() - write_start
 
