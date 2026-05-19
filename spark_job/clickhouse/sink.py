@@ -1,5 +1,4 @@
 import logging
-import time
 import re
 
 from pyspark.sql import DataFrame, functions as F
@@ -227,7 +226,6 @@ def write_to_clickhouse(
     """ClickHouse로 데이터를 적재한다."""
     resolved_settings = settings or get_clickhouse_settings()
     max_attempts = max(1, resolved_settings.retry_max + 1)
-    backoff_sec = max(0.0, resolved_settings.retry_backoff_sec)
     use_batch_guard = bool(
         resolved_settings.batch_guard_enabled
         and batch_id is not None
@@ -305,8 +303,8 @@ def write_to_clickhouse(
                 table_name, batch_info, attempt, max_attempts, e,
             )
             if attempt < max_attempts:
-                if backoff_sec > 0:
-                    time.sleep(backoff_sec * attempt)
+                # foreachBatch는 driver 스레드에서 실행되므로 sleep 없이 즉시 재시도한다.
+                # sleep이 필요한 경우 예외를 올려 Spark 체크포인트 기반 재처리를 활용한다.
                 continue
 
             msg = str(e)

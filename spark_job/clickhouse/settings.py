@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import os
 from typing import Mapping
 
-from common.get_env import get_env_bool, get_env_float, get_env_int, get_env_str
+from common.get_env import get_env_bool, get_env_int, get_env_str
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,6 @@ class ClickHouseSettings:
     write_partitions: int | None
     allow_repartition: bool
     retry_max: int
-    retry_backoff_sec: float
     fail_on_error: bool
     dlq_on_final_failure: bool
     dlq_topic: str | None
@@ -69,7 +68,6 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
             False,
         ),
         retry_max=get_env_int(source, "SPARK_CLICKHOUSE_RETRY_MAX", 0) or 0,
-        retry_backoff_sec=get_env_float(source, "SPARK_CLICKHOUSE_RETRY_BACKOFF_SEC", 0.0) or 0.0,
         fail_on_error=get_env_bool(source, "SPARK_CLICKHOUSE_FAIL_ON_ERROR", True,),
         dlq_on_final_failure=get_env_bool(source, "SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE", True),
         dlq_topic=get_env_str(source, "SPARK_DLQ_TOPIC"),
