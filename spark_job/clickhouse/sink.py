@@ -9,6 +9,7 @@ from .settings import ClickHouseSettings, get_clickhouse_settings
 logger = logging.getLogger(__name__)
 
 _TABLE_IDENTIFIER_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
+_guard_table_missing_warned = False
 
 
 def _apply_partitioning(
@@ -253,11 +254,14 @@ def write_to_clickhouse(
                 guard_error,
                 resolved_settings.batch_guard_table,
             ):
-                logger.warning(
-                    "[WARN] clickhouse sink batch guard 비활성화: "
-                    "guard table missing (%s)",
-                    resolved_settings.batch_guard_table,
-                )
+                global _guard_table_missing_warned
+                if not _guard_table_missing_warned:
+                    logger.warning(
+                        "[WARN] clickhouse sink batch guard 비활성화: "
+                        "guard table missing (%s)",
+                        resolved_settings.batch_guard_table,
+                    )
+                    _guard_table_missing_warned = True
                 use_batch_guard = False
             else:
                 raise
