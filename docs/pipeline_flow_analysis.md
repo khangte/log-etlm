@@ -3,13 +3,13 @@
 이 문서는 파이프라인 코드 분석 과정에서 발견된 문제와 설계 트레이드오프를 기록한다.
 완료된 항목은 ✅, 미완료는 🔧, 설계 결정으로 수용한 항목은 ⚠️ 로 표시한다.
 
-최종 수정: 2026-05-19
-
 ---
 
 ## 완료
 
 ### ✅ `time.sleep()`이 driver 스레드를 블로킹한다
+
+**수정일**: 2026-05-19
 
 **위치**: `spark_job/clickhouse/sink.py`
 
@@ -25,6 +25,8 @@
 ---
 
 ### ✅ 파티션 조정이 두 계층에 중복 존재한다
+
+**수정일**: 2026-05-19
 
 **위치**: `spark_job/clickhouse/writer_base.py`, `spark_job/clickhouse/sink.py`
 
@@ -50,6 +52,8 @@
 
 ### ✅ `isEmpty()` 호출 방식이 계층별로 다르다
 
+**수정일**: 2026-05-19
+
 **위치**: `spark_job/clickhouse/writer_base.py`, `spark_job/dlq/writers/kafka_writer.py`
 
 **변경 내용**: `kafka_writer`의 `batch_df.rdd.isEmpty()`를 `batch_df.isEmpty()`로 통일했다.
@@ -60,6 +64,8 @@
 ---
 
 ### ✅ `build_batch_messages_from_simulator()`가 asyncio 이벤트 루프를 블로킹한다
+
+**수정일**: 2026-05-19
 
 **위치**: `log_simulator/simulator/stream_pipeline.py`
 
@@ -93,6 +99,8 @@ publisher worker를 스케줄할 수 있도록 했다.
 
 ### ⚠️ async insert와 배치 가드의 의미가 충돌한다
 
+**수정일**: 2026-05-19
+
 **위치**: `infra/clickhouse/users.d/zz-log_user-async-profile.xml`, `spark_job/clickhouse/sink.py`
 
 ```xml
@@ -119,6 +127,8 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 
 ### ⚠️ DLQ produce / consume이 같은 Spark job 안에 있다
 
+**수정일**: 2026-05-19
+
 **위치**: `spark_job/stream_ingest.py`
 
 같은 Spark job이 `logs.dlq`에 쓰는 스트림과 읽는 스트림을 동시에 운영한다.
@@ -143,6 +153,8 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 ---
 
 ### ✅ [Simulator] `behind target` — `render_bytes` 직렬화 병목
+
+**수정일**: 2026-05-19
 
 **위치**: `log_simulator/simulator/base.py`, `log_simulator/requirements.txt`
 
@@ -289,6 +301,8 @@ du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
 ---
 
 ### ✅ `raw_json` 컬럼 조건부 생성 제거
+
+**수정일**: 2026-05-20
 
 **위치**: `spark_job/fact/transforms/parse_event.py`, `spark_job/fact/parsers/fact_event.py`
 
