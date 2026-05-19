@@ -174,12 +174,12 @@ def _run_dlq_streams(self, spark, bad_df):
 
 - DLQ consumer만 독립 재시작하거나 별도 스케일링이 불가능하다.
 - fact_event 스트림 장애가 DLQ consumer에도 영향을 준다.
-- `SPARK_ENABLE_DLQ_STREAM=false`(기본값)일 때는 이 경로 전체가 비활성화된다.
 
-**현재 영향**: 단일 VM PoC에서는 분리 이점이 없다. 현재 구조가 더 단순하다.
+**설계 선택**: 현행 구조를 유지한다.
 
-**개선 방향**: 운영 환경으로 확장할 경우 DLQ consumer를 별도 Spark job으로 분리하여
-장애 격리와 독립 스케일링을 확보한다.
+- `SPARK_ENABLE_DLQ_STREAM=false`(기본값)로 DLQ 스트림 경로 자체가 비활성화되어 있다.
+- 단일 VM PoC에서는 분리 이점이 없으며, 현재 구조가 더 단순하다.
+- 운영 환경으로 확장 시 DLQ consumer를 별도 Spark job으로 분리해 장애 격리와 독립 스케일링을 확보한다.
 
 ---
 
