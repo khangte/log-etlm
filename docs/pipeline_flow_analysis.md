@@ -266,7 +266,9 @@ grep "stream=fact_event.*stage=write" /data/log-etlm/spark-events/batch_timing.l
 
 ---
 
-### 🔧 Watermark 단축으로 Spark 상태 저장소 축소
+### ✅ Watermark 단축으로 Spark 상태 저장소 축소
+
+**수정일**: 2026-05-20
 
 **위치**: `docker-compose.yml` → `SPARK_FACT_DEDUP_WATERMARK`
 
@@ -280,7 +282,19 @@ SPARK_FACT_DEDUP_WATERMARK=10 minutes
 1시간 이내 중복 재전송은 PoC 시나리오에서 사실상 없으므로 기준 완화가 안전.
 상태 크기 감소 → GC 빈도 감소 → 트리거 지연 안정화.
 
-**비교 방법**:
+**테스트 결과** (`tests/spark_job/test_fact_settings.py`):
+
+설정 파싱 단위 테스트 15개 케이스 모두 ✅
+
+| 그룹 | 케이스 | 결과 |
+|------|--------|------|
+| `_parse_dedup_keys` | None·빈값·쉼표만·단일·복수·공백 포함 | 6/6 ✅ |
+| `SPARK_FACT_DEDUP_WATERMARK` | 10 minutes·1 hour·미설정·빈값·공백만 | 5/5 ✅ |
+| 조합 | keys+watermark 동시·keys만(watermark=None) | 4/4 ✅ |
+
+> 런타임 지표(State Rows Total, state/ 크기, batchDuration 편차)는 Spark가 실행 중일 때 아래 방법으로 확인한다.
+
+**런타임 비교 방법**:
 
 ```bash
 # Spark Structured Streaming 상태 크기
@@ -365,7 +379,7 @@ python3 scripts/kafka_spark_lag.py
 |------|------|--------|-----------|------|
 | 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
 | 2 | ClickHouse Native Connector | 중 | 높음 | 🔧 |
-| 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | 🔧 |
+| 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
