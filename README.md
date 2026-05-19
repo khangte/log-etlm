@@ -154,7 +154,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ### Spark 스트리밍
 
-- 환경 프로파일 값은 `config/env/{low,mid,high}.env.example` 참고(적용은 `docker-compose.yml`)
+- 환경 프로파일 값은 `config/env/{low,mid,high}.env` 참고(적용은 `docker-compose.yml`)
 - 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `false`)
