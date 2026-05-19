@@ -281,6 +281,8 @@ services:
       - "3"
       - "--memory"
       - "3g"
+    volumes:
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     networks: [logetlm-net]
     logging:
       driver: json-file
@@ -306,6 +308,8 @@ services:
       - "2"
       - "--memory"
       - "3g"
+    volumes:
+      - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     networks: [logetlm-net]
     logging:
       driver: json-file
