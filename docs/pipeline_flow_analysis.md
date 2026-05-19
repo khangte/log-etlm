@@ -159,6 +159,36 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 
 ---
 
+### 3-6. `build_batch_messages_from_simulator()`가 asyncio 이벤트 루프를 블로킹한다 ✅ 해결됨
+
+**위치**: `log_simulator/simulator/stream_pipeline.py`
+
+`run_simulator_loop`는 asyncio 코루틴이지만, 배치 생성 단계에서
+`build_batch_messages_from_simulator()`를 동기 함수로 직접 호출했다.
+이 함수는 `generate_events_one()` + `render_bytes()`를 count(최대 2000)번 반복하는
+pure-Python CPU 루프로, 실행 시간이 0.7~1.9s에 달했다.
+
+asyncio 이벤트 루프는 단일 스레드이므로 이 시간 동안 publisher worker 코루틴이
+전혀 스케줄되지 못했다. 결과적으로 큐에 아이템이 있음에도 워커가 15~21초씩
+대기(`idle worker wait=17s queue=2`)하고, EPS가 목표치의 5~10% 수준으로 폭락했다.
+
+**변경 내용**:
+
+```python
+# 변경 전
+batch_items = build_batch_messages_from_simulator(simulator, service, batch_size)
+
+# 변경 후
+batch_items = await asyncio.to_thread(
+    build_batch_messages_from_simulator, simulator, service, batch_size
+)
+```
+
+`asyncio.to_thread()`로 스레드 풀에 오프로드해 CPU 작업 중에도 이벤트 루프가
+publisher worker를 스케줄할 수 있도록 했다.
+
+---
+
 ### 3-5. DLQ produce / consume이 같은 Spark job 안에 있다
 
 **위치**: `spark_job/stream_ingest.py`
