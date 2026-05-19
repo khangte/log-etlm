@@ -82,24 +82,22 @@ bad_df (JSON 파싱 실패)
 
 ---
 
-### 3-2. 파티션 조정이 두 계층에 중복 존재한다
+### 3-2. ~~파티션 조정이 두 계층에 중복 존재한다~~ ✅ 해결됨
 
 **위치**: `spark_job/clickhouse/writer_base.py`, `spark_job/clickhouse/sink.py`
 
-```
-foreachBatch 진입
-  └─ writer_base: coalesce(FactStreamSettings.num_partitions)
-       └─ write_to_clickhouse
-            └─ _apply_partitioning(ClickHouseSettings.write_partitions)
-```
+두 coalesce는 목적이 달랐으나 같은 환경변수(`SPARK_CLICKHOUSE_WRITE_PARTITIONS`)를 공유해 혼란이 있었다.
 
-두 설정값이 다를 경우 파티션 조정이 두 번 일어난다.
-어느 값이 최종적으로 적용되는지 설정만 보고 파악하기 어렵다.
+| 계층 | 목적 |
+|---|---|
+| `writer_base` (`pre_coalesce_partitions`) | foreachBatch 진입 직후 Spark 내부 처리 비용 절감 |
+| `sink.py` (`write_partitions`) | JDBC write 직전 ClickHouse 동시 커넥션 수(Insert 부하) 제어 |
 
-**현재 영향**: 동작 이상은 없으나, 두 설정을 동시에 잡을 경우 혼란이 생길 수 있다.
+**변경 내용**: 환경변수를 분리해 각 계층의 역할을 명확히 구분했다.
 
-**개선 방향**: 파티션 조정 책임을 `write_to_clickhouse` 단일 계층으로 일원화하거나,
-`writer_base`의 `pre_coalesce_partitions`를 제거하고 `ClickHouseSettings.write_partitions`만 사용한다.
+- `SPARK_FACT_PRE_COALESCE_PARTITIONS` → `writer_base` coalesce (Spark 처리용, 기본값 3)
+- `SPARK_CLICKHOUSE_WRITE_PARTITIONS` → `sink.py` `_apply_partitioning` (JDBC 커넥션 수 제어용, 기본값 3)
+- `FactStreamSettings.num_partitions` → `pre_coalesce_partitions`로 필드명 변경
 
 ---
 
@@ -188,7 +186,7 @@ def _run_dlq_streams(self, spark, bad_df):
 | 항목 | 심각도 | 현재 영향 | 개선 필요 시점 |
 |---|---|---|---|
 | ~~`time.sleep()` in foreachBatch~~ | ~~중간~~ | ✅ 해결 — sleep 제거, 즉시 재시도로 변경 | — |
-| 파티션 조정 이중화 | 낮음 | 동작 이상 없음 | 혼란 발생 시 |
+| ~~파티션 조정 이중화~~ | ~~낮음~~ | ✅ 해결 — 환경변수 분리로 역할 명확화 | — |
 | `rdd.isEmpty()` 비일관 | 낮음 | 성능 영향 미미 | 코드 정리 시 |
 | async insert + 배치 가드 충돌 | 중간 | PoC 허용 범위 | 운영 전환 전 |
 | DLQ produce/consume 동일 job | 설계 | 단일 VM에서 무해 | 운영 스케일아웃 전 |
