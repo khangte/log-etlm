@@ -17,9 +17,7 @@ def parse_fact_event_with_errors(
     build_bad_df: bool = True,
 ) -> tuple[DataFrame, DataFrame | None]:
     """팩트 이벤트와 오류 레코드를 함께 반환한다."""
-    parsed = parse_event(kafka_df)
-    if not store_raw_json and not build_bad_df:
-        parsed = parsed.drop("raw_json")
+    parsed = parse_event(kafka_df, need_raw_json=store_raw_json or build_bad_df)
     if build_bad_df:
         good_df, bad_df = validate_event(parsed)
     else:
