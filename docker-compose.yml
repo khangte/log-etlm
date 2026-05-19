@@ -180,7 +180,7 @@ services:
     container_name: spark-driver
     # cpus: "1.0"
     restart: unless-stopped
-    user: "1000:185"
+    user: "185:185"
     mem_limit: "2g"
     mem_reservation: "1500m"
     oom_score_adj: -100
