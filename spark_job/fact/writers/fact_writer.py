@@ -48,5 +48,5 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
             deduplicate_keys=batch_dedup_keys,
             skip_empty=self._settings.skip_empty_batch,
             trigger_processing_time=trigger_processing_time,
-            pre_coalesce_partitions=self._settings.num_partitions,
+            pre_coalesce_partitions=self._settings.pre_coalesce_partitions,
         )
