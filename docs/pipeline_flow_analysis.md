@@ -142,45 +142,35 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 
 ---
 
-### 🔧 [Simulator] `behind target` — `render_bytes` 직렬화 병목
+### ✅ [Simulator] `behind target` — `render_bytes` 직렬화 병목
 
 **위치**: `log_simulator/simulator/base.py`, `log_simulator/requirements.txt`
 
-**원인**: `render_bytes()`가 표준 `json.dumps()`를 사용한다.
+**원인**: `render_bytes()`가 표준 `json.dumps()`를 사용했다.
 `asyncio.to_thread`로 이벤트 루프 블로킹은 해소했으나,
-스레드 내에서 Python GIL을 점유한 채로 직렬화가 진행되어 생성 시간이 여전히 길다.
+스레드 내에서 Python GIL을 점유한 채로 직렬화가 진행되어 생성 시간이 여전히 길었다.
 
-```
-현재: json.dumps(log, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-```
-
-**개선 옵션 (우선순위 순)**:
-
-| 순위 | 방법 | 효과 | 비고 |
-|------|------|------|------|
-| 1 | `orjson` 교체 | 직렬화 3~10배 빠름, Rust 구현으로 GIL 해제 | 변경 2줄, 리스크 없음 |
-| 2 | Python 3.13 free-threaded 빌드 | `asyncio.to_thread`가 진짜 병렬 실행 | `python:3.13t-slim`으로 base image 교체 |
-| 3 | `ProcessPoolExecutor` 전환 | 멀티코어 완전 활용, GIL 우회 | picklable 검증 + `cpus` 증설 필요 |
-
-> **참고**: `LOOPS_PER_SERVICE` 증가는 Python GIL + `cpus: "1.0"` 환경에서 효과 없음 (스레드 경합만 증가).
-> `LOG_BATCH_SIZE=2000`은 백프레셔 해제 시 carry 스파이크 상한이므로, 단독 개선 효과는 제한적.
-
-**1순위 적용 방법**:
+**변경 내용**: `json.dumps().encode()` → `orjson.dumps()`로 교체.
 
 ```python
-# log_simulator/simulator/base.py
-import orjson  # 추가
+# 변경 전
+return json.dumps(log, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
-def render_bytes(self, log: Dict[str, Any]) -> bytes:
-    return orjson.dumps(log)
+# 변경 후
+return orjson.dumps(log)  # Rust 구현, bytes 직접 반환, GIL 해제
 ```
 
-```
-# log_simulator/requirements.txt
-orjson>=3.9,<4.0
-```
+- `orjson`은 Rust로 구현된 JSON 라이브러리로 직렬화 속도가 표준 대비 3~10배 빠름
+- 직렬화 중 GIL을 해제하므로 다른 스레드가 그 사이에 CPU를 사용할 수 있음
 
-**난이도**: 낮 | **예상 효과**: 높음
+**추가 개선 후보 (미적용)**:
+
+| 방법 | 효과 | 비고 |
+|------|------|------|
+| Python 3.13 free-threaded 빌드 | `asyncio.to_thread`가 진짜 병렬 실행 | `python:3.13t-slim`으로 base image 교체 |
+| `ProcessPoolExecutor` 전환 | 멀티코어 완전 활용, GIL 우회 | picklable 검증 + `cpus` 증설 필요 |
+
+> **참고**: `LOOPS_PER_SERVICE` 증가는 Python GIL + `cpus: "1.0"` 환경에서 효과 없음 (스레드 경합만 증가).
 
 ---
 
@@ -344,7 +334,7 @@ python3 scripts/kafka_spark_lag.py
 
 | 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
 |------|------|--------|-----------|------|
-| 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | 🔧 |
+| 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
 | 2 | ClickHouse Native Connector | 중 | 높음 | 🔧 |
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | 🔧 |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | 🔧 |
