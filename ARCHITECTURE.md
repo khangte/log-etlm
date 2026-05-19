@@ -284,7 +284,7 @@ fact_event INSERT
 
 | 사용자 | 역할 | 특이사항 |
 |---|---|---|
-| `log_user` | Spark JDBC 쓰기 | `log_async_profile` 적용 (async_insert=1, wait=0, 6GB 메모리) |
+| `log_user` | Spark JDBC 쓰기 | `log_async_profile` 적용 (async_insert=1, **wait=0**: throughput 우선 설계 선택, 6GB 메모리) |
 | `grafana_user` | SELECT 전용 | max_memory=1GB, max_threads=4 (ingest 격리) |
 
 #### 배치 가드 (`stream_batch_guard`)
@@ -294,6 +294,8 @@ fact_event INSERT
 ```
 
 Spark `foreachBatch`의 exactly-once를 보완한다. 가드 테이블 미존재 시 자동 비활성화(기동 경고 출력).
+
+> **설계 트레이드오프**: `wait_for_async_insert=0`이므로 JDBC `.save()` 반환 시점은 ClickHouse 버퍼 수신 완료이지 디스크 flush 완료가 아니다. flush 직전 ClickHouse 재시작 시 "데이터 유실 + 가드 성공" 상태가 될 수 있으나, throughput 우선 설계 선택으로 이 위험을 수용한다. 정합성 요구가 높아지면 `wait_for_async_insert=1` 또는 `ReplacingMergeTree` 기반 멱등 적재로 전환을 고려한다.
 
 ---
 

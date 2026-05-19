@@ -167,10 +167,11 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 ### ClickHouse
 - 적재 튜닝: `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`
 - 배치 가드(중복 배치 skip): `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED`, `SPARK_CLICKHOUSE_BATCH_GUARD_TABLE`
+  - `wait_for_async_insert=0` 설정으로 인해 배치 가드는 "버퍼 수신 완료" 기준으로 기록된다. throughput 우선 설계 선택이며, flush 직전 재시작 시 유실 위험이 있음을 인지하고 수용한다.
 - 읽기/리파티션: `SPARK_CLICKHOUSE_JDBC_FETCHSIZE`, `SPARK_CLICKHOUSE_ALLOW_REPARTITION`
 - 서버/사용자 설정: `infra/clickhouse/`
   - `config.d/` (예: listen_host, async insert 로그)
-  - `users.d/` (예: log_user async_insert)
+  - `users.d/` (예: log_user async_insert, `wait_for_async_insert=0`)
 
 ### Kafka
 - 보관/메모리: `KAFKA_HEAP_OPTS`, `KAFKA_LOG_RETENTION_HOURS`, `KAFKA_LOG_RETENTION_BYTES`, `KAFKA_LOG_SEGMENT_BYTES`, `KAFKA_NUM_PARTITIONS`
