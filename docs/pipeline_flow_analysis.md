@@ -163,6 +163,16 @@ return orjson.dumps(log)  # Rust 구현, bytes 직접 반환, GIL 해제
 - `orjson`은 Rust로 구현된 JSON 라이브러리로 직렬화 속도가 표준 대비 3~10배 빠름
 - 직렬화 중 GIL을 해제하므로 다른 스레드가 그 사이에 CPU를 사용할 수 있음
 
+**테스트 결과** (`tests/simulator/test_render_bytes.py`):
+
+출력 동일성: 4개 케이스 모두 ✅ (한글·None·bool·중첩 dict 포함, 바이트 단위 일치)
+
+| 구현 | 소요 시간 (10만 회) | 처리량 |
+|------|-------------------|--------|
+| `json.dumps().encode()` | 0.389s | 256,795 calls/s |
+| `orjson.dumps()` | 0.028s | 3,587,408 calls/s |
+| **속도 향상** | | **14.0배** |
+
 **추가 개선 후보 (미적용)**:
 
 | 방법 | 효과 | 비고 |
