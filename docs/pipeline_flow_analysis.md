@@ -5,6 +5,28 @@
 
 ---
 
+## 우선순위 요약
+
+| 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
+|------|------|--------|-----------|------|
+| 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
+| 2 | ClickHouse Native Connector | 중 | 높음 | ⚠️ JDBC 유지 |
+| — | JDBC 드라이버 0.9.5 업그레이드 | 낮 | 낮 | ✅ |
+| 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
+| — | Watermark 제거 → foreachBatch dedup | 낮 | 높음 | ✅ |
+| 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
+| 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
+| — | JDBC socket_timeout 단축 | 낮 | 중 | ✅ |
+| — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
+| — | Spark `falling behind` | — | — | 설정 변경 불필요 |
+| — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
+| — | Spark 재시작 시 checkpoint 자동 리셋 (latest) | 낮 | 중 | ✅ |
+| — | `current_parts` stale 버그 (JDBC 커넥션 수 초과) | 낮 | 높음 | ✅ |
+| — | JDBC 드라이버 내부 retry 비활성화 (`retry=0`) | 낮 | 중 | ✅ |
+| — | ClickHouse 중복 MV 제거 + async flush 간격 확대 | 낮 | 중~높음 | ✅ |
+
+---
+
 ## 완료
 
 ### ✅ `time.sleep()`이 driver 스레드를 블로킹한다
@@ -631,25 +653,3 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 > dedup 상태(watermark)도 초기화된다. 정합성보다 처리량을 우선하는 현 PoC 설계에서 수용 가능한 범위.
 
 **난이도**: 낮 | **예상 효과**: 중
-
----
-
-## 우선순위 요약
-
-| 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
-|------|------|--------|-----------|------|
-| 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
-| 2 | ClickHouse Native Connector | 중 | 높음 | ⚠️ JDBC 유지 |
-| — | JDBC 드라이버 0.9.5 업그레이드 | 낮 | 낮 | ✅ |
-| 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
-| — | Watermark 제거 → foreachBatch dedup | 낮 | 높음 | ✅ |
-| 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
-| 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
-| — | JDBC socket_timeout 단축 | 낮 | 중 | ✅ |
-| — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
-| — | Spark `falling behind` | — | — | 설정 변경 불필요 |
-| — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
-| — | Spark 재시작 시 checkpoint 자동 리셋 (latest) | 낮 | 중 | ✅ |
-| — | `current_parts` stale 버그 (JDBC 커넥션 수 초과) | 낮 | 높음 | ✅ |
-| — | JDBC 드라이버 내부 retry 비활성화 (`retry=0`) | 낮 | 중 | ✅ |
-| — | ClickHouse 중복 MV 제거 + async flush 간격 확대 | 낮 | 중~높음 | ✅ |
