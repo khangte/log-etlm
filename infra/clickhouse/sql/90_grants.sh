@@ -13,7 +13,9 @@ clickhouse-client --host localhost \
     max_memory_usage = 1073741824,
     max_bytes_before_external_group_by = 805306368,
     max_bytes_before_external_sort = 536870912,
-    max_threads = 4"
+    max_threads = 4,
+    priority = 10,
+    max_execution_time = 8"
 
 clickhouse-client --host localhost \
   --user "${CLICKHOUSE_USER}" \
