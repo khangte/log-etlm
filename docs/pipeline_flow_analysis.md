@@ -25,7 +25,7 @@
 | — | JDBC 드라이버 내부 retry 비활성화 (`retry=0`) | 낮 | 중 | ✅ |
 | — | ClickHouse 중복 MV 제거 + async flush 간격 확대 | 낮 | 중~높음 | ✅ |
 | — | Grafana 대시보드 refresh 간격 조정 | 낮 | 중 | ✅ |
-| — | grafana_user 쿼리 우선순위·타임아웃 제한 | 낮 | 중 | 🔧 |
+| — | grafana_user 쿼리 우선순위·타임아웃 제한 | 낮 | 중 | ✅ |
 
 ---
 
@@ -175,7 +175,7 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 
 직렬화 포맷(JSON)과 전체 구조는 유지한 채로 적용 가능한 개선 항목.
 우선순위는 예상 효과 기준이며, 단일 VM(vCPU 7) 제약을 전제로 한다.
-대부분 완료됐으며, 🔧 항목 2개(`maxOffsetsPerTrigger`, `grafana_user` 쿼리 제한)만 미적용 상태다.
+대부분 완료됐으며, 🔧 항목 1개(`maxOffsetsPerTrigger`)만 미적용 상태다.
 
 ---
 
@@ -623,27 +623,19 @@ python3 scripts/kafka_spark_lag.py
 
 ---
 
-### 🔧 grafana_user 쿼리 우선순위·타임아웃 제한
+### ✅ grafana_user 쿼리 우선순위·타임아웃 제한
 
-**위치**: `infra/clickhouse/users.d/zz-grafana_user-limits.xml` (미생성)
+**수정일**: 2026-05-21
+
+**위치**: `infra/clickhouse/sql/90_grants.sh`
 
 refresh 간격 확대만으로는 동시 실행 시 `quantileTDigestMerge` 쿼리와 INSERT 경합이
-완전히 해소되지 않는다. grafana_user에 ClickHouse 레벨 쿼리 우선순위와 최대 실행시간을
-제한해 INSERT 경로를 보호한다.
+완전히 해소되지 않는다. `ALTER USER grafana_user SETTINGS`에 `priority=10`,
+`max_execution_time=8`을 추가해 INSERT 경로를 보호한다.
 
-```xml
-<clickhouse>
-    <profiles>
-        <grafana_profile>
-            <priority>10</priority>
-            <max_execution_time>8</max_execution_time>
-        </grafana_profile>
-    </profiles>
-</clickhouse>
+```sql
+ALTER USER grafana_user SETTINGS priority = 10, max_execution_time = 8;
 ```
-
-적용: 파일 생성 후 `docker compose restart clickhouse` 또는
-`SYSTEM RELOAD CONFIG` 실행.
 
 **난이도**: 낮 | **예상 효과**: 중
 
