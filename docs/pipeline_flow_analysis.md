@@ -394,7 +394,9 @@ watermark를 제거하면 `fact_writer.py`의 분기 조건(`if batch_dedup_keys
 
 ---
 
-### 🔧 JDBC socket_timeout 단축 (executor heartbeat 사망 방지)
+### ✅ JDBC socket_timeout 단축 (executor heartbeat 사망 방지)
+
+**수정일**: 2026-05-20
 
 **위치**: `docker-compose.yml` → `SPARK_CLICKHOUSE_URL`
 
@@ -410,8 +412,11 @@ socket_timeout을 30초로 줄이면 JDBC 실패가 heartbeat timeout 전에 발
 `SPARK_CLICKHOUSE_RETRY_MAX=1` 재시도 체계로 정상 처리된다.
 
 ```
-# 변경 목표
-socket_timeout=600000 → socket_timeout=30000
+# 변경 전
+socket_timeout=600000
+
+# 변경 후
+socket_timeout=30000
 ```
 
 **난이도**: 낮 | **예상 효과**: 중 (executor 사망 루프 방지)
@@ -533,7 +538,7 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 | — | Watermark 제거 → foreachBatch dedup | 낮 | 높음 | ✅ |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
-| — | JDBC socket_timeout 단축 | 낮 | 중 | 🔧 |
+| — | JDBC socket_timeout 단축 | 낮 | 중 | ✅ |
 | — | WRITE_PARTITIONS 증가 (3→5) | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
