@@ -216,7 +216,7 @@ services:
       # --- Batch/metrics logging ---
       - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
       # --- ClickHouse sink tuning ---
-      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&socket_timeout=600000
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&socket_timeout=30000
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-10000}"
