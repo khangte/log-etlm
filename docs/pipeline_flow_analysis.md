@@ -456,7 +456,7 @@ socket_timeout=30000
 
 **위치**: `spark_job/clickhouse/writer_base.py`
 
-fix #1 (foreachBatch dedup 전환) 적용 후 `dropDuplicates(["event_id"])`가 셔플을 유발해
+Watermark 제거 → foreachBatch dedup 전환 후 `dropDuplicates(["event_id"])`가 셔플을 유발해
 실제 파티션 수가 `SPARK_STREAM_SHUFFLE_PARTITIONS=8`로 확정된다.
 그런데 `current_parts`는 pre_coalesce 직후 3으로 캡처되어 이후 갱신되지 않았다.
 
@@ -469,16 +469,15 @@ _apply_partitioning: target=3, current=3 → no-op           (out_df는 실제 8
 ```
 
 **변경 내용**: `deduplicate_keys`가 있을 때 `current_partitions=None`을 전달한다.
-`_apply_partitioning`이 `df.rdd.getNumPartitions()`로 실제 값(8)을 확인하고
+`_apply_partitioning`이 `df.rdd.getNumPartitions()`로 실제 값(8)을 재확인하고
 `target(3) < current(8)` 조건에 의해 `coalesce(3)`을 적용한다.
 
 ```python
-# 변경 전
-current_partitions=current_parts,
-
-# 변경 후
 current_partitions=None if deduplicate_keys else current_parts,
 ```
+
+> dedup 없는 경로에서 `current_parts`를 전달해 `getNumPartitions()` 재호출을 생략하는
+> 설계는 [파티션 조정 두 계층 분리](#-파티션-조정이-두-계층에-중복-존재한다) 항목에서 함께 적용됐다.
 
 **예상 효과**:
 
