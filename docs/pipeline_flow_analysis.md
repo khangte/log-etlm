@@ -171,10 +171,11 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 
 ---
 
-## 미완료 — 처리 속도·효율 개선
+## 처리 속도·효율 개선
 
 직렬화 포맷(JSON)과 전체 구조는 유지한 채로 적용 가능한 개선 항목.
 우선순위는 예상 효과 기준이며, 단일 VM(vCPU 7) 제약을 전제로 한다.
+대부분 완료됐으며, 🔧 항목 2개(`maxOffsetsPerTrigger`, `grafana_user` 쿼리 제한)만 미적용 상태다.
 
 ---
 
@@ -222,7 +223,7 @@ return orjson.dumps(log)  # Rust 구현, bytes 직접 반환, GIL 해제
 
 ---
 
-### 🔧 [Spark] `falling behind` — JVM 콜드 스타트
+### ⚠️ [Spark] `falling behind` — JVM 콜드 스타트
 
 **위치**: Spark Structured Streaming 내부
 
