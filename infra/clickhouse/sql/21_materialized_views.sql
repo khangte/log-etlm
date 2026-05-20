@@ -50,27 +50,9 @@ WHERE event_ts IS NOT NULL
 GROUP BY bucket;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_1m
-TO analytics.fact_event_latency_1m
-AS
-WITH
-    dateDiff('millisecond', ingest_ts, stored_ts) AS e2e_ms,
-    dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
-    dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
-    dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state,
-    quantileTDigestState(toFloat64(greatest(sink_ms, 0))) AS sink_state,
-    quantileTDigestState(toFloat64(greatest(ingest_ms, 0))) AS ingest_state,
-    quantileTDigestState(toFloat64(greatest(ifNull(spark_processing_ms, 0), 0))) AS spark_processing_state
-FROM analytics.fact_event
-WHERE event_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
-  AND spark_ingest_ts IS NOT NULL
-  AND processed_ts IS NOT NULL
-  AND stored_ts IS NOT NULL
-GROUP BY bucket;
+-- mv_fact_event_latency_1m 제거됨 (2026-05-20):
+-- mv_fact_event_latency_service_1m이 동일 컬럼(e2e_state, spark_processing_state 등)을
+-- service 차원 포함하여 제공하므로 중복. Grafana 쿼리는 fact_event_latency_service_1m으로 이전.
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_freshness_1m
 TO analytics.fact_event_freshness_1m
@@ -147,27 +129,9 @@ FROM analytics.fact_event
 GROUP BY bucket;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_10s
-TO analytics.fact_event_latency_10s
-AS
-WITH
-    dateDiff('millisecond', ingest_ts, stored_ts) AS e2e_ms,
-    dateDiff('millisecond', processed_ts, stored_ts) AS sink_ms,
-    dateDiff('millisecond', ingest_ts, stored_ts) AS ingest_ms,
-    dateDiff('millisecond', spark_ingest_ts, processed_ts) AS spark_processing_ms
-SELECT
-    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
-    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state,
-    quantileTDigestState(toFloat64(greatest(sink_ms, 0))) AS sink_state,
-    quantileTDigestState(toFloat64(greatest(ingest_ms, 0))) AS ingest_state,
-    quantileTDigestState(toFloat64(greatest(ifNull(spark_processing_ms, 0), 0))) AS spark_processing_state
-FROM analytics.fact_event
-WHERE event_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
-  AND spark_ingest_ts IS NOT NULL
-  AND processed_ts IS NOT NULL
-  AND stored_ts IS NOT NULL
-GROUP BY bucket;
+-- mv_fact_event_latency_10s 제거됨 (2026-05-20):
+-- mv_fact_event_latency_stage_10s가 e2e_state를 포함하여 제공하므로 중복.
+-- Grafana 쿼리는 fact_event_latency_stage_10s로 이전.
 
 
 -- producer→kafka는 created_ts 기준, bucket은 ingest_ts 10초 기준
