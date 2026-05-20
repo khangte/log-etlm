@@ -101,12 +101,12 @@ def build_streaming_spark(
     env = os.environ
     packages = [
         "org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.1",
-        "com.clickhouse:clickhouse-jdbc:0.4.6",
+        "com.clickhouse:clickhouse-jdbc:0.9.5",
     ]
     required_streaming_jars = [
         "spark-sql-kafka-0-10_2.13-4.0.1.jar",
         "spark-token-provider-kafka-0-10_2.13-4.0.1.jar",
-        "clickhouse-jdbc-0.4.6.jar",
+        "clickhouse-jdbc-0.9.5-all-dependencies.jar",
     ]
     extra_jars = _resolve_jar_dir(Path("/opt/spark/jars/extra"), required_streaming_jars)
     if not extra_jars:
