@@ -70,7 +70,9 @@
 두 값이 같을 때 1단계 coalesce 후 파티션 수가 확정됨에도 2단계 `_apply_partitioning`이
 매 배치마다 `rdd.getNumPartitions()` action을 유발하는 문제도 함께 제거했다.
 1단계에서 추적한 `current_parts`를 `write_to_clickhouse(current_partitions=…)`로 전달해
-스트리밍 경로에서는 2단계의 `getNumPartitions()` 호출을 생략한다.
+dedup 없는 경로에서는 2단계의 `getNumPartitions()` 호출을 생략한다.
+dedup(dropDuplicates) 경로에서는 셔플 이후 파티션 수가 바뀌므로 `current_partitions=None`을
+전달해 `_apply_partitioning`이 `df.rdd.getNumPartitions()`로 실제 값을 재확인하도록 한다.
 
 ---
 
