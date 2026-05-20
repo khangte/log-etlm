@@ -131,14 +131,27 @@ crontab -e
 `KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`여도 기본 파티션은 1개이므로,
 초기 한 번은 명시적으로 생성하고 이후 `--alter --partitions N`으로 증설한다.
 
+파티션 수는 트래픽 비중(auth 50% / order 30% / payment 20%)과 Spark worker 코어(총 5)를 기준으로
+`PRE_COALESCE_PARTITIONS=3`, `SHUFFLE_PARTITIONS=3`, `WRITE_PARTITIONS=3`에 맞춰 결정한다.
+합계 7파티션 → pre_coalesce(7→3) → dropDuplicates 셔플(3→3, no-op) → JDBC write(3커넥션).
+
+| 토픽 | 파티션 | 근거 |
+|------|--------|------|
+| `logs.auth` | 3 | 50% 트래픽 |
+| `logs.order` | 2 | 30% 트래픽 |
+| `logs.payment` | 1 | 20% 트래픽 |
+| `logs.error` | 1 | 극소량 |
+
 ```bash
 # 생성 예시(자동 생성이 켜져 있어도 명시적으로 1회)
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 5 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 3 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 1 --replication-factor 1
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error --partitions 1 --replication-factor 1
 
 # 증설 예시(줄이기 불가)
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.auth --partitions 5
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.order --partitions 3
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.payment --partitions 2
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.auth --partitions 3
+docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.order --partitions 2
 
 # 확인
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic logs.auth
