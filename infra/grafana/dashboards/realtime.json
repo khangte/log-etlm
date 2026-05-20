@@ -259,7 +259,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_10s\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
+          "rawSql": "SELECT\n  bucket AS time,\n  quantileTDigestMerge(0.95)(e2e_state) AS p95_ms\nFROM analytics.fact_event_latency_stage_10s\nWHERE $__timeFilter(bucket)\nGROUP BY bucket\nORDER BY time ASC",
           "refId": "A"
         }
       ],
