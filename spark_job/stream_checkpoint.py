@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import time
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +25,6 @@ def maybe_reset_checkpoint(
     if not exists:
         return
 
-    ts = time.strftime("%Y%m%d-%H%M%S")
-    backup = f"{checkpoint_dir}.bak.{ts}"
-    logger.info("[INFO] checkpoint reset 활성: 이동 %s -> %s", checkpoint_dir, backup)
-    shutil.move(checkpoint_dir, backup)
+    logger.info("[INFO] checkpoint reset 활성: 삭제 %s", checkpoint_dir)
+    shutil.rmtree(checkpoint_dir)
     os.makedirs(checkpoint_dir, exist_ok=True)

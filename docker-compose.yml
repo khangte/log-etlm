@@ -193,7 +193,7 @@ services:
       # --- Spark Streaming ingest ---
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_STARTING_OFFSETS=latest
-      - SPARK_RESET_CHECKPOINT_ON_START=false
+      - SPARK_RESET_CHECKPOINT_ON_START=true
       - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
       - SPARK_STORE_RAW_JSON=false
       - SPARK_STREAM_DRIVER_MEMORY=1g
