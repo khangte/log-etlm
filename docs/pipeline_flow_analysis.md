@@ -24,6 +24,8 @@
 | — | `current_parts` stale 버그 (JDBC 커넥션 수 초과) | 낮 | 높음 | ✅ |
 | — | JDBC 드라이버 내부 retry 비활성화 (`retry=0`) | 낮 | 중 | ✅ |
 | — | ClickHouse 중복 MV 제거 + async flush 간격 확대 | 낮 | 중~높음 | ✅ |
+| — | Grafana 대시보드 refresh 간격 조정 | 낮 | 중 | ✅ |
+| — | grafana_user 쿼리 우선순위·타임아웃 제한 | 낮 | 중 | 🔧 |
 
 ---
 
@@ -570,6 +572,25 @@ source .env && docker exec clickhouse \
 
 ---
 
+### ✅ Grafana 대시보드 refresh 간격 조정
+
+**수정일**: 2026-05-20
+
+**위치**: `infra/grafana/dashboards/realtime.json`, `infra/grafana/dashboards/ops_monitoring.json`
+
+INSERT 지연 스파이크 사고 분석 결과, Grafana가 짧은 주기로 `quantileTDigestMerge` 같은
+무거운 집계 쿼리(2~2.7s/회)를 반복 실행하면서 Spark INSERT와 읽기·쓰기 경합을 유발하고
+지연을 지속시켰다.
+
+- `realtime.json`: refresh 10s → 30s
+- `ops_monitoring.json`: refresh 30s → 1m
+
+**트레이드오프**: 실시간 화면 반응 지연 증가. 단일 VM에서 INSERT 안정성을 우선한다.
+
+**난이도**: 낮 | **예상 효과**: 중
+
+---
+
 ### 🔧 빈 배치 근본 억제 — `maxOffsetsPerTrigger` 정밀 조정
 
 **위치**: `docker-compose.yml` → `SPARK_MAX_OFFSETS_PER_TRIGGER`
@@ -597,6 +618,32 @@ python3 scripts/kafka_spark_lag.py
 ```
 
 **난이도**: 낮 | **예상 효과**: 낮~중
+
+---
+
+### 🔧 grafana_user 쿼리 우선순위·타임아웃 제한
+
+**위치**: `infra/clickhouse/users.d/zz-grafana_user-limits.xml` (미생성)
+
+refresh 간격 확대만으로는 동시 실행 시 `quantileTDigestMerge` 쿼리와 INSERT 경합이
+완전히 해소되지 않는다. grafana_user에 ClickHouse 레벨 쿼리 우선순위와 최대 실행시간을
+제한해 INSERT 경로를 보호한다.
+
+```xml
+<clickhouse>
+    <profiles>
+        <grafana_profile>
+            <priority>10</priority>
+            <max_execution_time>8</max_execution_time>
+        </grafana_profile>
+    </profiles>
+</clickhouse>
+```
+
+적용: 파일 생성 후 `docker compose restart clickhouse` 또는
+`SYSTEM RELOAD CONFIG` 실행.
+
+**난이도**: 낮 | **예상 효과**: 중
 
 ---
 
