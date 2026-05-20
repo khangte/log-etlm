@@ -466,6 +466,88 @@ current_partitions=None if deduplicate_keys else current_parts,
 
 ---
 
+### ✅ JDBC 드라이버 내부 재시도 비활성화 (executor 사망 루프 방지)
+
+**수정일**: 2026-05-20
+
+**위치**: `docker-compose.yml` → `SPARK_CLICKHOUSE_URL`
+
+`clickhouse-jdbc 0.9.5`는 기본적으로 최대 4회 내부 재시도를 수행한다.
+`socket_timeout=30s × 3회 retry ≈ 90s` 후에야 Spark에 예외가 전달되어
+executor heartbeat timeout(120s)에 근접하거나 초과하면 executor가 dead로 선언되고
+재시작 루프가 반복되었다.
+
+```
+# 실측 오류
+java.net.SocketTimeoutException: Read timed out
+(Attempt: 1/4 - Duration: PT1M33.911144221S)  ← 드라이버 내부 retry 3회 × 30s ≈ 90s
+```
+
+```
+# 변경 전
+socket_timeout=30000
+
+# 변경 후
+socket_timeout=30000&retry=0
+```
+
+`retry=0`으로 드라이버 내부 재시도를 비활성화해 30s 초과 즉시 실패하도록 수정.
+Spark 레벨의 task retry와 `SPARK_CLICKHOUSE_RETRY_MAX=1`로 재시도를 처리한다.
+
+**난이도**: 낮 | **예상 효과**: 중 (executor 사망 루프 방지)
+
+---
+
+### ✅ ClickHouse 중복 MV 제거 및 async_insert flush 간격 확대
+
+**수정일**: 2026-05-20
+
+**위치**: `infra/clickhouse/sql/21_materialized_views.sql`, `infra/clickhouse/users.d/zz-log_user-async-profile.xml`, `infra/grafana/dashboards/`
+
+INSERT당 9개 MV가 동기 실행되며 그 중 `quantileTDigestState`를 사용하는 6개가 CPU 부하의 주 원인이었다.
+
+**[A] 중복 MV 제거** — `fact_event_latency_service_1m`이 상위 집합
+
+| 제거된 MV | 대체 테이블 | 제거 근거 |
+|---|---|---|
+| `mv_fact_event_latency_1m` | `fact_event_latency_service_1m` | `e2e_state`, `spark_processing_state` 등 모든 컬럼 포함 |
+| `mv_fact_event_latency_10s` | `fact_event_latency_stage_10s` | `e2e_state` 포함 |
+
+Grafana 쿼리 5개 이전 (`GROUP BY bucket`으로 서비스 차원 집계, `quantileTDigestMerge`가 자동 합산).
+복잡한 3-way JOIN 쿼리를 단일 `SELECT FROM fact_event_latency_service_1m`으로 단순화.
+
+**[B] async_insert flush 간격 확대**
+
+```xml
+<!-- 변경 전 -->
+<async_insert_busy_timeout_ms>1500</async_insert_busy_timeout_ms>
+
+<!-- 변경 후 -->
+<async_insert_busy_timeout_ms>5000</async_insert_busy_timeout_ms>
+```
+
+flush 간격 확대 → 하나의 flush에 더 많은 데이터를 모아 처리 → INSERT당 MV 실행 횟수 비례 감소.
+트레이드오프: 데이터 대시보드 반영 지연 1.5s → 최대 5s.
+
+**결과**:
+
+| 지표 | 변경 전 | 변경 후 |
+|---|---|---|
+| INSERT당 quantileTDigest MV 수 | 4개 | 2개 (-50%) |
+| async flush 간격 | 1.5s | 5s |
+| 대시보드 반영 지연 | ~1.5s | 최대 5s |
+
+**마이그레이션**: 기존 ClickHouse 인스턴스에 MV를 DROP하려면 아래 실행:
+```bash
+source .env && docker exec clickhouse \
+  clickhouse-client -u log_user --password "$CLICKHOUSE_PASSWORD" \
+  --multiquery < infra/clickhouse/migrations/01_drop_redundant_mvs.sql
+```
+
+**난이도**: 낮 | **예상 효과**: 중~높음
+
+---
+
 ### 🔧 빈 배치 근본 억제 — `maxOffsetsPerTrigger` 정밀 조정
 
 **위치**: `docker-compose.yml` → `SPARK_MAX_OFFSETS_PER_TRIGGER`
@@ -569,3 +651,5 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 | — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
 | — | Spark 재시작 시 checkpoint 자동 리셋 (latest) | 낮 | 중 | ✅ |
 | — | `current_parts` stale 버그 (JDBC 커넥션 수 초과) | 낮 | 높음 | ✅ |
+| — | JDBC 드라이버 내부 retry 비활성화 (`retry=0`) | 낮 | 중 | ✅ |
+| — | ClickHouse 중복 MV 제거 + async flush 간격 확대 | 낮 | 중~높음 | ✅ |
