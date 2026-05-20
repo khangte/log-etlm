@@ -423,24 +423,6 @@ socket_timeout=30000
 
 ---
 
-### 🔧 SPARK_CLICKHOUSE_WRITE_PARTITIONS 증가 (executor 코어 풀 활용)
-
-**위치**: `docker-compose.yml` → `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_FACT_PRE_COALESCE_PARTITIONS`
-
-현재 JDBC 병렬 쓰기 파티션이 3인데 executor 코어가 5개(worker-1: 3코어 + worker-2: 2코어)다.
-`SPARK_CLICKHOUSE_ALLOW_REPARTITION=false`이므로 코어 수에 맞게 올리면 coalesce로 처리되고
-JDBC 병렬 연결이 늘어 throughput이 개선된다.
-
-```yaml
-# 변경 목표
-SPARK_CLICKHOUSE_WRITE_PARTITIONS=3 → 5
-SPARK_FACT_PRE_COALESCE_PARTITIONS=3 → 5
-```
-
-**난이도**: 낮 | **예상 효과**: 낮~중
-
----
-
 ### 🔧 빈 배치 근본 억제 — `maxOffsetsPerTrigger` 정밀 조정
 
 **위치**: `docker-compose.yml` → `SPARK_MAX_OFFSETS_PER_TRIGGER`
@@ -539,7 +521,6 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
 | — | JDBC socket_timeout 단축 | 낮 | 중 | ✅ |
-| — | WRITE_PARTITIONS 증가 (3→5) | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
 | — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
