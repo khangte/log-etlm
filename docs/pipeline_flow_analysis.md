@@ -390,6 +390,62 @@ python3 scripts/kafka_spark_lag.py
 
 ---
 
+### ✅ ClickHouse background merge 스레드 제한
+
+**수정일**: 2026-05-20
+
+**위치**: `infra/clickhouse/config.d/50-background-pool.xml`
+
+Spark 재시작 시 ClickHouse가 317% CPU를 점유해 VM 전체 CPU를 포화시키고
+simulator `behind target` 연쇄 장애를 유발했다.
+MergeTree background merge 스레드 수를 절반으로 줄여 INSERT와 CPU를 경합하지 않도록 했다.
+
+```xml
+<background_pool_size>8</background_pool_size>                    <!-- 기본 16 -->
+<background_merges_mutations_concurrency_ratio>1</background_merges_mutations_concurrency_ratio>  <!-- 기본 2 -->
+<!-- 실제 동시 merge 스레드: 16×2=32 → 8×1=8 -->
+```
+
+의존 설정(`number_of_free_entries_in_pool_to_execute_mutation`, `..._optimize_entire_partition`)도
+pool 크기에 맞게 조정 (`merge_tree` 섹션).
+
+**실측 결과** (2026-05-20, `docker stats` 기준):
+
+| 시점 | ClickHouse CPU | simulator |
+|---|---|---|
+| 변경 전 (Spark cold-start + catch-up 구간) | 317.86% | behind target (장애) |
+| 변경 후 (동일 부하) | 23.15% | 정상 (18.29%) |
+
+**난이도**: 낮 | **예상 효과**: 중
+
+---
+
+### ✅ Spark 재시작 시 checkpoint 자동 리셋 (latest offset)
+
+**수정일**: 2026-05-20
+
+**위치**: `docker-compose.yml`, `spark_job/stream_checkpoint.py`
+
+Spark 재시작 시 체크포인트에 저장된 오프셋부터 재소비하면서 Kafka 백로그를 빠르게 따라잡으려다
+ClickHouse에 INSERT가 집중되어 CPU 포화가 발생했다.
+
+`SPARK_RESET_CHECKPOINT_ON_START=true`로 변경해 재시작마다 체크포인트를 삭제하고
+`SPARK_STARTING_OFFSETS=latest`(기존 설정)로 시작하도록 했다.
+
+```
+SPARK_RESET_CHECKPOINT_ON_START=false → true
+```
+
+`stream_checkpoint.py`의 백업 방식(`.bak.YYYYMMDD-HHMMSS` 누적)을 삭제 방식으로 변경해
+재시작마다 디스크가 쌓이지 않도록 했다.
+
+> **트레이드오프**: 재시작 전 미처리 Kafka 메시지는 유실된다.
+> dedup 상태(watermark)도 초기화된다. 정합성보다 처리량을 우선하는 현 PoC 설계에서 수용 가능한 범위.
+
+**난이도**: 낮 | **예상 효과**: 중
+
+---
+
 ## 우선순위 요약
 
 | 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
@@ -402,3 +458,5 @@ python3 scripts/kafka_spark_lag.py
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
+| — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
+| — | Spark 재시작 시 checkpoint 자동 리셋 (latest) | 낮 | 중 | ✅ |
