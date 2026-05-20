@@ -83,6 +83,7 @@
 
 **즉시 조치**
 - Grafana 조회 범위 축소, refresh 주기 증가
+- grafana_user에 `<priority>10</priority>` + `<max_execution_time>8</max_execution_time>` 설정해 INSERT 경로 보호 (`infra/clickhouse/users.d/zz-grafana_user-limits.xml`)
 - `max_memory_usage`, `max_memory_usage_for_user` 상향 또는 조정(현재 6GiB)
 - `max_bytes_before_external_group_by/sort`로 spill 유도(현재 256MB)
 - 10s MV 비활성화(부하 감소)

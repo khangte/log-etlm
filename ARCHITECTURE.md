@@ -182,12 +182,12 @@ normalize_event()
     │
     ▼
 ClickHouseFactWriter.write_fact_event_stream()
-  ├─ [선택] withWatermark("event_ts", "1 hour")
-  │         + dropDuplicatesWithinWatermark(["event_id"])  ← 상태 기반 dedup
+  ├─ [선택] withWatermark("event_ts", SPARK_FACT_DEDUP_WATERMARK)
+  │         + dropDuplicatesWithinWatermark(["event_id"])  ← 상태 기반 dedup (WATERMARK 설정 시)
   │
   └─ foreachBatch(_foreach)
        ├─ coalesce(SPARK_CLICKHOUSE_WRITE_PARTITIONS)
-       ├─ [선택] dropDuplicates(dedup_keys)   ← 배치 dedup (상태 dedup 미사용 시)
+       ├─ dropDuplicates(dedup_keys)          ← 배치 dedup (SPARK_FACT_DEDUP_WATERMARK 미설정 시 기본)
        ├─ processed_ts = current_timestamp()  ← sink 직전 재계산
        ├─ process_ms = processed_ts - spark_ingest_ts
        └─ write_to_clickhouse()
@@ -226,9 +226,9 @@ bad_df
 | `SPARK_MAX_OFFSETS_PER_TRIGGER` | 자동 계산 | 배치당 최대 오프셋. 미설정 시 `target_eps × trigger_sec × safety`로 계산 |
 | `SPARK_MAX_OFFSETS_CAP` | 30000 | maxOffsets 하드 상한 |
 | `SPARK_FACT_DEDUP_KEYS` | `event_id` | dedup 기준 컬럼 |
-| `SPARK_FACT_DEDUP_WATERMARK` | `1 hour` | 상태 기반 dedup 워터마크 |
+| `SPARK_FACT_DEDUP_WATERMARK` | `(없음)` | 상태 기반 dedup 워터마크. 비어 있으면 foreachBatch dropDuplicates 사용 |
 | `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED` | `true` | 배치 가드 on/off |
-| `SPARK_RESET_CHECKPOINT_ON_START` | `false` | 시작 시 체크포인트 초기화 |
+| `SPARK_RESET_CHECKPOINT_ON_START` | `true` | 시작 시 체크포인트 초기화 (재시작마다 latest 오프셋부터 소비) |
 | `SPARK_ENABLE_DLQ_STREAM` | `false` | DLQ 스트림 활성화 |
 | `SPARK_SKIP_EMPTY_BATCH` | `false` | 빈 배치 skip |
 | `SPARK_CLICKHOUSE_WRITE_PARTITIONS` | `3` | ClickHouse 쓰기 파티션 수 |
@@ -249,16 +249,14 @@ analytics
 ├── stream_batch_guard       MergeTree,  TTL 30일 (배치 멱등성)
 │
 ├── fact_event_agg_1m        AggregatingMergeTree, TTL 2일  (1분 EPS·에러율)
-├── fact_event_latency_1m    AggregatingMergeTree, TTL 2일  (1분 지연 p95)
-├── fact_event_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연)
+├── fact_event_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연 — Grafana 주 참조)
 ├── fact_event_freshness_1m  AggregatingMergeTree, TTL 2일  (데이터 신선도)
 ├── fact_event_created_stored_1m  SummingMT, TTL 2일  (생성·적재 비율)
 ├── fact_event_lag_1m        SummingMergeTree,     TTL 2일  (event→ingest 편차)
 ├── fact_event_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
 │
 ├── fact_event_agg_10s       AggregatingMergeTree, TTL 1일  (10초 실시간 EPS)
-├── fact_event_latency_10s   AggregatingMergeTree, TTL 1일  (10초 실시간 지연)
-├── fact_event_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연)
+├── fact_event_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연 — Grafana 주 참조)
 │
 └── dim_service / dim_status_code / dim_date / dim_time / dim_user   (배치 갱신)
 ```
@@ -270,13 +268,11 @@ analytics
 ```
 fact_event INSERT
     ├──▶ mv_fact_event_agg_1m              → countState(EPS, 에러율)
-    ├──▶ mv_fact_event_latency_1m          → quantileTDigestState(지연 p95)
     ├──▶ mv_fact_event_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored)
     ├──▶ mv_fact_event_freshness_1m        → maxState(ingest_ts)
     ├──▶ mv_fact_event_created_stored_1m   → created/stored 버킷 카운트
     ├──▶ mv_fact_event_lag_1m              → event_ts→ingest_ts 편차 누적
     ├──▶ mv_fact_event_agg_10s             → 10초 EPS (부하 시 DETACH 가능)
-    ├──▶ mv_fact_event_latency_10s         → 10초 지연
     └──▶ mv_fact_event_latency_stage_10s   → 10초 단계 지연
 ```
 
@@ -325,8 +321,8 @@ fact_event (최근 DIM_BATCH_LOOKBACK_DAYS일)
 
 | 대시보드 | 집계 소스 | 새로고침 | 주요 패널 |
 |---|---|---|---|
-| `ops_monitoring.json` | 1분 집계 | 30초 | EPS, 에러율, E2E 지연 p95, Freshness, 생성·적재 비율, 단계별 지연 |
-| `realtime.json` | 10초 집계 | 10초 | 실시간 EPS, 지연 |
+| `ops_monitoring.json` | 1분 집계 | 1분 | EPS, 에러율, E2E 지연 p95, Freshness, 생성·적재 비율, 단계별 지연 |
+| `realtime.json` | 10초 집계 | 30초 | 실시간 EPS, 지연 |
 | `dim_overview.json` | dim 테이블 | 비활성 | 서비스·상태코드 현황 |
 
 > 프로비저닝 파일(`provisioning/`)이 source-of-truth. `allowUiUpdates: false`로 UI 수정이 파일을 덮지 않도록 설정되어 있다.
