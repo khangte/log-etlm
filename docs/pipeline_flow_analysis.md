@@ -360,6 +360,82 @@ du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
 
 ---
 
+### ✅ Watermark 제거 → foreachBatch dedup 전환 (상태 저장소 완전 해소)
+
+**수정일**: 2026-05-20
+
+**위치**: `docker-compose.yml` → `SPARK_FACT_DEDUP_WATERMARK`
+
+이전 단계에서 watermark를 1 hour → 10 minutes로 줄였으나,
+5,000 EPS 기준 **10분 × 5,000 = 300만 이벤트**가 여전히 상태 저장소에 누적되어
+매 배치마다 state store read/write/checkpoint 오버헤드가 4-14초 지연의 주 원인이었다.
+
+```
+5,000 EPS × 600s(10분) = 3,000,000 이벤트 → 매 배치마다 state I/O 반복
+배치 처리 시간: 4s trigger 대비 지속적으로 5~14s 초과
+```
+
+watermark를 제거하면 `fact_writer.py`의 분기 조건(`if batch_dedup_keys and dedup_watermark`)에 의해
+자동으로 foreachBatch `dropDuplicates(["event_id"])`로 전환된다.
+해당 배치 내 중복만 처리하므로 state store가 완전히 제거된다.
+
+```yaml
+# 변경 전
+"SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-10 minutes}"
+
+# 변경 후
+"SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
+```
+
+> **트레이드오프**: 배치 경계를 넘는 중복 이벤트는 제거되지 않는다.
+> 시뮬레이터 생성 이벤트에는 배치 간 중복 재전송이 없으므로 PoC 범위에서 수용 가능하다.
+
+**난이도**: 낮 | **예상 효과**: 높음
+
+---
+
+### 🔧 JDBC socket_timeout 단축 (executor heartbeat 사망 방지)
+
+**위치**: `docker-compose.yml` → `SPARK_CLICKHOUSE_URL`
+
+현재 `socket_timeout=600000ms`(10분)인데 Spark executor heartbeat timeout 기본값은 120초다.
+ClickHouse write가 느려지거나 hang되면 executor가 600초 동안 JDBC 응답을 기다리는 사이
+Spark는 120초 후 executor를 dead로 선언하고 spark-driver 재시작 루프로 이어진다.
+
+```
+HeartbeatReceiver: Removing executor 0 with no recent heartbeats: 174809 ms exceeds timeout 120000 ms
+```
+
+socket_timeout을 30초로 줄이면 JDBC 실패가 heartbeat timeout 전에 발생하고,
+`SPARK_CLICKHOUSE_RETRY_MAX=1` 재시도 체계로 정상 처리된다.
+
+```
+# 변경 목표
+socket_timeout=600000 → socket_timeout=30000
+```
+
+**난이도**: 낮 | **예상 효과**: 중 (executor 사망 루프 방지)
+
+---
+
+### 🔧 SPARK_CLICKHOUSE_WRITE_PARTITIONS 증가 (executor 코어 풀 활용)
+
+**위치**: `docker-compose.yml` → `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_FACT_PRE_COALESCE_PARTITIONS`
+
+현재 JDBC 병렬 쓰기 파티션이 3인데 executor 코어가 5개(worker-1: 3코어 + worker-2: 2코어)다.
+`SPARK_CLICKHOUSE_ALLOW_REPARTITION=false`이므로 코어 수에 맞게 올리면 coalesce로 처리되고
+JDBC 병렬 연결이 늘어 throughput이 개선된다.
+
+```yaml
+# 변경 목표
+SPARK_CLICKHOUSE_WRITE_PARTITIONS=3 → 5
+SPARK_FACT_PRE_COALESCE_PARTITIONS=3 → 5
+```
+
+**난이도**: 낮 | **예상 효과**: 낮~중
+
+---
+
 ### 🔧 빈 배치 근본 억제 — `maxOffsetsPerTrigger` 정밀 조정
 
 **위치**: `docker-compose.yml` → `SPARK_MAX_OFFSETS_PER_TRIGGER`
@@ -454,8 +530,11 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 | 2 | ClickHouse Native Connector | 중 | 높음 | ⚠️ JDBC 유지 |
 | — | JDBC 드라이버 0.9.5 업그레이드 | 낮 | 낮 | ✅ |
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
+| — | Watermark 제거 → foreachBatch dedup | 낮 | 높음 | ✅ |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |
+| — | JDBC socket_timeout 단축 | 낮 | 중 | 🔧 |
+| — | WRITE_PARTITIONS 증가 (3→5) | 낮 | 낮~중 | 🔧 |
 | — | Simulator Python 3.13 free-threaded | 고 | 중 | ⏸️ 보류 (공식 Docker 이미지 미제공) |
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
 | — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
