@@ -423,6 +423,49 @@ socket_timeout=30000
 
 ---
 
+### ✅ `current_parts` stale 버그 수정 (JDBC 커넥션 수 초과 방지)
+
+**수정일**: 2026-05-20
+
+**위치**: `spark_job/clickhouse/writer_base.py`
+
+fix #1 (foreachBatch dedup 전환) 적용 후 `dropDuplicates(["event_id"])`가 셔플을 유발해
+실제 파티션 수가 `SPARK_STREAM_SHUFFLE_PARTITIONS=8`로 확정된다.
+그런데 `current_parts`는 pre_coalesce 직후 3으로 캡처되어 이후 갱신되지 않았다.
+
+```
+pre_coalesce: raw_parts=3 → coalesce(3) → current_parts=3  (캡처)
+dropDuplicates: 셔플 발생 → out_df.getNumPartitions()=8    (current_parts는 여전히 3)
+_apply_partitioning: target=3, current=3 → no-op           (out_df는 실제 8파티션)
+결과: JDBC 커넥션 8개 → async_insert buffer 8개 → 8 parts/trigger
+→ 15 trigger/min × 8 = 120 parts/min → ClickHouse CPU 394%
+```
+
+**변경 내용**: `deduplicate_keys`가 있을 때 `current_partitions=None`을 전달한다.
+`_apply_partitioning`이 `df.rdd.getNumPartitions()`로 실제 값(8)을 확인하고
+`target(3) < current(8)` 조건에 의해 `coalesce(3)`을 적용한다.
+
+```python
+# 변경 전
+current_partitions=current_parts,
+
+# 변경 후
+current_partitions=None if deduplicate_keys else current_parts,
+```
+
+**예상 효과**:
+
+| 지표 | 변경 전 | 변경 후 |
+|---|---|---|
+| JDBC 커넥션 수 | 8 | 3 |
+| parts/trigger | 8 | 3 |
+| parts/min | ~120 | ~45 |
+| ClickHouse merge CPU | ~394% | 감소 예상 |
+
+**난이도**: 낮 | **예상 효과**: 높음
+
+---
+
 ### 🔧 빈 배치 근본 억제 — `maxOffsetsPerTrigger` 정밀 조정
 
 **위치**: `docker-compose.yml` → `SPARK_MAX_OFFSETS_PER_TRIGGER`
@@ -525,3 +568,4 @@ SPARK_RESET_CHECKPOINT_ON_START=false → true
 | — | Spark `falling behind` | — | — | 설정 변경 불필요 |
 | — | ClickHouse background merge 스레드 제한 | 낮 | 중 | ✅ |
 | — | Spark 재시작 시 checkpoint 자동 리셋 (latest) | 낮 | 중 | ✅ |
+| — | `current_parts` stale 버그 (JDBC 커넥션 수 초과) | 낮 | 높음 | ✅ |
