@@ -226,66 +226,60 @@ warmup 로직을 추가하는 방향으로 접근한다.
 
 ---
 
-### ✅ ClickHouse Native Connector로 JDBC 대체
+### ⚠️ ClickHouse Native Connector 실험 — JDBC 유지 결정
 
 **수정일**: 2026-05-20
 
 **위치**: `spark_job/clickhouse/sink.py`, `spark_job/clickhouse/settings.py`
 
-`com.clickhouse.jdbc.ClickHouseDriver`를 통한 JDBC write는 JSON-over-HTTP 방식으로
-ClickHouse의 columnar bulk insert 강점을 활용하지 못한다.
-`spark-clickhouse-connector` (0.10.0, Spark 4.0/Scala 2.13)는 `FORMAT RowBinary`로
-직렬화해 JDBC 대비 높은 throughput을 낸다.
+`spark-clickhouse-connector` (0.10.0, Spark 4.0/Scala 2.13) Catalog API 방식으로 전환 후
+`batch_timing.log` 실측 결과 JDBC 대비 성능이 열위로 확인되어 JDBC로 복귀했다.
+
+**실측 결과** (2026-05-20, `batch_timing.log` 기준):
+
+| 방식 | n | avg | p50 | p95 | max |
+|---|---|---|---|---|---|
+| JDBC (변경 전) | 5,237 | 1.519s | — | — | — |
+| Native Connector (변경 후) | 52 | 3.253s | 2.653s | 6.337s | 15.993s |
+
+> Native avg 3.253s > JDBC avg 1.519s. n=52 구간에 VM 재기동 직후 고부하가 포함됐으나 p50(2.653s)도 JDBC 평균보다 높아 단순 측정 왜곡으로 보기 어렵다. spark-clickhouse-connector는 HTTP 프로토콜 기반으로, 전송 경로가 JDBC와 실질적으로 동일해 throughput 개선 효과가 없었다.
+
+**현재 상태**:
+- `sink.py`: `format("jdbc")` + `build_jdbc_options()` 복귀
+- `settings.py`: `build_native_options()`, `build_catalog_configs()` 잔존 (미사용, 향후 Native TCP 실험용)
+- `spark_job/jars/clickhouse-spark-runtime-4.0_2.13-0.10.0.jar`: JAR 잔존 (미참조)
+
+**향후 재시도 조건**: Native TCP 프로토콜(`protocol: "native"`, 포트 9000) 전환 또는 `async_insert` 튜닝 후 재측정.
+
+**난이도**: 중 | **예상 효과**: 미확인
+
+---
+
+### ✅ JDBC 드라이버 0.9.5 업그레이드 및 URL 정리
+
+**수정일**: 2026-05-20
+
+**위치**: `spark_job/spark.py`, `docker-compose.yml`, `spark_job/jars/`
 
 **변경 내용**:
 
-- `spark_job/jars/clickhouse-spark-runtime-4.0_2.13-0.10.0.jar` 추가 (fat JAR, 20MB)
-- `settings.py`: `_parse_jdbc_host_port()` 추가 — 기존 `SPARK_CLICKHOUSE_URL`에서 host/port 추출 (새 환경변수 불필요)
-- `settings.py`: `build_native_options(table_name)` 추가 — `host`, `http_port`, `protocol`, `table`, `user`, `password` 옵션 반환
-- `sink.py` `write_to_clickhouse()`: 메인 data write만 `format("jdbc")` → `format("clickhouse")` 전환
-  - 배치 가드(read/write)는 단건 SQL 조회가 필요하므로 JDBC 유지
+- `clickhouse-jdbc-0.4.6.jar` → `clickhouse-jdbc-0.9.5-all-dependencies.jar` 교체
+- `spark.py` packages: `com.clickhouse:clickhouse-jdbc:0.4.6` → `0.9.5`
+- `SPARK_CLICKHOUSE_URL`에서 0.9.5 드라이버가 인식하지 못하는 파라미터 제거
+  - 제거: `jdbcCompliant=false`, `connect_timeout=10000`
+  - 유지: `compress`, `decompress`, `socket_timeout`
 
-```python
-# 변경 전 (JDBC)
-out_df.write.format("jdbc").option("driver", "com.clickhouse.jdbc.ClickHouseDriver")...
+```
+# 변경 전
+jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&jdbcCompliant=false&socket_timeout=600000&connect_timeout=10000
 
-# 변경 후 (Native Connector)
-out_df.write.format("clickhouse") \
-    .option("host", "clickhouse").option("http_port", "8123") \
-    .option("protocol", "http").option("table", "analytics.fact_event") \
-    .option("user", ...).option("password", ...) \
-    .mode("append").save()
+# 변경 후
+jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&socket_timeout=600000
 ```
 
-**테스트 결과** (`tests/spark_job/test_clickhouse_settings.py`):
+0.9.5에서 알 수 없는 파라미터를 `WARN`으로 출력하도록 바뀌어 로그 노이즈가 발생했다.
 
-단위 테스트 21개 케이스 모두 ✅
-
-| 그룹 | 케이스 | 결과 |
-|------|--------|------|
-| `_parse_jdbc_host_port` | host:port 명시·쿼리파라미터·포트생략·IP주소·잘못된URL | 5/5 ✅ |
-| `build_native_options` | host/port/protocol/table/user/password·auth없음·테이블변경 | 11/11 ✅ |
-| `build_jdbc_options` (기존 유지) | driver/url/dbtable/isolationLevel/batchsize | 5/5 ✅ |
-
-**런타임 비교 방법**:
-
-```bash
-# 변경 전/후 write duration 평균 (5분 분량)
-grep "stream=fact_event.*stage=write" /data/log-etlm/spark-events/batch_timing.log \
-  | tail -80 \
-  | grep -oP 'duration=\K[0-9.]+' \
-  | awk '{sum+=$1; n++} END {printf "avg=%.3fs n=%d\n", sum/n, n}'
-```
-
-| 지표 | 확인 위치 | 기대 변화 |
-|---|---|---|
-| `stage=write` duration | `batch_timing.log` | 50~70% 단축 |
-| Avg Processing Rate | Spark UI Streaming | 증가 |
-| spark-driver CPU % | `docker stats spark-driver` | 감소 |
-
-> **런타임 측정 미완료**: 컨테이너 미실행 환경에서 변경을 적용했다. 다음 파이프라인 기동 시 위 지표로 실측값을 보완할 것.
-
-**난이도**: 중 | **예상 효과**: 높음
+**난이도**: 낮 | **예상 효과**: 로그 노이즈 제거
 
 ---
 
@@ -401,7 +395,8 @@ python3 scripts/kafka_spark_lag.py
 | 순위 | 항목 | 난이도 | 예상 효과 | 상태 |
 |------|------|--------|-----------|------|
 | 1 | Simulator `render_bytes` → orjson | 낮 | 높음 | ✅ |
-| 2 | ClickHouse Native Connector | 중 | 높음 | ✅ |
+| 2 | ClickHouse Native Connector | 중 | 높음 | ⚠️ JDBC 유지 |
+| — | JDBC 드라이버 0.9.5 업그레이드 | 낮 | 낮 | ✅ |
 | 3 | Watermark 단축 (`10 minutes`) | 낮 | 중 | ✅ |
 | 4 | `raw_json` 조건부 제거 | 낮 | 낮~중 | ✅ |
 | 5 | `maxOffsetsPerTrigger` 정밀 조정 | 낮 | 낮~중 | 🔧 |

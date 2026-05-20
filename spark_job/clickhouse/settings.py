@@ -73,6 +73,23 @@ class ClickHouseSettings:
             options["password"] = self.password
         return options
 
+    def build_catalog_configs(self, catalog_name: str = "clickhouse") -> dict[str, str]:
+        """Spark SQL Catalog API용 설정 딕셔너리를 생성한다."""
+        if not self.url:
+            raise ValueError("SPARK_CLICKHOUSE_URL is required")
+        host, http_port = _parse_jdbc_host_port(self.url)
+        configs: dict[str, str] = {
+            f"spark.sql.catalog.{catalog_name}": "com.clickhouse.spark.ClickHouseCatalog",
+            f"spark.sql.catalog.{catalog_name}.host": host,
+            f"spark.sql.catalog.{catalog_name}.http_port": str(http_port),
+            f"spark.sql.catalog.{catalog_name}.protocol": "http",
+        }
+        if self.user:
+            configs[f"spark.sql.catalog.{catalog_name}.user"] = self.user
+        if self.password:
+            configs[f"spark.sql.catalog.{catalog_name}.password"] = self.password
+        return configs
+
 
 @dataclass(frozen=True)
 class BatchTimingLogSettings:

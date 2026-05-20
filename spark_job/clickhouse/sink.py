@@ -277,8 +277,8 @@ def write_to_clickhouse(
                 current_partitions=current_partitions,
             )
 
-            writer = out_df.write.format("clickhouse")
-            for key, value in resolved_settings.build_native_options(table_name).items():
+            writer = out_df.write.format("jdbc")
+            for key, value in resolved_settings.build_jdbc_options(table_name).items():
                 writer = writer.option(key, value)
             writer = writer.mode(mode)
             writer.save()

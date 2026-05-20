@@ -128,12 +128,43 @@ def test_build_jdbc_options_unchanged() -> bool:
     ]
     return all(results)
 
+def test_build_catalog_configs() -> bool:
+    """build_catalog_configs Catalog API 설정 생성을 검증한다."""
+    print("\n=== build_catalog_configs ===")
+
+    env = {
+        "SPARK_CLICKHOUSE_URL": "jdbc:clickhouse://clickhouse:8123/analytics",
+        "SPARK_CLICKHOUSE_USER": "log_user",
+        "SPARK_CLICKHOUSE_PASSWORD": "secret",
+    }
+    s = load_clickhouse_settings(env)
+    cfg = s.build_catalog_configs()
+
+    results = [
+        check("catalog class 설정",   cfg.get("spark.sql.catalog.clickhouse"), "com.clickhouse.spark.ClickHouseCatalog"),
+        check("host 추출",             cfg.get("spark.sql.catalog.clickhouse.host"), "clickhouse"),
+        check("http_port 추출",        cfg.get("spark.sql.catalog.clickhouse.http_port"), "8123"),
+        check("protocol=http",         cfg.get("spark.sql.catalog.clickhouse.protocol"), "http"),
+        check("user 포함",             cfg.get("spark.sql.catalog.clickhouse.user"), "log_user"),
+        check("password 포함",         cfg.get("spark.sql.catalog.clickhouse.password"), "secret"),
+    ]
+
+    # catalog_name 파라미터 적용 확인
+    cfg2 = s.build_catalog_configs(catalog_name="ch")
+    results += [
+        check("catalog_name 변경 반영", cfg2.get("spark.sql.catalog.ch"), "com.clickhouse.spark.ClickHouseCatalog"),
+        check("기존 catalog_name 미포함", "spark.sql.catalog.clickhouse" not in cfg2, True),
+    ]
+
+    return all(results)
+
 
 if __name__ == "__main__":
     results = [
         test_parse_jdbc_host_port(),
         test_build_native_options(),
         test_build_jdbc_options_unchanged(),
+        test_build_catalog_configs(),
     ]
     print()
     if all(results):
