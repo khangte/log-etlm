@@ -22,9 +22,9 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
         dedup_watermark = self._settings.deduplicate_watermark
 
         if batch_dedup_keys and dedup_watermark:
-            if "event_ts" not in out_df.columns:
+            if "event_timestamp" not in out_df.columns:
                 raise ValueError(
-                    "event_ts column is required for streaming dedup watermark"
+                    "event_timestamp column is required for streaming dedup watermark"
                 )
             missing_keys = [key for key in batch_dedup_keys if key not in out_df.columns]
             if missing_keys:
@@ -33,7 +33,7 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
                     + ",".join(missing_keys)
                 )
             out_df = (
-                out_df.withWatermark("event_ts", dedup_watermark)
+                out_df.withWatermark("event_timestamp", dedup_watermark)
                 .dropDuplicatesWithinWatermark(batch_dedup_keys)
             )
             # 스트리밍 상태 기반 dedup을 적용한 경우 foreachBatch dedup은 생략한다.

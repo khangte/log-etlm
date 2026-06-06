@@ -9,11 +9,11 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
     """event_log 컬럼으로 표준화한다."""
     parsed = (
         good_df.select(
-            # unified_ts_ms는 created_ts 및 event_ts의 통합 소스
+            # unified_ts_ms는 event_timestamp의 통합 소스
             F.coalesce(
                 F.col("json.ts_ms"),
                 F.col("json.timestamp_ms"), # 이전 형식과의 호환성을 위한 대체
-                (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long"), # JSON에 타임스탬프가 없는 경우의 대체
+                (F.col("kafka_received_at").cast("double") * F.lit(1000)).cast("long"), # JSON에 타임스탬프가 없는 경우의 대체
             ).alias("unified_ts_ms"),
 
             F.coalesce(F.col("json.service"), F.lit("unknown")).alias("service"),
@@ -79,25 +79,17 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.col("topic"),
             F.col("partition").cast("int").alias("kafka_partition"),
             F.col("offset").cast("long").alias("kafka_offset"),
-            F.col("kafka_ts"),
-            F.col("spark_ts"),
+            F.col("kafka_received_at"),
+            F.col("spark_received_at"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
-            "kafka_ingest_ts",
-            F.col("kafka_ts"),
-        )
-        .withColumn(
-            "processed_ts",
+            "spark_processed_at",
             F.lit(None).cast("timestamp"),
         )
         .withColumn(
-            "created_ts",
+            "event_timestamp",
             F.to_timestamp((F.col("unified_ts_ms") / F.lit(1000)).cast("double")),
-        )
-        .withColumn(
-            "event_ts",
-            F.col("created_ts"),
         )
     )
 

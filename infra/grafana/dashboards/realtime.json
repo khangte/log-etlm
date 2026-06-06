@@ -119,7 +119,7 @@
           "refId": "A"
         }
       ],
-      "title": "로그 EPS (kafka_ingest_ts 기준) (10s)",
+      "title": "로그 EPS (kafka_received_at 기준) (10s)",
       "type": "timeseries"
     },
     {
@@ -201,7 +201,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "event_ts ~ stored_ts 기준 E2E p95 (10초 버킷).",
+      "description": "event_timestamp ~ clickhouse_stored_at 기준 E2E p95 (10초 버킷).",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -271,7 +271,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "created_ts 기준 단계별 지연 p95 (10초 버킷).",
+      "description": "event_timestamp 기준 단계별 지연 p95 (10초 버킷).",
       "fieldConfig": {
         "defaults": {
           "color": {

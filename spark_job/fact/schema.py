@@ -39,18 +39,16 @@ log_value_schema: T.StructType = T.StructType(
 
 # -----------------------------------------------------------------------------
 # 2) ClickHouse analytics.event_log 적재 컬럼 순서
-#    - stored_ts는 ClickHouse DEFAULT(now64)로 채워지므로 제외
+#    - clickhouse_stored_at는 ClickHouse DEFAULT(now64)로 채워지므로 제외
 # -----------------------------------------------------------------------------
 
 # event_log 컬럼 순서
 FACT_EVENT_COLUMNS: list[str] = [
     # 1) 시간
-    "event_ts",
-    "kafka_ingest_ts",
-    "kafka_ts",
-    "spark_ts",
-    "processed_ts",
-    "created_ts",
+    "event_timestamp",
+    "kafka_received_at",
+    "spark_received_at",
+    "spark_processed_at",
 
     # 2) 식별자 / 상관관계
     "request_id",

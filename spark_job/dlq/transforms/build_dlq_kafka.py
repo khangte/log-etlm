@@ -7,8 +7,8 @@ from ..schema import DLQ_VALUE_COLUMNS
 
 def build_dlq_kafka_df(bad_df: DataFrame) -> DataFrame:
     """DLQ Kafka payload 스키마로 변환한다."""
-    processed_ts = F.current_timestamp()
-    created_ms = (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long")
+    spark_processed_at = F.current_timestamp()
+    created_ms = (F.col("kafka_received_at").cast("double") * F.lit(1000)).cast("long")
     event_id = F.when(
         F.col("topic").isNotNull()
         & F.col("partition").isNotNull()

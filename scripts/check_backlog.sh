@@ -205,6 +205,6 @@ if not ckpt_offsets:
 print("")
 print("[checklist]")
 print("- backlog > 0: 소비가 유입을 따라잡지 못함 (Spark 처리량 또는 maxOffsetsPerTrigger 점검)")
-print("- backlog = 0, publish 지연 급증: kafka_ingest_ts 자체가 과거일 가능성 (producer 지연/재전송)")
+print("- backlog = 0, publish 지연 급증: kafka_received_at 자체가 과거일 가능성 (producer 지연/재전송)")
 print("- sink 지연 동반: ClickHouse insert 지연/compaction 확인")
 PY

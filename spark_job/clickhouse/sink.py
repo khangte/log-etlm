@@ -54,9 +54,9 @@ def _build_failed_fact_dlq_payload(
     """event_log 쓰기 실패 배치를 DLQ payload 스키마로 변환한다."""
     trimmed_message = (error_message or "")[:2000]
     created_ms = (
-        F.when(F.col("kafka_ts").isNotNull(), (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long"))
+        F.when(F.col("kafka_received_at").isNotNull(), (F.col("kafka_received_at").cast("double") * F.lit(1000)).cast("long"))
         .otherwise((F.current_timestamp().cast("double") * F.lit(1000)).cast("long"))
-        if "kafka_ts" in df.columns
+        if "kafka_received_at" in df.columns
         else (F.current_timestamp().cast("double") * F.lit(1000)).cast("long")
     )
     raw_json = (

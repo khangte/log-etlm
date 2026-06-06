@@ -91,8 +91,8 @@ class ClickHouseStreamWriterBase:
                 out_df = out_df.dropDuplicates(deduplicate_keys)
 
             # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
-            if "processed_ts" in out_df.columns:
-                out_df = out_df.withColumn("processed_ts", F.current_timestamp())
+            if "spark_processed_at" in out_df.columns:
+                out_df = out_df.withColumn("spark_processed_at", F.current_timestamp())
 
             transform_elapsed = time.perf_counter() - start_time
             line = (

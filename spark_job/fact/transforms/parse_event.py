@@ -14,14 +14,14 @@ def parse_event(kafka_df: DataFrame, *, need_raw_json: bool = False) -> DataFram
             "topic",
             "partition",
             "offset",
-            "timestamp AS kafka_ts",
+            "timestamp AS kafka_received_at",
         )
         .withColumn(
             "json",
             F.from_json(F.col("raw_json"), log_value_schema),
         )
         .withColumn(
-            "spark_ts",
+            "spark_received_at",
             F.current_timestamp(),
         )
     )

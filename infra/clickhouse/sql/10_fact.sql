@@ -1,13 +1,11 @@
 -- Fact event table
 CREATE TABLE IF NOT EXISTS analytics.event_log
 (
-    event_ts     DateTime64(3) CODEC(Delta, ZSTD(3)),
-    kafka_ingest_ts    DateTime64(3) CODEC(Delta, ZSTD(3)),
-    kafka_ts     Nullable(DateTime64(3)) CODEC(Delta, ZSTD(3)),
-    spark_ts Nullable(DateTime64(3)) CODEC(Delta, ZSTD(3)),
-    processed_ts DateTime64(3) CODEC(Delta, ZSTD(3)),
-    stored_ts    DateTime64(3) DEFAULT now64(3) CODEC(Delta, ZSTD(3)),
-    created_ts   Nullable(DateTime64(3)) CODEC(Delta, ZSTD(3)),
+    event_timestamp      Nullable(DateTime64(3, 'UTC')) CODEC(Delta, ZSTD(3)),
+    kafka_received_at    DateTime64(3, 'UTC') CODEC(Delta, ZSTD(3)),
+    spark_received_at    Nullable(DateTime64(3, 'UTC')) CODEC(Delta, ZSTD(3)),
+    spark_processed_at   DateTime64(3, 'UTC') CODEC(Delta, ZSTD(3)),
+    clickhouse_stored_at DateTime64(3, 'UTC') DEFAULT now64(3) CODEC(Delta, ZSTD(3)),
 
     service        LowCardinality(String),
     domain         LowCardinality(String),
@@ -37,16 +35,16 @@ CREATE TABLE IF NOT EXISTS analytics.event_log
     raw_json  String CODEC(ZSTD(3))
 )
 ENGINE = MergeTree
-PARTITION BY toDate(kafka_ingest_ts)
-ORDER BY (kafka_ingest_ts, service)
-TTL toDate(kafka_ingest_ts) + INTERVAL 3 DAY;
+PARTITION BY toDate(kafka_received_at)
+ORDER BY (kafka_received_at, service)
+TTL toDate(kafka_received_at) + INTERVAL 3 DAY;
 
 
 -- DLQ table (parse/validation failures)
 CREATE TABLE IF NOT EXISTS analytics.event_log_dlq
 (
-    kafka_ingest_ts     DateTime64(3),
-    processed_ts  DateTime64(3),
+    kafka_received_at    DateTime64(3, 'UTC'),
+    spark_processed_at   DateTime64(3, 'UTC'),
     service       Nullable(String),
     event_id      Nullable(String),
     request_id    Nullable(String),
@@ -54,15 +52,15 @@ CREATE TABLE IF NOT EXISTS analytics.event_log_dlq
     source_partition Nullable(Int32),
     source_offset    Nullable(Int64),
     source_key       Nullable(String),
-    created_ts    Nullable(DateTime64(3)),
+    event_timestamp  Nullable(DateTime64(3, 'UTC')),
     error_type    String,
     error_message String,
     raw_json      String
 )
 ENGINE = MergeTree
-PARTITION BY toDate(kafka_ingest_ts)
-ORDER BY (kafka_ingest_ts, error_type, source_topic)
-TTL kafka_ingest_ts + INTERVAL 7 DAY
+PARTITION BY toDate(kafka_received_at)
+ORDER BY (kafka_received_at, error_type, source_topic)
+TTL kafka_received_at + INTERVAL 7 DAY
 SETTINGS allow_nullable_key=1;
 
 

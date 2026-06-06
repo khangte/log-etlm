@@ -14,14 +14,14 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
             "topic",
             "partition",
             "offset",
-            "timestamp AS kafka_ts",
+            "timestamp AS kafka_received_at",
         )
         .withColumn("json", F.from_json(F.col("raw_json"), DLQ_VALUE_SCHEMA))
         .where(F.col("json").isNotNull())
     )
     dlq_df = dlq_parsed.select(
-        F.col("kafka_ts").alias("kafka_ingest_ts"),
-        F.current_timestamp().alias("processed_ts"),
+        F.col("kafka_received_at"),
+        F.current_timestamp().alias("spark_processed_at"),
         F.col("json.service").alias("service"),
         F.col("json.event_id").alias("event_id"),
         F.col("json.request_id").alias("request_id"),
@@ -29,7 +29,7 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
         F.coalesce(F.col("json.source_partition"), F.col("partition")).cast("int").alias("source_partition"),
         F.coalesce(F.col("json.source_offset"), F.col("offset")).cast("long").alias("source_offset"),
         F.coalesce(F.col("json.source_key"), F.col("kafka_key")).alias("source_key"),
-        F.expr("timestamp_millis(json.created_ms)").alias("created_ts"),
+        F.expr("timestamp_millis(json.created_ms)").alias("event_timestamp"),
         F.coalesce(F.col("json.error_type"), F.lit("unknown")).alias("error_type"),
         F.coalesce(F.col("json.error_message"), F.lit("")).alias("error_message"),
         F.coalesce(F.col("json.raw_json"), F.col("raw_json")).alias("raw_json"),

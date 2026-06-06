@@ -38,8 +38,8 @@ DLQ_VALUE_COLUMNS: list[str] = [
 
 # event_log_dlq 컬럼 순서
 FACT_EVENT_DLQ_COLUMNS: list[str] = [
-    "kafka_ingest_ts",
-    "processed_ts",
+    "kafka_received_at",
+    "spark_processed_at",
     "service",
     "event_id",
     "request_id",
@@ -47,7 +47,7 @@ FACT_EVENT_DLQ_COLUMNS: list[str] = [
     "source_partition",
     "source_offset",
     "source_key",
-    "created_ts",
+    "event_timestamp",
     "error_type",
     "error_message",
     "raw_json",

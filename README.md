@@ -200,11 +200,11 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 
 ## 지표 해석(요약)
-- ingest: `event_ts → kafka_ingest_ts` (수집 지연)
-- process: `kafka_ingest_ts → processed_ts` (Spark 처리 지연)
-- sink: `processed_ts → stored_ts` (Spark → ClickHouse 적재 지연)
-- end-to-end(ops): `kafka_ingest_ts → stored_ts` (전체 지연)
-- 생성 대비 적재 비율: `created_ts` 대비 `stored_ts` 비율 (1분 버킷 기준, 지연이 크면 0%로 보일 수 있음)
+- ingest: `event_timestamp → kafka_received_at` (수집 지연)
+- process: `kafka_received_at → spark_processed_at` (Spark 처리 지연)
+- sink: `spark_processed_at → clickhouse_stored_at` (Spark → ClickHouse 적재 지연)
+- end-to-end(ops): `kafka_received_at → clickhouse_stored_at` (전체 지연)
+- 생성 대비 적재 비율: `event_timestamp` 대비 `clickhouse_stored_at` 비율 (1분 버킷 기준, 지연이 크면 0%로 보일 수 있음)
 - DLQ: `analytics.event_log_dlq_agg_1m` (service, error_type, total)
 
 

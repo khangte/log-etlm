@@ -28,9 +28,9 @@ SELECT
   toDayOfWeek(date) AS day_of_week,
   if(day_of_week IN (6, 7), 1, 0) AS is_weekend
 FROM (
-  SELECT toDate(event_ts) AS date
+  SELECT toDate(event_timestamp) AS date
   FROM analytics.event_log
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
+  WHERE event_timestamp >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
   GROUP BY date
 );
 
@@ -46,11 +46,11 @@ SELECT
           'evening') AS time_of_day
 FROM (
   SELECT
-    toHour(event_ts) AS hour,
-    toMinute(event_ts) AS minute,
-    toSecond(event_ts) AS second
+    toHour(event_timestamp) AS hour,
+    toMinute(event_timestamp) AS minute,
+    toSecond(event_timestamp) AS second
   FROM analytics.event_log
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
+  WHERE event_timestamp >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
   GROUP BY hour, minute, second
 );
 
@@ -63,7 +63,7 @@ SELECT
 FROM (
   SELECT service
   FROM analytics.event_log
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
+  WHERE event_timestamp >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND service IS NOT NULL
   GROUP BY service
 );
@@ -89,7 +89,7 @@ SELECT
 FROM (
   SELECT status_code
   FROM analytics.event_log
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
+  WHERE event_timestamp >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND status_code IS NOT NULL
   GROUP BY status_code
 );
@@ -102,7 +102,7 @@ SELECT
 FROM (
   SELECT user_id
   FROM analytics.event_log
-  WHERE event_ts >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
+  WHERE event_timestamp >= now() - INTERVAL ${LOOKBACK_DAYS} DAY
     AND user_id IS NOT NULL
   GROUP BY user_id
 );
