@@ -158,24 +158,3 @@ class ClickHouseStreamWriterBase:
         if query_name:
             writer = writer.queryName(query_name)
         return writer.start()
-
-
-class ClickHouseBatchWriterBase:
-    """배치 데이터의 ClickHouse 적재를 담당한다."""
-
-    def __init__(self, batch_writer=write_to_clickhouse):
-        """배치 처리 함수를 주입한다."""
-        self._batch_writer = batch_writer
-
-    def write_batch(
-        self,
-        df: DataFrame,
-        table_name: str,
-        *,
-        deduplicate_keys: list[str] | None = None,
-    ):
-        """배치 데이터를 ClickHouse로 적재한다."""
-        out_df = df
-        if deduplicate_keys:
-            out_df = out_df.dropDuplicates(deduplicate_keys)
-        self._batch_writer(out_df, table_name)

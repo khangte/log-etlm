@@ -9,6 +9,22 @@ FastAPI 시뮬레이터가 Kafka에 이벤트를 발행하면, Spark Structured 
 
 ---
 
+## 데이터 모델 방향
+
+ClickHouse는 컬럼 스토어(columnar storage) 기반 OLAP 엔진이다. RDBMS 기반의 킴벌 Star Schema(Fact + Dimension JOIN)와 달리, 필요한 컬럼만 디스크에서 읽기 때문에 Wide Table로 비정규화해도 I/O 비용이 없다. 또한 Materialized View가 INSERT 시점에 집계를 미리 계산해두므로 Dimension JOIN 없이도 동일한 분석 결과를 더 빠르게 제공할 수 있다.
+
+이 프로젝트는 이러한 ClickHouse 특성에 맞춘 **Wide Table + MV 서빙 모델**을 채택한다.
+
+| 레이어 | 테이블 | 역할 |
+|---|---|---|
+| 원본 | `fact_event` | 이벤트 로그 전체 속성을 비정규화 저장 (Wide Table) |
+| 서빙 | `fact_event_agg_*`, `fact_event_latency_*` 등 | MV가 INSERT 시 자동 집계. Grafana가 직접 쿼리 |
+| 이상 | `fact_event_dlq` | 파싱 실패 이벤트 격리 |
+
+Dimension 테이블과 배치 갱신 잡은 이 모델에서 불필요하므로 사용하지 않는다.
+
+---
+
 ## 시스템 구성
 
 ```
@@ -20,10 +36,10 @@ FastAPI 시뮬레이터가 Kafka에 이벤트를 발행하면, Spark Structured 
 │  │  (FastAPI)   │      │  (KRaft)     │     │  (Streaming)  │  │
 │  └──────────────┘      └──────────────┘     └───────┬───────┘  │
 │                                                      │          │
-│  ┌──────────────┐      ┌──────────────┐     ┌───────▼───────┐  │
-│  │   grafana    │◀─────│  clickhouse  │◀────│  spark-batch  │  │
-│  │  (dashboard) │      │   (OLAP)     │     │  (DIM 갱신)   │  │
-│  └──────────────┘      └──────────────┘     └───────────────┘  │
+│  ┌──────────────┐      ┌──────────────┐             │          │
+│  │   grafana    │◀─────│  clickhouse  │◀────────────┘          │
+│  │  (dashboard) │      │   (OLAP)     │                        │
+│  └──────────────┘      └──────────────┘                        │
 │                                                                 │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
 │  │  kafka-ui    │  │    ch-ui     │  │      watchdog        │  │
@@ -52,8 +68,6 @@ FastAPI 시뮬레이터가 Kafka에 이벤트를 발행하면, Spark Structured 
 [ClickHouse] ──Materialized View──▶ 집계 테이블 (1m / 10s)
 
 [Grafana] ──SELECT──▶ 집계 테이블 ──▶ 대시보드 패널
-
-[spark-batch] ──(수동/크론)──▶ [ClickHouse] analytics.dim_*
 ```
 
 ---
@@ -244,7 +258,7 @@ bad_df
 
 ```
 analytics
-├── fact_event               MergeTree,  TTL 1일  (원본 이벤트)
+├── fact_event               MergeTree,  TTL 1일  (원본 이벤트 — Wide Table)
 ├── fact_event_dlq           MergeTree,  TTL 7일  (파싱 실패)
 ├── stream_batch_guard       MergeTree,  TTL 30일 (배치 멱등성)
 │
@@ -256,9 +270,7 @@ analytics
 ├── fact_event_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
 │
 ├── fact_event_agg_10s       AggregatingMergeTree, TTL 1일  (10초 실시간 EPS)
-├── fact_event_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연 — Grafana 주 참조)
-│
-└── dim_service / dim_status_code / dim_date / dim_time / dim_user   (배치 갱신)
+└── fact_event_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연 — Grafana 주 참조)
 ```
 
 #### Materialized View 동작
@@ -295,25 +307,7 @@ Spark `foreachBatch`의 exactly-once를 보완한다. 가드 테이블 미존재
 
 ---
 
-### 5. spark-batch (DIM 배치)
-
-**기동**: `docker compose run --rm spark-batch` 또는 크론  
-**역할**: `fact_event`에서 최근 N일 데이터를 읽어 5개 차원 테이블을 갱신한다.
-
-```
-fact_event (최근 DIM_BATCH_LOOKBACK_DAYS일)
-    ├──▶ parse_dim_date()        → dim_date
-    ├──▶ parse_dim_time()        → dim_time
-    ├──▶ parse_dim_service()     → dim_service  (service_map CSV 선택 적용)
-    ├──▶ parse_dim_status_code() → dim_status_code
-    └──▶ parse_dim_user()        → dim_user
-```
-
-> DIM 배치는 자동 실행되지 않는다. 수동 실행 또는 크론(`scripts/dim_spark_batch.sh`) 필요.
-
----
-
-### 6. Grafana
+### 5. Grafana
 
 **이미지**: `grafana/grafana:10.4.2`  
 **플러그인**: `grafana-clickhouse-datasource`  
@@ -323,7 +317,6 @@ fact_event (최근 DIM_BATCH_LOOKBACK_DAYS일)
 |---|---|---|---|
 | `ops_monitoring.json` | 1분 집계 | 1분 | EPS, 에러율, E2E 지연 p95, Freshness, 생성·적재 비율, 단계별 지연 |
 | `realtime.json` | 10초 집계 | 30초 | 실시간 EPS, 지연 |
-| `dim_overview.json` | dim 테이블 | 비활성 | 서비스·상태코드 현황 |
 
 > 프로비저닝 파일(`provisioning/`)이 source-of-truth. `allowUiUpdates: false`로 UI 수정이 파일을 덮지 않도록 설정되어 있다.
 
@@ -395,10 +388,9 @@ log-etlm/
 │   ├── producer/           # confluent_kafka 래퍼
 │   └── config/             # profiles.yml, routes.yml, timeband
 │
-├── spark_job/              # Spark 스트리밍·배치 잡
+├── spark_job/              # Spark 스트리밍 잡
 │   ├── fact/               # 팩트 이벤트 파싱·정규화·적재
 │   ├── dlq/                # DLQ 파싱·적재
-│   ├── dimension/          # DIM 배치 잡
 │   └── clickhouse/         # ClickHouse JDBC 싱크 공통 (배치 가드 포함)
 │
 ├── infra/
@@ -407,7 +399,7 @@ log-etlm/
 │   │   ├── config.d/       # listen_host, async insert 로그
 │   │   └── users.d/        # log_user async 프로파일
 │   ├── grafana/
-│   │   ├── dashboards/     # ops_monitoring.json, realtime.json, dim_overview.json
+│   │   ├── dashboards/     # ops_monitoring.json, realtime.json
 │   │   └── provisioning/   # datasources/clickhouse.yaml, dashboards/default.yaml
 │   └── monitor/
 │       ├── main.py             # 진입점 (asyncio.gather)
@@ -418,7 +410,7 @@ log-etlm/
 │           ├── service_probes.py # Spark REST, Grafana health
 │           └── clickhouse_probe.py  # ClickHouse 집계 임계값 점검
 │
-├── scripts/                # 운영 유틸 (Spark 프로파일 전환, DIM 배치, 진단)
+├── scripts/                # 운영 유틸 (Spark 프로파일 전환, Kafka 지연 진단)
 ├── config/env/             # low·mid·high.env (Spark 튜닝 프로파일)
 ├── docs/
 │   ├── clickhouse_aggregate_guide.md

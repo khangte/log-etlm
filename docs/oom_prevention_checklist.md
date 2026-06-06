@@ -64,18 +64,7 @@
 - `SPARK_MAX_OFFSETS_PER_TRIGGER` 낮춰 배치 크기 축소
 - ClickHouse insert 부담이 클 때 `SPARK_CLICKHOUSE_JDBC_BATCHSIZE` 축소
 
-### 5. Spark Batch (DIM)
-**위험 신호**
-- 배치 실행 시간이 급격히 증가
-- executor/driver OOM 로그
-- shuffle spill 폭증
-
-**즉시 조치**
-- `DIM_BATCH_LOOKBACK_DAYS` 축소
-- `SPARK_BATCH_SHUFFLE_PARTITIONS` 증가
-- `SPARK_BATCH_DRIVER_MEMORY`, `SPARK_BATCH_EXECUTOR_MEMORY` 상향
-
-### 6. ClickHouse
+### 5. ClickHouse
 **위험 신호**
 - 쿼리 타임아웃, `Code: 241` 발생
 - insert latency 급증, MV 처리 지연
@@ -89,7 +78,7 @@
 - 10s MV 비활성화(부하 감소)
 - ClickHouse 컨테이너 `mem_limit` 상향(현재 8g) 및 여유 확인
 
-### 7. Grafana / UI
+### 6. Grafana / UI
 **위험 신호**
 - 대시보드 로딩 지연
 - 쿼리 실패/timeout 증가

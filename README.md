@@ -3,12 +3,12 @@
 ## 개요
 
 ![ops대시보드](images/화면%20캡처%202026-01-29%20151906.jpg)
-![dim대시보드](images/화면%20캡처%202026-01-28%20154256.jpg)
 
 대규모 로그 데이터에 대한 **수집, 처리, 모니터링**을 목표로 하는 **PoC(Proof of Concept) 프로젝트**입니다.
 
 - 대용량 이벤트 로그를 실시간으로 수집‧가공‧시각화하는 파이프라인을 검증했습니다.
 - FastAPI 기반 시뮬레이터가 Kafka 로그 토픽에 다양한 서비스 패턴을 발행하면, Spark Structured Streaming 잡이 이를 ClickHouse 분석 테이블로 적재하고 Grafana 대시보드로 노출합니다. 각 컴포넌트는 Docker Compose로 손쉽게 기동할 수 있으며, ClickHouse 초기 스키마와 Grafana 프로비저닝도 자동화되어 있어 부팅 직후부터 엔드투엔드 흐름을 검증할 수 있습니다.
+- **데이터 모델**: ClickHouse의 컬럼 스토어 특성을 활용한 **Wide Table + Materialized View 서빙 모델**. `fact_event`에 모든 속성을 비정규화 저장하고, MV가 INSERT 시 집계 테이블을 자동 갱신하며, Grafana는 집계 테이블만 쿼리한다. Dimension 테이블과 배치 갱신 잡은 사용하지 않는다.
 
 
 ## 목표 및 결과
@@ -38,14 +38,13 @@
    - 초기 스키마는 `infra/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
    - 기존 ClickHouse 데이터 볼륨을 재사용하는 환경이면 `analytics.stream_batch_guard`가 자동 생성되지 않을 수 있으므로, 필요 시 `infra/clickhouse/sql/10_fact.sql`의 DDL을 1회 수동 적용한다.
 5. **로그 시각화 및 모니터링**
-   - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 상태 코드 분포 시각화.
+   - Grafana는 프로비저닝된 ClickHouse 데이터 소스로 EPS, 오류율, 지연 등을 시각화.
    - 대시보드 JSON:
      - `infra/grafana/dashboards/ops_monitoring.json` (운영/1m 집계)
      - `infra/grafana/dashboards/realtime.json` (실시간/10s 집계)
-     - `infra/grafana/dashboards/dim_overview.json` (DIM)
-   - 실시간 대시보드는 10초 집계 테이블을 사용한다. 
+   - 실시간 대시보드는 10초 집계 테이블을 사용한다.
      - 부하가 크면 **10s MV를 DETACH해서 비활성화**할 수 있다.
-   - 기본 refresh: ops 30s / realtime 10s / dim 비활성화(빈 문자열).
+   - 기본 refresh: ops 1m / realtime 30s.
    - 운영 대시보드는 Freshness, Kafka→Spark ingest 지연, Spark 처리/ClickHouse INSERT/Grafana 쿼리 p95, **생성 대비 적재 비율(1m)** 등의 운영 지표가 포함된다.
    - `infra/monitor/main.py`는 Kafka/Spark/ClickHouse/Grafana 컨테이너 이벤트와 로그를 감시해 OOM, StreamingQueryException, health 변화 등을 Slack Webhook/CLI로 통지한다.
      - `ALERT_BREACH_GRACE_SEC`로 지연 스파이크가 일정 시간 이상 지속될 때만 알림을 보낼 수 있다.
@@ -195,7 +194,6 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ### 유틸 스크립트 목록
 - Spark 프로파일: `scripts/apply_spark_env.sh`, `scripts/current_spark_env.sh`, `scripts/autoswitch_spark_env.sh`
-- DIM 배치: `scripts/dim_spark_batch.sh`, `scripts/dim_clickhouse_batch.sh`
 - Kafka/Spark 지연: `scripts/check_backlog.sh`, `scripts/kafka_spark_lag.py`
 - ClickHouse 진단: `scripts/clickhouse_diagnostics.sh`, `scripts/diag_partition_and_partlog.sh`
 - 스파이크 분석: `scripts/publish_spike_diag.sh`
@@ -210,40 +208,3 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - DLQ: `analytics.fact_event_dlq_agg_1m` (service, error_type, total)
 
 
-## DIM 배치(차원 테이블 갱신)
-
-DIM 대시보드는 `analytics.dim_*` 테이블을 사용하며, **DIM 배치는 자동 실행되지 않습니다.**
-필요할 때 수동 실행하거나 크론으로 스케줄링합니다.
-
-- 대상 테이블: `dim_date`, `dim_time`, `dim_service`, `dim_status_code`, `dim_user`
-- 입력 소스: `analytics.fact_event`
-- 데이터 범위: 최근 N일 (`DIM_BATCH_LOOKBACK_DAYS`, 기본 1일)
-- 기준 시간: `ingest_ts` (dim_date, dim_time 생성 기준)
-
-### 1. Spark 배치 컨테이너 실행 (권장)
-
-```bash
-# 직접 실행
-docker compose run --rm spark-batch
-
-# 중복 실행 방지(flock) 포함 스크립트
-bash scripts/dim_spark_batch.sh
-```
-
-**옵션 환경 변수**
-- `DIM_BATCH_LOOKBACK_DAYS`: fact_event 조회 범위(일)
-- `DIM_SERVICE_MAP_PATH`: 서비스 메타 CSV 경로(선택)
-  - 헤더: `service,service_group,is_active,description`
-
-**크론 예시**
-```bash
-crontab -e
-0 2 * * * /home/kang/log-etlm/scripts/dim_spark_batch.sh >> /home/kang/log-etlm/logs/dim_batch.log 2>&1
-```
-
-### 2. ClickHouse SQL 배치 (Spark 없이 간단 실행)
-
-```bash
-# DIM_RESET=1이면 TRUNCATE 후 재적재(기본 1)
-DIM_LOOKBACK_DAYS=7 DIM_RESET=1 bash scripts/dim_clickhouse_batch.sh
-```
