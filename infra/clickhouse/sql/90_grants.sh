@@ -23,14 +23,11 @@ clickhouse-client --host localhost \
   --multiquery "
 GRANT SELECT ON analytics.event_log_agg_1m TO grafana_user;
 GRANT SELECT ON analytics.event_log_agg_10s TO grafana_user;
-GRANT SELECT ON analytics.event_log_latency_1m TO grafana_user;
-GRANT SELECT ON analytics.event_log_latency_10s TO grafana_user;
 GRANT SELECT ON analytics.event_log_lag_1m TO grafana_user;
 GRANT SELECT ON analytics.event_log_latency_service_1m TO grafana_user;
 GRANT SELECT ON analytics.event_log_latency_stage_10s TO grafana_user;
 GRANT SELECT ON analytics.event_log_dlq_agg_1m TO grafana_user;
 GRANT SELECT ON analytics.event_log_created_stored_1m TO grafana_user;
-GRANT SELECT ON analytics.event_log_freshness_1m TO grafana_user;
 GRANT SELECT ON analytics.event_log TO grafana_user;
 GRANT SELECT ON analytics.event_log_dlq TO grafana_user;
 GRANT SELECT ON system.parts TO grafana_user;

@@ -264,7 +264,6 @@ analytics
 │
 ├── event_log_agg_1m        AggregatingMergeTree, TTL 2일  (1분 EPS·에러율)
 ├── event_log_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연 — Grafana 주 참조)
-├── event_log_freshness_1m  AggregatingMergeTree, TTL 2일  (데이터 신선도)
 ├── event_log_created_stored_1m  SummingMT, TTL 2일  (생성·적재 비율)
 ├── event_log_lag_1m        SummingMergeTree,     TTL 2일  (event→ingest 편차)
 ├── event_log_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
@@ -280,8 +279,7 @@ analytics
 ```
 event_log INSERT
     ├──▶ mv_event_log_agg_1m              → countState(EPS, 에러율)
-    ├──▶ mv_event_log_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored)
-    ├──▶ mv_event_log_freshness_1m        → maxState(ingest_ts)
+    ├──▶ mv_event_log_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored) + maxState(ingest_ts)
     ├──▶ mv_event_log_created_stored_1m   → created/stored 버킷 카운트
     ├──▶ mv_event_log_lag_1m              → event_ts→ingest_ts 편차 누적
     ├──▶ mv_event_log_agg_10s             → 10초 EPS (부하 시 DETACH 가능)

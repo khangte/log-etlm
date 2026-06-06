@@ -176,7 +176,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', maxMerge(max_ingest_state), now()) AS freshness_ms\nFROM analytics.event_log_freshness_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', maxMerge(max_ingest_state), now()) AS freshness_ms\nFROM analytics.event_log_latency_service_1m\nWHERE bucket >= now() - INTERVAL 5 MINUTE\nORDER BY time ASC",
           "refId": "A"
         }
       ],

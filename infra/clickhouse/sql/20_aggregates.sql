@@ -41,31 +41,6 @@ ORDER BY bucket
 TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.event_log_latency_1m
-(
-    bucket     DateTime,
-    e2e_state  AggregateFunction(quantileTDigest, Float64),
-    sink_state AggregateFunction(quantileTDigest, Float64),
-    ingest_state AggregateFunction(quantileTDigest, Float64),
-    spark_processing_state AggregateFunction(quantileTDigest, Float64)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 7 DAY;
-
-
-CREATE TABLE IF NOT EXISTS analytics.event_log_freshness_1m
-(
-    bucket           DateTime,
-    max_ingest_state AggregateFunction(max, DateTime64(3))
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 7 DAY;
-
-
 CREATE TABLE IF NOT EXISTS analytics.event_log_latency_service_1m
 (
     bucket        DateTime,
@@ -74,7 +49,8 @@ CREATE TABLE IF NOT EXISTS analytics.event_log_latency_service_1m
     kafka_to_spark_ingest_state   AggregateFunction(quantileTDigest, Float64),
     spark_processing_state        AggregateFunction(quantileTDigest, Float64),
     spark_to_stored_state         AggregateFunction(quantileTDigest, Float64),
-    e2e_state     AggregateFunction(quantileTDigest, Float64)
+    e2e_state     AggregateFunction(quantileTDigest, Float64),
+    max_ingest_state AggregateFunction(max, DateTime64(3))
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
@@ -106,20 +82,6 @@ CREATE TABLE IF NOT EXISTS analytics.event_log_agg_10s
     bucket       DateTime,
     total_state  AggregateFunction(count, String),
     errors_state AggregateFunction(count, String)
-)
-ENGINE = AggregatingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 1 DAY;
-
-
-CREATE TABLE IF NOT EXISTS analytics.event_log_latency_10s
-(
-    bucket     DateTime,
-    e2e_state  AggregateFunction(quantileTDigest, Float64),
-    sink_state AggregateFunction(quantileTDigest, Float64),
-    ingest_state AggregateFunction(quantileTDigest, Float64),
-    spark_processing_state AggregateFunction(quantileTDigest, Float64)
 )
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)

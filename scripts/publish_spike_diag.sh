@@ -33,13 +33,13 @@ FORMAT PrettyCompact
 "
 
 echo
-echo "== sink/e2e p95 (stored_ts basis, last ${WINDOW_MIN}m) =="
+echo "== sink/e2e p95 (last ${WINDOW_MIN}m) =="
 run_query "
 SELECT
   bucket,
-  quantileTDigestMerge(0.95)(sink_state) AS sink_p95_ms,
+  quantileTDigestMerge(0.95)(spark_to_stored_state) AS sink_p95_ms,
   quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms
-FROM ${CLICKHOUSE_DB}.event_log_latency_1m
+FROM ${CLICKHOUSE_DB}.event_log_latency_service_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
 GROUP BY bucket
 ORDER BY bucket
@@ -47,12 +47,12 @@ FORMAT PrettyCompact
 "
 
 echo
-echo "== ingest->stored p95 (last ${WINDOW_MIN}m) =="
+echo "== kafka->spark ingest p95 (last ${WINDOW_MIN}m) =="
 run_query "
 SELECT
   bucket,
-  quantileTDigestMerge(0.95)(ingest_state) AS ingest_to_stored_p95_ms
-FROM ${CLICKHOUSE_DB}.event_log_latency_1m
+  quantileTDigestMerge(0.95)(kafka_to_spark_ingest_state) AS kafka_to_spark_ingest_p95_ms
+FROM ${CLICKHOUSE_DB}.event_log_latency_service_1m
 WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE
 GROUP BY bucket
 ORDER BY bucket

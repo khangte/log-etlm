@@ -54,17 +54,6 @@ GROUP BY bucket;
 -- mv_event_log_latency_service_1m이 동일 컬럼(e2e_state, spark_processing_state 등)을
 -- service 차원 포함하여 제공하므로 중복. Grafana 쿼리는 event_log_latency_service_1m으로 이전.
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_freshness_1m
-TO analytics.event_log_freshness_1m
-AS
-SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
-    maxState(ingest_ts) AS max_ingest_state
-FROM analytics.event_log
-WHERE ingest_ts IS NOT NULL
-GROUP BY bucket;
-
-
 -- 이 MV는 가장 CPU가 비싼 편. 중복 제거 + WITH로 diff 재사용.
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_latency_service_1m
 TO analytics.event_log_latency_service_1m
@@ -92,7 +81,8 @@ SELECT
     quantileTDigestState(toFloat64(greatest(kafka_to_spark_ingest_ms, 0))) AS kafka_to_spark_ingest_state,
     quantileTDigestState(toFloat64(greatest(spark_processing_ms, 0))) AS spark_processing_state,
     quantileTDigestState(toFloat64(greatest(spark_to_stored_ms, 0))) AS spark_to_stored_state,
-    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state
+    quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state,
+    maxState(i_ts) AS max_ingest_state
 FROM analytics.event_log
 WHERE created_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
