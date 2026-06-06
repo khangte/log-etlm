@@ -239,7 +239,7 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(event_ts), now()) AS freshness_ms\nFROM analytics.event_log\nWHERE ingest_ts >= now() - INTERVAL 5 MINUTE\n  AND event_ts IS NOT NULL\nORDER BY time ASC",
+          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(event_ts), now()) AS freshness_ms\nFROM analytics.event_log\nWHERE kafka_ingest_ts >= now() - INTERVAL 5 MINUTE\n  AND event_ts IS NOT NULL\nORDER BY time ASC",
           "refId": "A"
         }
       ],
@@ -553,7 +553,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "적재 시각(kafka_ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -623,7 +623,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "ingest_ts 기준 1분 집계에서 에러율(5xx)을 계산합니다.",
+      "description": "kafka_ingest_ts 기준 1분 집계에서 에러율(5xx)을 계산합니다.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -833,7 +833,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "적재 시각(kafka_ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -903,7 +903,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "적재 시각(kafka_ingest_ts) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {

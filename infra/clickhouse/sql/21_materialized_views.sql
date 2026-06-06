@@ -7,7 +7,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_agg_1m
 TO analytics.event_log_agg_1m
 AS
 SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
+    toStartOfMinute(kafka_ingest_ts) AS bucket,
     service,
     countState(event_id) AS total_state,
     countStateIf(event_id, status_code >= 500) AS errors_state
@@ -38,15 +38,15 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_lag_1m
 TO analytics.event_log_lag_1m
 AS
 WITH
-    dateDiff('second', event_ts, ingest_ts) AS lag_s
+    dateDiff('second', event_ts, kafka_ingest_ts) AS lag_s
 SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
+    toStartOfMinute(kafka_ingest_ts) AS bucket,
     sum(toUInt64(greatest(lag_s, 0))) AS sum_lag,
     count() AS cnt,
     countIf(lag_s < 0) AS skew_cnt
 FROM analytics.event_log
 WHERE event_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
+  AND kafka_ingest_ts IS NOT NULL
 GROUP BY bucket;
 
 
@@ -59,15 +59,15 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_latency_service_1m
 TO analytics.event_log_latency_service_1m
 AS
 WITH
-    -- bucket 기준을 ingest_ts로 통일 (1m 집계와 정렬)
-    toStartOfMinute(ingest_ts) AS bucket,
+    -- bucket 기준을 kafka_ingest_ts로 통일 (1m 집계와 정렬)
+    toStartOfMinute(kafka_ingest_ts) AS bucket,
 
     -- null 제거 후 쓰려고 where로 강제했으니 assumeNotNull은 필수는 아니지만
     -- 타입 때문에 남겨야 하면 유지.
     assumeNotNull(created_ts) AS c_ts,
-    assumeNotNull(ingest_ts) AS i_ts,
-    assumeNotNull(spark_ingest_ts) AS s_ingest,
-    -- 지연 시간 계산 (producer→kafka는 created_ts, e2e는 ingest_ts 기준)
+    assumeNotNull(kafka_ingest_ts) AS i_ts,
+    assumeNotNull(spark_ts) AS s_ingest,
+    -- 지연 시간 계산 (producer→kafka는 created_ts, e2e는 kafka_ingest_ts 기준)
     dateDiff('millisecond', c_ts, i_ts) AS producer_to_kafka_ms,    -- Producer 생성 ~ Kafka 수집
     dateDiff('millisecond', i_ts, s_ingest) AS kafka_to_spark_ingest_ms, -- Kafka 수집 ~ Spark 수집
     dateDiff('millisecond', s_ingest, processed_ts) AS spark_processing_ms, -- Spark 수집 ~ Spark 처리 완료
@@ -85,8 +85,8 @@ SELECT
     maxState(i_ts) AS max_ingest_state
 FROM analytics.event_log
 WHERE created_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
-  AND spark_ingest_ts IS NOT NULL
+  AND kafka_ingest_ts IS NOT NULL
+  AND spark_ts IS NOT NULL
   AND processed_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket, service;
@@ -96,7 +96,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_dlq_agg_1m
 TO analytics.event_log_dlq_agg_1m
 AS
 SELECT
-    toStartOfMinute(ingest_ts) AS bucket,
+    toStartOfMinute(kafka_ingest_ts) AS bucket,
     coalesce(service, 'unknown') AS service,
     coalesce(error_type, 'unknown') AS error_type,
     count() AS total
@@ -112,7 +112,7 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_agg_10s
 TO analytics.event_log_agg_10s
 AS
 SELECT
-    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
+    toStartOfInterval(kafka_ingest_ts, INTERVAL 10 second) AS bucket,
     countState(event_id) AS total_state,
     countStateIf(event_id, status_code >= 500) AS errors_state
 FROM analytics.event_log
@@ -124,15 +124,15 @@ GROUP BY bucket;
 -- Grafana 쿼리는 event_log_latency_stage_10s로 이전.
 
 
--- producer→kafka는 created_ts 기준, bucket은 ingest_ts 10초 기준
+-- producer→kafka는 created_ts 기준, bucket은 kafka_ingest_ts 10초 기준
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_latency_stage_10s
 TO analytics.event_log_latency_stage_10s
 AS
 WITH
-    toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
+    toStartOfInterval(kafka_ingest_ts, INTERVAL 10 second) AS bucket,
     assumeNotNull(created_ts) AS c_ts,
-    assumeNotNull(ingest_ts) AS i_ts,
-    assumeNotNull(spark_ingest_ts) AS s_ingest,
+    assumeNotNull(kafka_ingest_ts) AS i_ts,
+    assumeNotNull(spark_ts) AS s_ingest,
     dateDiff('millisecond', c_ts, i_ts) AS producer_to_kafka_ms,
     dateDiff('millisecond', i_ts, s_ingest) AS kafka_to_spark_ingest_ms,
     dateDiff('millisecond', s_ingest, processed_ts) AS spark_processing_ms,
@@ -147,8 +147,8 @@ SELECT
     quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state
 FROM analytics.event_log
 WHERE created_ts IS NOT NULL
-  AND ingest_ts IS NOT NULL
-  AND spark_ingest_ts IS NOT NULL
+  AND kafka_ingest_ts IS NOT NULL
+  AND spark_ts IS NOT NULL
   AND processed_ts IS NOT NULL
   AND stored_ts IS NOT NULL
 GROUP BY bucket;

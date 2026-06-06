@@ -177,7 +177,7 @@ Kafka readStream
 parse_event()
   ├─ CAST(value AS STRING) → raw_json
   ├─ from_json(raw_json, log_value_schema) → json 구조체
-  ├─ spark_ingest_ts = current_timestamp()  ← Spark 파싱 시각
+  ├─ spark_ts = current_timestamp()  ← Spark 파싱 시각
   └─ kafka_ts, topic, partition, offset 보존
     │
     ▼
@@ -190,8 +190,8 @@ normalize_event()
   ├─ unified_ts_ms = COALESCE(ts_ms, timestamp_ms, kafka_ts×1000)
   ├─ created_ts = to_timestamp(unified_ts_ms / 1000)
   ├─ event_ts = created_ts           ← dedup/watermark 기준
-  ├─ ingest_ts = kafka_ts            ← Kafka 도착 시각
-  ├─ ingest_ms = ingest_ts - event_ts
+  ├─ kafka_ingest_ts = kafka_ts            ← Kafka 도착 시각
+  ├─ ingest_ms = kafka_ingest_ts - event_ts
   └─ 레거시 필드 coalesce (path, event, timestamp_ms)
     │
     ▼
@@ -203,7 +203,7 @@ ClickHouseFactWriter.write_event_log_stream()
        ├─ coalesce(SPARK_CLICKHOUSE_WRITE_PARTITIONS)
        ├─ dropDuplicates(dedup_keys)          ← 배치 dedup (SPARK_FACT_DEDUP_WATERMARK 미설정 시 기본)
        ├─ processed_ts = current_timestamp()  ← sink 직전 재계산
-       ├─ process_ms = processed_ts - spark_ingest_ts
+       ├─ process_ms = processed_ts - spark_ts
        └─ write_to_clickhouse()
             ├─ 배치 가드 체크 (stream_batch_guard)
             ├─ JDBC write → analytics.event_log
@@ -226,9 +226,9 @@ bad_df
 |---|---|---|
 | `created_ts` | 이벤트 생성 시각 (ts_ms 기반) | normalize_event |
 | `event_ts` | dedup·watermark 기준 (= created_ts) | normalize_event |
-| `ingest_ts` | Kafka 도착 시각 (= kafka_ts) | normalize_event |
+| `kafka_ingest_ts` | Kafka 도착 시각 (= kafka_ts) | normalize_event |
 | `kafka_ts` | Kafka timestamp | parse_event |
-| `spark_ingest_ts` | Spark 파싱 시각 | parse_event |
+| `spark_ts` | Spark 파싱 시각 | parse_event |
 | `processed_ts` | foreachBatch 직전 재계산 | writer_base |
 | `stored_ts` | ClickHouse DEFAULT now64(3) | ClickHouse DDL |
 
@@ -279,9 +279,9 @@ analytics
 ```
 event_log INSERT
     ├──▶ mv_event_log_agg_1m              → countState(EPS, 에러율)
-    ├──▶ mv_event_log_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored) + maxState(ingest_ts)
+    ├──▶ mv_event_log_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored) + maxState(kafka_ingest_ts)
     ├──▶ mv_event_log_created_stored_1m   → created/stored 버킷 카운트
-    ├──▶ mv_event_log_lag_1m              → event_ts→ingest_ts 편차 누적
+    ├──▶ mv_event_log_lag_1m              → event_ts→kafka_ingest_ts 편차 누적
     ├──▶ mv_event_log_agg_10s             → 10초 EPS (부하 시 DETACH 가능)
     └──▶ mv_event_log_latency_stage_10s   → 10초 단계 지연
 ```
@@ -354,11 +354,11 @@ asyncio.gather()
 
 | 지표 | 계산식 | 의미 |
 |---|---|---|
-| **ingest 지연** | `ingest_ts - event_ts` | Producer 생성 → Kafka 도착 |
-| **kafka→spark 지연** | `spark_ingest_ts - ingest_ts` | Kafka → Spark 파싱 |
-| **spark processing** | `processed_ts - spark_ingest_ts` | Spark 파싱 → ClickHouse 전송 직전 |
+| **ingest 지연** | `kafka_ingest_ts - event_ts` | Producer 생성 → Kafka 도착 |
+| **kafka→spark 지연** | `spark_ts - kafka_ingest_ts` | Kafka → Spark 파싱 |
+| **spark processing** | `processed_ts - spark_ts` | Spark 파싱 → ClickHouse 전송 직전 |
 | **sink 지연** | `stored_ts - processed_ts` | Spark → ClickHouse 적재 |
-| **E2E (운영 기준)** | `stored_ts - ingest_ts` | Kafka 도착 → ClickHouse 적재 |
+| **E2E (운영 기준)** | `stored_ts - kafka_ingest_ts` | Kafka 도착 → ClickHouse 적재 |
 | **생성·적재 비율** | `stored_cnt / created_cnt` (1분 버킷) | 지연 클 때 0%로 보일 수 있음 |
 
 ---

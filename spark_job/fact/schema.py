@@ -46,9 +46,9 @@ log_value_schema: T.StructType = T.StructType(
 FACT_EVENT_COLUMNS: list[str] = [
     # 1) 시간
     "event_ts",
-    "ingest_ts",
+    "kafka_ingest_ts",
     "kafka_ts",
-    "spark_ingest_ts",
+    "spark_ts",
     "processed_ts",
     "created_ts",
 

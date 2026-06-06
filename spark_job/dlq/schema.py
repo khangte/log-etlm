@@ -38,7 +38,7 @@ DLQ_VALUE_COLUMNS: list[str] = [
 
 # event_log_dlq 컬럼 순서
 FACT_EVENT_DLQ_COLUMNS: list[str] = [
-    "ingest_ts",
+    "kafka_ingest_ts",
     "processed_ts",
     "service",
     "event_id",

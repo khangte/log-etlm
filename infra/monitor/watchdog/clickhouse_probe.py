@@ -81,9 +81,9 @@ LEFT JOIN
   (
     SELECT
       1 AS k,
-      dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms
+      dateDiff('millisecond', max(kafka_ingest_ts), now()) AS freshness_ms
     FROM analytics.event_log
-    WHERE ingest_ts >= now() - INTERVAL 10 MINUTE
+    WHERE kafka_ingest_ts >= now() - INTERVAL 10 MINUTE
   ) AS fresh
 ON base.k = fresh.k
 LEFT JOIN

@@ -21,7 +21,7 @@ def parse_event(kafka_df: DataFrame, *, need_raw_json: bool = False) -> DataFram
             F.from_json(F.col("raw_json"), log_value_schema),
         )
         .withColumn(
-            "spark_ingest_ts",
+            "spark_ts",
             F.current_timestamp(),
         )
     )

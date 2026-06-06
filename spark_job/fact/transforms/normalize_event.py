@@ -80,11 +80,11 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             F.col("partition").cast("int").alias("kafka_partition"),
             F.col("offset").cast("long").alias("kafka_offset"),
             F.col("kafka_ts"),
-            F.col("spark_ingest_ts"),
+            F.col("spark_ts"),
             (F.col("raw_json") if store_raw_json else F.lit("")).alias("raw_json"),
         )
         .withColumn(
-            "ingest_ts",
+            "kafka_ingest_ts",
             F.col("kafka_ts"),
         )
         .withColumn(

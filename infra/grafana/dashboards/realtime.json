@@ -119,7 +119,7 @@
           "refId": "A"
         }
       ],
-      "title": "로그 EPS (ingest_ts 기준) (10s)",
+      "title": "로그 EPS (kafka_ingest_ts 기준) (10s)",
       "type": "timeseries"
     },
     {

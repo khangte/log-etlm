@@ -20,7 +20,7 @@ def parse_dlq(dlq_source: DataFrame) -> DataFrame:
         .where(F.col("json").isNotNull())
     )
     dlq_df = dlq_parsed.select(
-        F.col("kafka_ts").alias("ingest_ts"),
+        F.col("kafka_ts").alias("kafka_ingest_ts"),
         F.current_timestamp().alias("processed_ts"),
         F.col("json.service").alias("service"),
         F.col("json.event_id").alias("event_id"),
