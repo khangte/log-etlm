@@ -14,7 +14,6 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("event_name",     T.StringType(),  True),
         T.StructField("domain",         T.StringType(),  True),
         T.StructField("ts_ms",          T.LongType(),    True),
-        T.StructField("created_ts_ms",  T.LongType(),    True), # E2E 측정의 기준이 되는 이벤트 생성 시각
         T.StructField("service",        T.StringType(),  True),
         T.StructField("request_id",     T.StringType(),  True),
         T.StructField("method",         T.StringType(),  True),
@@ -52,8 +51,6 @@ FACT_EVENT_COLUMNS: list[str] = [
     "spark_ingest_ts",
     "processed_ts",
     "created_ts",
-    "ingest_ms",
-    "process_ms",
 
     # 2) 식별자 / 상관관계
     "request_id",

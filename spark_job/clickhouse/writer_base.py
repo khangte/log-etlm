@@ -93,28 +93,6 @@ class ClickHouseStreamWriterBase:
             # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
             if "processed_ts" in out_df.columns:
                 out_df = out_df.withColumn("processed_ts", F.current_timestamp())
-                if "spark_ingest_ts" in out_df.columns and "process_ms" in out_df.columns:
-                    out_df = out_df.withColumn(
-                        "process_ms",
-                        (
-                            F.when(
-                                F.col("processed_ts").isNull()
-                                | F.col("spark_ingest_ts").isNull(),
-                                F.lit(None),
-                            )
-                            .otherwise(
-                                F.greatest(
-                                    (
-                                        F.col("processed_ts").cast("double")
-                                        - F.col("spark_ingest_ts").cast("double")
-                                    )
-                                    * F.lit(1000.0),
-                                    F.lit(0.0),
-                                )
-                            )
-                            .cast("int")
-                        ),
-                    )
 
             transform_elapsed = time.perf_counter() - start_time
             line = (
