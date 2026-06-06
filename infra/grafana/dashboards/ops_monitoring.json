@@ -189,7 +189,6 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 e2e p95 판정용",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -244,7 +243,8 @@
         }
       ],
       "title": "Freshness(event) (최근 5분)",
-      "type": "stat"
+      "type": "stat",
+      "description": "event_timestamp 기준 freshness(ms) — 최근 5분 내 이벤트의 max(event_timestamp)~now()"
     },
     {
       "datasource": {
@@ -309,7 +309,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 e2e p95 판정용",
+      "description": "kafka→spark ingest p95(ms) — 최근 5분 기준",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -371,7 +371,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 e2e p95 판정용",
+      "description": "ClickHouse INSERT p95(ms) — system.query_log 기준 최근 5분",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -433,7 +433,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "최근 5분 e2e p95 판정용",
+      "description": "Grafana 쿼리 p95(ms) — system.query_log 기준 최근 5분 (grafana_user)",
       "fieldConfig": {
         "defaults": {
           "mappings": [],
@@ -833,7 +833,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(kafka_received_at) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "Spark processing p95(ms) — spark_received_at→spark_processed_at 기준 (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -903,7 +903,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "적재 시각(kafka_received_at) 기준 EPS입니다. Spark 처리량과 직접 연동됩니다. (1분 집계)",
+      "description": "kafka→spark ingest p95/p99(ms) — event_log_latency_service_1m 기준 (1분 집계)",
       "fieldConfig": {
         "defaults": {
           "color": {
