@@ -4,13 +4,13 @@ set -euo pipefail
 # 용도: Kafka 최신 오프셋과 Spark 체크포인트를 비교해 토픽별 backlog를 출력한다.
 # 사용법:
 #   SUDO=sudo scripts/check_backlog.sh
-#   TOPICS="logs.auth,logs.order" CHECKPOINT_DIR=/data/log-etlm/spark_checkpoints/fact_event scripts/check_backlog.sh
+#   TOPICS="logs.auth,logs.order" CHECKPOINT_DIR=/data/log-etlm/spark_checkpoints/event_log scripts/check_backlog.sh
 
 SUDO="${SUDO:-}"
 SPARK_SERVICE="${SPARK_SERVICE:-spark-driver}"
 KAFKA_SERVICE="${KAFKA_SERVICE:-kafka}"
 KAFKA_BROKER="${KAFKA_BROKER:-kafka:9092}"
-CHECKPOINT_DIR="${CHECKPOINT_DIR:-/data/log-etlm/spark_checkpoints/fact_event}"
+CHECKPOINT_DIR="${CHECKPOINT_DIR:-/data/log-etlm/spark_checkpoints/event_log}"
 TOPICS="${TOPICS:-}"
 
 compose_cmd=(docker compose)

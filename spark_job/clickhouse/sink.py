@@ -51,7 +51,7 @@ def _build_failed_fact_dlq_payload(
     error_type: str,
     error_message: str,
 ) -> DataFrame:
-    """fact_event 쓰기 실패 배치를 DLQ payload 스키마로 변환한다."""
+    """event_log 쓰기 실패 배치를 DLQ payload 스키마로 변환한다."""
     trimmed_message = (error_message or "")[:2000]
     created_ms = (
         F.when(F.col("kafka_ts").isNotNull(), (F.col("kafka_ts").cast("double") * F.lit(1000)).cast("long"))
@@ -92,10 +92,10 @@ def _write_failed_fact_batch_to_dlq(
     batch_id: int | None,
     error: Exception,
 ) -> bool:
-    """최종 실패한 fact_event 배치를 DLQ Kafka로 우회 적재한다."""
+    """최종 실패한 event_log 배치를 DLQ Kafka로 우회 적재한다."""
     if not settings.dlq_on_final_failure:
         return False
-    if table_name != "analytics.fact_event":
+    if table_name != "analytics.event_log":
         return False
     if not settings.dlq_topic or not settings.kafka_bootstrap:
         logger.warning(

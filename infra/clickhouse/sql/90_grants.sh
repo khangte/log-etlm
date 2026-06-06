@@ -21,18 +21,18 @@ clickhouse-client --host localhost \
   --user "${CLICKHOUSE_USER}" \
   --password "${CLICKHOUSE_PASSWORD}" \
   --multiquery "
-GRANT SELECT ON analytics.fact_event_agg_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_agg_10s TO grafana_user;
-GRANT SELECT ON analytics.fact_event_latency_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_latency_10s TO grafana_user;
-GRANT SELECT ON analytics.fact_event_lag_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_latency_service_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_latency_stage_10s TO grafana_user;
-GRANT SELECT ON analytics.fact_event_dlq_agg_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_created_stored_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event_freshness_1m TO grafana_user;
-GRANT SELECT ON analytics.fact_event TO grafana_user;
-GRANT SELECT ON analytics.fact_event_dlq TO grafana_user;
+GRANT SELECT ON analytics.event_log_agg_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_agg_10s TO grafana_user;
+GRANT SELECT ON analytics.event_log_latency_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_latency_10s TO grafana_user;
+GRANT SELECT ON analytics.event_log_lag_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_latency_service_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_latency_stage_10s TO grafana_user;
+GRANT SELECT ON analytics.event_log_dlq_agg_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_created_stored_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log_freshness_1m TO grafana_user;
+GRANT SELECT ON analytics.event_log TO grafana_user;
+GRANT SELECT ON analytics.event_log_dlq TO grafana_user;
 GRANT SELECT ON system.parts TO grafana_user;
 GRANT SELECT ON system.merges TO grafana_user;
 GRANT SELECT ON system.query_log TO grafana_user;

@@ -8,7 +8,7 @@
 
 - 대용량 이벤트 로그를 실시간으로 수집‧가공‧시각화하는 파이프라인을 검증했습니다.
 - FastAPI 기반 시뮬레이터가 Kafka 로그 토픽에 다양한 서비스 패턴을 발행하면, Spark Structured Streaming 잡이 이를 ClickHouse 분석 테이블로 적재하고 Grafana 대시보드로 노출합니다. 각 컴포넌트는 Docker Compose로 손쉽게 기동할 수 있으며, ClickHouse 초기 스키마와 Grafana 프로비저닝도 자동화되어 있어 부팅 직후부터 엔드투엔드 흐름을 검증할 수 있습니다.
-- **데이터 모델**: ClickHouse의 컬럼 스토어 특성을 활용한 **Wide Table + Materialized View 서빙 모델**. `fact_event`에 모든 속성을 비정규화 저장하고, MV가 INSERT 시 집계 테이블을 자동 갱신하며, Grafana는 집계 테이블만 쿼리한다. Dimension 테이블과 배치 갱신 잡은 사용하지 않는다.
+- **데이터 모델**: ClickHouse의 컬럼 스토어 특성을 활용한 **Wide Table + Materialized View 서빙 모델**. `event_log`에 모든 속성을 비정규화 저장하고, MV가 INSERT 시 집계 테이블을 자동 갱신하며, Grafana는 집계 테이블만 쿼리한다. Dimension 테이블과 배치 갱신 잡은 사용하지 않는다.
 
 
 ## 목표 및 결과
@@ -34,7 +34,7 @@
    - Spark Structured Streaming이 fact/DLQ 스트림을 분리 구독해 정규화·중복 제거 후 적재.
    - `event_id` 기준 워터마크 dedup으로 중복 이벤트를 제거하며, 체크포인트로 장애 복구 시점을 유지.
 4. **로그 저장**
-   - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.fact_event`, `analytics.fact_event_dlq` 테이블에 스트리밍 적재.
+   - `spark_job/fact/writers/fact_writer.py`, `spark_job/dlq/writers/dlq_writer.py`가 ClickHouse `analytics.event_log`, `analytics.event_log_dlq` 테이블에 스트리밍 적재.
    - 초기 스키마는 `infra/clickhouse/sql/*.sql`로 자동 생성, `/data/log-etlm/clickhouse` 볼륨 영속화.
    - 기존 ClickHouse 데이터 볼륨을 재사용하는 환경이면 `analytics.stream_batch_guard`가 자동 생성되지 않을 수 있으므로, 필요 시 `infra/clickhouse/sql/10_fact.sql`의 DDL을 1회 수동 적용한다.
 5. **로그 시각화 및 모니터링**
@@ -205,6 +205,6 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - sink: `processed_ts → stored_ts` (Spark → ClickHouse 적재 지연)
 - end-to-end(ops): `ingest_ts → stored_ts` (전체 지연)
 - 생성 대비 적재 비율: `created_ts` 대비 `stored_ts` 비율 (1분 버킷 기준, 지연이 크면 0%로 보일 수 있음)
-- DLQ: `analytics.fact_event_dlq_agg_1m` (service, error_type, total)
+- DLQ: `analytics.event_log_dlq_agg_1m` (service, error_type, total)
 
 

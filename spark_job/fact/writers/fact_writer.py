@@ -14,7 +14,7 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
         super().__init__()
         self._settings = settings or get_fact_stream_settings()
 
-    def write_fact_event_stream(self, df: DataFrame):
+    def write_event_log_stream(self, df: DataFrame):
         """팩트 이벤트 스트림을 적재한다."""
         trigger_processing_time = self._settings.trigger_interval
         out_df = df
@@ -43,8 +43,8 @@ class ClickHouseFactWriter(ClickHouseStreamWriterBase):
             out_df,
             self._settings.table_name,
             self._settings.checkpoint_dir,
-            query_name="fact_event_stream",
-            stream_name="fact_event",
+            query_name="event_log_stream",
+            stream_name="event_log",
             deduplicate_keys=batch_dedup_keys,
             skip_empty=self._settings.skip_empty_batch,
             trigger_processing_time=trigger_processing_time,

@@ -39,11 +39,11 @@ log_value_schema: T.StructType = T.StructType(
 
 
 # -----------------------------------------------------------------------------
-# 2) ClickHouse analytics.fact_event 적재 컬럼 순서
+# 2) ClickHouse analytics.event_log 적재 컬럼 순서
 #    - stored_ts는 ClickHouse DEFAULT(now64)로 채워지므로 제외
 # -----------------------------------------------------------------------------
 
-# fact_event 컬럼 순서
+# event_log 컬럼 순서
 FACT_EVENT_COLUMNS: list[str] = [
     # 1) 시간
     "event_ts",

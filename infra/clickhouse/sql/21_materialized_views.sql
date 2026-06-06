@@ -1,27 +1,27 @@
 -- ============================================================================
--- Materialized views for fact_event aggregates (lighter version)
+-- Materialized views for event_log aggregates (lighter version)
 -- - WITH로 time diff 계산을 재사용해 함수 호출 수 절감
 -- ============================================================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_agg_1m
-TO analytics.fact_event_agg_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_agg_1m
+TO analytics.event_log_agg_1m
 AS
 SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     service,
     countState(event_id) AS total_state,
     countStateIf(event_id, status_code >= 500) AS errors_state
-FROM analytics.fact_event
+FROM analytics.event_log
 GROUP BY bucket, service;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_created_stored_1m
-TO analytics.fact_event_created_stored_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_created_stored_1m
+TO analytics.event_log_created_stored_1m
 AS
 SELECT
     toStartOfMinute(created_ts) AS bucket,
     count() AS created_cnt,
     toUInt64(0) AS stored_cnt
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE created_ts IS NOT NULL
 GROUP BY bucket
 UNION ALL
@@ -29,13 +29,13 @@ SELECT
     toStartOfMinute(stored_ts) AS bucket,
     toUInt64(0) AS created_cnt,
     count() AS stored_cnt
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE stored_ts IS NOT NULL
 GROUP BY bucket;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_lag_1m
-TO analytics.fact_event_lag_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_lag_1m
+TO analytics.event_log_lag_1m
 AS
 WITH
     dateDiff('second', event_ts, ingest_ts) AS lag_s
@@ -44,30 +44,30 @@ SELECT
     sum(toUInt64(greatest(lag_s, 0))) AS sum_lag,
     count() AS cnt,
     countIf(lag_s < 0) AS skew_cnt
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE event_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
 GROUP BY bucket;
 
 
--- mv_fact_event_latency_1m 제거됨 (2026-05-20):
--- mv_fact_event_latency_service_1m이 동일 컬럼(e2e_state, spark_processing_state 등)을
--- service 차원 포함하여 제공하므로 중복. Grafana 쿼리는 fact_event_latency_service_1m으로 이전.
+-- mv_event_log_latency_1m 제거됨 (2026-05-20):
+-- mv_event_log_latency_service_1m이 동일 컬럼(e2e_state, spark_processing_state 등)을
+-- service 차원 포함하여 제공하므로 중복. Grafana 쿼리는 event_log_latency_service_1m으로 이전.
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_freshness_1m
-TO analytics.fact_event_freshness_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_freshness_1m
+TO analytics.event_log_freshness_1m
 AS
 SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     maxState(ingest_ts) AS max_ingest_state
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE ingest_ts IS NOT NULL
 GROUP BY bucket;
 
 
 -- 이 MV는 가장 CPU가 비싼 편. 중복 제거 + WITH로 diff 재사용.
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_service_1m
-TO analytics.fact_event_latency_service_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_latency_service_1m
+TO analytics.event_log_latency_service_1m
 AS
 WITH
     -- bucket 기준을 ingest_ts로 통일 (1m 집계와 정렬)
@@ -93,7 +93,7 @@ SELECT
     quantileTDigestState(toFloat64(greatest(spark_processing_ms, 0))) AS spark_processing_state,
     quantileTDigestState(toFloat64(greatest(spark_to_stored_ms, 0))) AS spark_to_stored_state,
     quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE created_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
   AND spark_ingest_ts IS NOT NULL
@@ -102,15 +102,15 @@ WHERE created_ts IS NOT NULL
 GROUP BY bucket, service;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_dlq_agg_1m
-TO analytics.fact_event_dlq_agg_1m
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_dlq_agg_1m
+TO analytics.event_log_dlq_agg_1m
 AS
 SELECT
     toStartOfMinute(ingest_ts) AS bucket,
     coalesce(service, 'unknown') AS service,
     coalesce(error_type, 'unknown') AS error_type,
     count() AS total
-FROM analytics.fact_event_dlq
+FROM analytics.event_log_dlq
 GROUP BY bucket, service, error_type;
 
 
@@ -118,25 +118,25 @@ GROUP BY bucket, service, error_type;
 -- Realtime materialized views (10 second buckets)
 -- ============================================================================
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_agg_10s
-TO analytics.fact_event_agg_10s
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_agg_10s
+TO analytics.event_log_agg_10s
 AS
 SELECT
     toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
     countState(event_id) AS total_state,
     countStateIf(event_id, status_code >= 500) AS errors_state
-FROM analytics.fact_event
+FROM analytics.event_log
 GROUP BY bucket;
 
 
--- mv_fact_event_latency_10s 제거됨 (2026-05-20):
--- mv_fact_event_latency_stage_10s가 e2e_state를 포함하여 제공하므로 중복.
--- Grafana 쿼리는 fact_event_latency_stage_10s로 이전.
+-- mv_event_log_latency_10s 제거됨 (2026-05-20):
+-- mv_event_log_latency_stage_10s가 e2e_state를 포함하여 제공하므로 중복.
+-- Grafana 쿼리는 event_log_latency_stage_10s로 이전.
 
 
 -- producer→kafka는 created_ts 기준, bucket은 ingest_ts 10초 기준
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_fact_event_latency_stage_10s
-TO analytics.fact_event_latency_stage_10s
+CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_latency_stage_10s
+TO analytics.event_log_latency_stage_10s
 AS
 WITH
     toStartOfInterval(ingest_ts, INTERVAL 10 second) AS bucket,
@@ -155,7 +155,7 @@ SELECT
     quantileTDigestState(toFloat64(greatest(spark_processing_ms, 0))) AS spark_processing_state,
     quantileTDigestState(toFloat64(greatest(spark_to_stored_ms, 0))) AS spark_to_stored_state,
     quantileTDigestState(toFloat64(greatest(e2e_ms, 0))) AS e2e_state
-FROM analytics.fact_event
+FROM analytics.event_log
 WHERE created_ts IS NOT NULL
   AND ingest_ts IS NOT NULL
   AND spark_ingest_ts IS NOT NULL

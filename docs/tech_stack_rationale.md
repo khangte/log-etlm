@@ -114,8 +114,8 @@ Kafka에서 소비한 이벤트를 정규화·중복 제거하여 ClickHouse에 
 
 수집된 이벤트를 저장하고 Grafana가 실시간으로 EPS·지연·에러율 등을 쿼리할 수 있는 OLAP 저장소가 필요했다.
 
-- **Wide Table + MV 서빙 모델**: 킴벌 Star Schema(Fact + Dimension JOIN)는 RDBMS 행 스토어의 한계를 극복하기 위한 패턴이다. ClickHouse는 컬럼 스토어 기반으로 필요한 컬럼만 읽으므로 Wide Table로 비정규화해도 I/O 비용이 없다. `fact_event`에 모든 속성을 저장하고, Dimension 테이블 없이 MV만으로 집계를 처리한다
-- **Materialized View 자동 집계**: `fact_event` INSERT 시 MV가 자동으로 1분/10초 집계 테이블을 갱신. Spark는 원본 데이터만 쓰면 되고, 별도 집계 잡 스케줄링이 불필요
+- **Wide Table + MV 서빙 모델**: 킴벌 Star Schema(Fact + Dimension JOIN)는 RDBMS 행 스토어의 한계를 극복하기 위한 패턴이다. ClickHouse는 컬럼 스토어 기반으로 필요한 컬럼만 읽으므로 Wide Table로 비정규화해도 I/O 비용이 없다. `event_log`에 모든 속성을 저장하고, Dimension 테이블 없이 MV만으로 집계를 처리한다
+- **Materialized View 자동 집계**: `event_log` INSERT 시 MV가 자동으로 1분/10초 집계 테이블을 갱신. Spark는 원본 데이터만 쓰면 되고, 별도 집계 잡 스케줄링이 불필요
 - **`AggregatingMergeTree` + `quantileTDigest`**: p95 지연을 컬럼 스토리지 레벨에서 점진적으로 집계. Grafana 쿼리 시 집계 테이블만 SELECT하면 되어 응답 속도 빠름
 - **`async_insert` 프로파일**: Spark JDBC 소량 배치를 비동기 버퍼링해 INSERT 피크를 흡수. `log_user`에만 적용해 ingest 경로를 읽기 경로(`grafana_user`)와 자원 격리. `wait_for_async_insert=0`으로 설정해 JDBC `.save()` 반환을 flush 완료가 아닌 버퍼 수신 완료 시점으로 둠 — **throughput 우선 설계 선택**. flush 직전 재시작 시 데이터 유실 위험이 있으나 MergeTree 버퍼 손실은 실운영 기준으로도 드문 케이스여서 수용한다
 - **`stream_batch_guard` 테이블**: `foreachBatch` 재실행 시 중복 배치를 DB 레벨에서 skip해 Spark의 at-least-once를 effectively-once로 보완
@@ -124,7 +124,7 @@ Kafka에서 소비한 이벤트를 정규화·중복 제거하여 ClickHouse에 
 
 - 컬럼 스토리지 + `LowCardinality(String)` 타입으로 반복값 컬럼(service, domain 등) 압축률·조회 성능 향상
 - `Delta + ZSTD` 코덱으로 타임스탬프 컬럼 압축 최대화
-- TTL 정책(`fact_event` 1일, `fact_event_dlq` 7일 등)으로 디스크 사용량을 자동 관리
+- TTL 정책(`event_log` 1일, `event_log_dlq` 7일 등)으로 디스크 사용량을 자동 관리
 
 ### 단점
 

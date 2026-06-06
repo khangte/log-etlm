@@ -1,5 +1,5 @@
-# 파일명 : spark_job/fact/parsers/fact_event.py
-# 목적   : Kafka 원본 이벤트를 fact_event로 변환한다.
+# 파일명 : spark_job/fact/parsers/event_log.py
+# 목적   : Kafka 원본 이벤트를 event_log로 변환한다.
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from ..transforms.parse_event import parse_event
 from ..transforms.validate_event import validate_event
 
 
-def parse_fact_event_with_errors(
+def parse_event_log_with_errors(
     kafka_df: DataFrame,
     *,
     store_raw_json: bool = False,

@@ -52,7 +52,7 @@ LEFT JOIN
         bucket,
         countMerge(total_state) AS total,
         countMerge(errors_state) AS errors
-      FROM analytics.fact_event_agg_1m
+      FROM analytics.event_log_agg_1m
       WHERE bucket >= now() - INTERVAL 5 MINUTE
       GROUP BY bucket
       ORDER BY bucket DESC
@@ -70,7 +70,7 @@ LEFT JOIN
       quantileTDigestMerge(0.95)(spark_processing_state) AS spark_processing_p95_ms,
       quantileTDigestMerge(0.95)(spark_to_stored_state) AS spark_to_stored_p95_ms,
       quantileTDigestMerge(0.95)(e2e_state) AS e2e_p95_ms
-    FROM analytics.fact_event_latency_service_1m
+    FROM analytics.event_log_latency_service_1m
     WHERE bucket >= now() - INTERVAL 5 MINUTE
     GROUP BY bucket
     ORDER BY bucket DESC
@@ -82,7 +82,7 @@ LEFT JOIN
     SELECT
       1 AS k,
       dateDiff('millisecond', max(ingest_ts), now()) AS freshness_ms
-    FROM analytics.fact_event
+    FROM analytics.event_log
     WHERE ingest_ts >= now() - INTERVAL 10 MINUTE
   ) AS fresh
 ON base.k = fresh.k
@@ -94,13 +94,13 @@ LEFT JOIN
     FROM
     (
       SELECT sum(total) AS dlq
-      FROM analytics.fact_event_dlq_agg_1m
+      FROM analytics.event_log_dlq_agg_1m
       WHERE bucket >= now() - INTERVAL 5 MINUTE
     ) AS d
     CROSS JOIN
     (
       SELECT countMerge(total_state) AS total
-      FROM analytics.fact_event_agg_1m
+      FROM analytics.event_log_agg_1m
       WHERE bucket >= now() - INTERVAL 5 MINUTE
     ) AS t
   ) AS dlq

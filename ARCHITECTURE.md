@@ -17,9 +17,9 @@ ClickHouse는 컬럼 스토어(columnar storage) 기반 OLAP 엔진이다. RDBMS
 
 | 레이어 | 테이블 | 역할 |
 |---|---|---|
-| 원본 | `fact_event` | 이벤트 로그 전체 속성을 비정규화 저장 (Wide Table) |
-| 서빙 | `fact_event_agg_*`, `fact_event_latency_*` 등 | MV가 INSERT 시 자동 집계. Grafana가 직접 쿼리 |
-| 이상 | `fact_event_dlq` | 파싱 실패 이벤트 격리 |
+| 원본 | `event_log` | 이벤트 로그 전체 속성을 비정규화 저장 (Wide Table) |
+| 서빙 | `event_log_agg_*`, `event_log_latency_*` 등 | MV가 INSERT 시 자동 집계. Grafana가 직접 쿼리 |
+| 이상 | `event_log_dlq` | 파싱 실패 이벤트 격리 |
 
 Dimension 테이블과 배치 갱신 잡은 이 모델에서 불필요하므로 사용하지 않는다.
 
@@ -60,8 +60,8 @@ Dimension 테이블과 배치 갱신 잡은 이 모델에서 불필요하므로 
                                 logs.dlq (DLQ 우회)
 
 [spark-driver] ──subscribe──▶ [Kafka] ──foreachBatch──▶ [ClickHouse]
-  parse_event()                                           analytics.fact_event
-  validate_event()                                        analytics.fact_event_dlq
+  parse_event()                                           analytics.event_log
+  validate_event()                                        analytics.event_log_dlq
   normalize_event()
   dedup (watermark 또는 foreachBatch)
 
@@ -195,7 +195,7 @@ normalize_event()
   └─ 레거시 필드 coalesce (path, event, timestamp_ms)
     │
     ▼
-ClickHouseFactWriter.write_fact_event_stream()
+ClickHouseFactWriter.write_event_log_stream()
   ├─ [선택] withWatermark("event_ts", SPARK_FACT_DEDUP_WATERMARK)
   │         + dropDuplicatesWithinWatermark(["event_id"])  ← 상태 기반 dedup (WATERMARK 설정 시)
   │
@@ -206,7 +206,7 @@ ClickHouseFactWriter.write_fact_event_stream()
        ├─ process_ms = processed_ts - spark_ingest_ts
        └─ write_to_clickhouse()
             ├─ 배치 가드 체크 (stream_batch_guard)
-            ├─ JDBC write → analytics.fact_event
+            ├─ JDBC write → analytics.event_log
             └─ 배치 가드 기록
 ```
 
@@ -217,7 +217,7 @@ bad_df
   └─ KafkaDlqWriter → logs.dlq 토픽 재발행
        └─ KafkaStreamBuilder → logs.dlq 소비
             └─ build_dlq_stream_df() → parse_dlq()
-                 └─ ClickHouseDlqWriter → analytics.fact_event_dlq
+                 └─ ClickHouseDlqWriter → analytics.event_log_dlq
 ```
 
 #### 타임스탬프 컬럼 흐름
@@ -258,34 +258,34 @@ bad_df
 
 ```
 analytics
-├── fact_event               MergeTree,  TTL 1일  (원본 이벤트 — Wide Table)
-├── fact_event_dlq           MergeTree,  TTL 7일  (파싱 실패)
+├── event_log               MergeTree,  TTL 1일  (원본 이벤트 — Wide Table)
+├── event_log_dlq           MergeTree,  TTL 7일  (파싱 실패)
 ├── stream_batch_guard       MergeTree,  TTL 30일 (배치 멱등성)
 │
-├── fact_event_agg_1m        AggregatingMergeTree, TTL 2일  (1분 EPS·에러율)
-├── fact_event_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연 — Grafana 주 참조)
-├── fact_event_freshness_1m  AggregatingMergeTree, TTL 2일  (데이터 신선도)
-├── fact_event_created_stored_1m  SummingMT, TTL 2일  (생성·적재 비율)
-├── fact_event_lag_1m        SummingMergeTree,     TTL 2일  (event→ingest 편차)
-├── fact_event_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
+├── event_log_agg_1m        AggregatingMergeTree, TTL 2일  (1분 EPS·에러율)
+├── event_log_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연 — Grafana 주 참조)
+├── event_log_freshness_1m  AggregatingMergeTree, TTL 2일  (데이터 신선도)
+├── event_log_created_stored_1m  SummingMT, TTL 2일  (생성·적재 비율)
+├── event_log_lag_1m        SummingMergeTree,     TTL 2일  (event→ingest 편차)
+├── event_log_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
 │
-├── fact_event_agg_10s       AggregatingMergeTree, TTL 1일  (10초 실시간 EPS)
-└── fact_event_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연 — Grafana 주 참조)
+├── event_log_agg_10s       AggregatingMergeTree, TTL 1일  (10초 실시간 EPS)
+└── event_log_latency_stage_10s  AggMT, TTL 1일  (10초 단계 지연 — Grafana 주 참조)
 ```
 
 #### Materialized View 동작
 
-`fact_event` INSERT 시 각 MV가 자동으로 집계 테이블에 INSERT:
+`event_log` INSERT 시 각 MV가 자동으로 집계 테이블에 INSERT:
 
 ```
-fact_event INSERT
-    ├──▶ mv_fact_event_agg_1m              → countState(EPS, 에러율)
-    ├──▶ mv_fact_event_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored)
-    ├──▶ mv_fact_event_freshness_1m        → maxState(ingest_ts)
-    ├──▶ mv_fact_event_created_stored_1m   → created/stored 버킷 카운트
-    ├──▶ mv_fact_event_lag_1m              → event_ts→ingest_ts 편차 누적
-    ├──▶ mv_fact_event_agg_10s             → 10초 EPS (부하 시 DETACH 가능)
-    └──▶ mv_fact_event_latency_stage_10s   → 10초 단계 지연
+event_log INSERT
+    ├──▶ mv_event_log_agg_1m              → countState(EPS, 에러율)
+    ├──▶ mv_event_log_latency_service_1m  → 단계별 p95 (producer→kafka→spark→stored)
+    ├──▶ mv_event_log_freshness_1m        → maxState(ingest_ts)
+    ├──▶ mv_event_log_created_stored_1m   → created/stored 버킷 카운트
+    ├──▶ mv_event_log_lag_1m              → event_ts→ingest_ts 편차 누적
+    ├──▶ mv_event_log_agg_10s             → 10초 EPS (부하 시 DETACH 가능)
+    └──▶ mv_event_log_latency_stage_10s   → 10초 단계 지연
 ```
 
 #### 사용자 권한
@@ -367,7 +367,7 @@ asyncio.gather()
 
 ## 체크포인트 및 복구
 
-체크포인트 경로: `/data/log-etlm/spark_checkpoints/fact_event`
+체크포인트 경로: `/data/log-etlm/spark_checkpoints/event_log`
 
 ```bash
 # 체크포인트가 존재하면 SPARK_STARTING_OFFSETS는 무시되고 기존 오프셋에서 재개됨

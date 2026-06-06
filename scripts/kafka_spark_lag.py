@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 TOPICS = ["logs.auth", "logs.order", "logs.payment", "logs.error"]
 KAFKA_CONTAINER = "kafka"
 SPARK_CONTAINER = "spark-driver"
-CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event/offsets"
+CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/event_log/offsets"
 
 
 def sh(cmd: list[str]) -> str:

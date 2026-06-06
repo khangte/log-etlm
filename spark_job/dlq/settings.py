@@ -7,9 +7,9 @@ from typing import Mapping
 from common.get_env import get_env_bool, get_env_str
 
 
-FACT_EVENT_DLQ_TABLE = "analytics.fact_event_dlq"
-FACT_EVENT_DLQ_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event_dlq"
-FACT_EVENT_DLQ_KAFKA_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event_dlq_kafka"
+FACT_EVENT_DLQ_TABLE = "analytics.event_log_dlq"
+FACT_EVENT_DLQ_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/event_log_dlq"
+FACT_EVENT_DLQ_KAFKA_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/event_log_dlq_kafka"
 
 
 @dataclass(frozen=True)

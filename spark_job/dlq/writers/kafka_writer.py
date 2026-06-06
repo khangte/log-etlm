@@ -30,7 +30,7 @@ class KafkaDlqWriter:
             raise ValueError("KAFKA_BOOTSTRAP is required for DLQ Kafka writer")
         trigger_processing_time = self._settings.trigger_interval
         log_empty = self._settings.log_empty
-        query_name = "fact_event_dlq_kafka_stream"
+        query_name = "event_log_dlq_kafka_stream"
         stream_name = "dlq_kafka"
         prefix = (
             "[spark batch] "

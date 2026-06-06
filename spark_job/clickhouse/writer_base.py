@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # 파일명 : spark_job/clickhouse/writer_base.py
-# 목적   : fact/dim/dlq 공용 ClickHouse writer 헬퍼
+# 목적   : event_log/dlq 공용 ClickHouse writer 헬퍼
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations

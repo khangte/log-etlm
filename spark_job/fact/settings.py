@@ -7,8 +7,8 @@ from typing import Mapping
 from common.get_env import get_env_bool, get_env_int, get_env_optional_str, get_env_str
 
 
-FACT_EVENT_TABLE = "analytics.fact_event"
-FACT_EVENT_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/fact_event"
+FACT_EVENT_TABLE = "analytics.event_log"
+FACT_EVENT_CHECKPOINT_DIR = "/data/log-etlm/spark_checkpoints/event_log"
 
 
 @dataclass(frozen=True)

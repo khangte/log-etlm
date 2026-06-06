@@ -2,7 +2,7 @@
 -- Aggregate tables for Grafana (bucket basis, 1 minute)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_agg_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_agg_1m
 (
     bucket       DateTime,
     service      LowCardinality(String),
@@ -14,9 +14,9 @@ PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
 -- 기존: TTL bucket + INTERVAL 1 DAY (행 단위)
 -- 변경: 파티션(일) 단위 TTL
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_created_stored_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_created_stored_1m
 (
     bucket      DateTime,
     created_cnt UInt64,
@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_created_stored_1m
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_lag_1m
 (
     bucket   DateTime,
     sum_lag  UInt64,
@@ -38,10 +38,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_lag_1m
 ENGINE = SummingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_latency_1m
 (
     bucket     DateTime,
     e2e_state  AggregateFunction(quantileTDigest, Float64),
@@ -52,10 +52,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_1m
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_freshness_1m
 (
     bucket           DateTime,
     max_ingest_state AggregateFunction(max, DateTime64(3))
@@ -63,10 +63,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_freshness_1m
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY bucket
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_latency_service_1m
 (
     bucket        DateTime,
     service       LowCardinality(String),
@@ -79,10 +79,10 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_service_1m
 ENGINE = AggregatingMergeTree
 PARTITION BY toDate(bucket)
 ORDER BY (bucket, service)
-TTL toDate(bucket) + INTERVAL 2 DAY;
+TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq_agg_1m
+CREATE TABLE IF NOT EXISTS analytics.event_log_dlq_agg_1m
 (
     bucket     DateTime,
     service    LowCardinality(String),
@@ -101,7 +101,7 @@ TTL toDate(bucket) + INTERVAL 8 DAY;
 -- Realtime aggregates (10 second buckets)
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_agg_10s
+CREATE TABLE IF NOT EXISTS analytics.event_log_agg_10s
 (
     bucket       DateTime,
     total_state  AggregateFunction(count, String),
@@ -113,7 +113,7 @@ ORDER BY bucket
 TTL toDate(bucket) + INTERVAL 1 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_10s
+CREATE TABLE IF NOT EXISTS analytics.event_log_latency_10s
 (
     bucket     DateTime,
     e2e_state  AggregateFunction(quantileTDigest, Float64),
@@ -127,7 +127,7 @@ ORDER BY bucket
 TTL toDate(bucket) + INTERVAL 1 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.fact_event_latency_stage_10s
+CREATE TABLE IF NOT EXISTS analytics.event_log_latency_stage_10s
 (
     bucket        DateTime,
     producer_to_kafka_state       AggregateFunction(quantileTDigest, Float64),

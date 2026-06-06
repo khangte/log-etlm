@@ -77,13 +77,13 @@ def test_build_native_options() -> bool:
         "SPARK_CLICKHOUSE_PASSWORD": "secret",
     }
     s = load_clickhouse_settings(base_env)
-    opts = s.build_native_options("analytics.fact_event")
+    opts = s.build_native_options("analytics.event_log")
 
     results = [
         check("host 추출",             opts.get("host"),       "clickhouse"),
         check("http_port 추출",        opts.get("http_port"),  "8123"),
         check("protocol=http",         opts.get("protocol"),   "http"),
-        check("table 전달",            opts.get("table"),      "analytics.fact_event"),
+        check("table 전달",            opts.get("table"),      "analytics.event_log"),
         check("user 포함",             opts.get("user"),       "log_user"),
         check("password 포함",         opts.get("password"),   "secret"),
         check("jdbc driver 미포함",    "driver" not in opts,   True),
@@ -93,7 +93,7 @@ def test_build_native_options() -> bool:
     # user/password 없는 경우 → 옵션에서 제외
     env_no_auth = {"SPARK_CLICKHOUSE_URL": "jdbc:clickhouse://clickhouse:8123/analytics"}
     s2 = load_clickhouse_settings(env_no_auth)
-    opts2 = s2.build_native_options("analytics.fact_event")
+    opts2 = s2.build_native_options("analytics.event_log")
     results += [
         check("user 없으면 옵션 제외",     "user" not in opts2,     True),
         check("password 없으면 옵션 제외", "password" not in opts2, True),

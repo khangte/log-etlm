@@ -19,7 +19,7 @@ from .dlq.settings import (
 from .dlq.transforms.build_dlq_stream import build_dlq_stream_df
 from .dlq.writers.dlq_writer import ClickHouseDlqWriter
 from .dlq.writers.kafka_writer import KafkaDlqWriter
-from .fact.parsers.fact_event import parse_fact_event_with_errors
+from .fact.parsers.event_log import parse_event_log_with_errors
 from .fact.settings import FactStreamSettings, get_fact_stream_settings
 from .fact.writers.fact_writer import ClickHouseFactWriter
 from .stream_checkpoint import maybe_reset_checkpoint
@@ -50,13 +50,13 @@ class StreamIngestJob:
             self.settings.fact_topics,
         )
 
-        event_df, bad_df = parse_fact_event_with_errors(
+        event_df, bad_df = parse_event_log_with_errors(
             event_kafka_df,
             store_raw_json=self.fact_settings.store_raw_json,
             build_bad_df=self.settings.enable_dlq_stream,
         )
 
-        self.fact_writer.write_fact_event_stream(event_df)
+        self.fact_writer.write_event_log_stream(event_df)
         if self.settings.enable_dlq_stream:
             if bad_df is None:
                 raise ValueError("DLQ stream enabled but bad_df is missing")

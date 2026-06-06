@@ -161,7 +161,7 @@ ClickHouse flush 완료를 기다리는 latency 비용을 감수하지 않는다
 두 쿼리는 독립적으로 실행되므로 기능적 문제는 없으나 다음 제약이 생긴다.
 
 - DLQ consumer만 독립 재시작하거나 별도 스케일링이 불가능하다.
-- fact_event 스트림 장애가 DLQ consumer에도 영향을 준다.
+- event_log 스트림 장애가 DLQ consumer에도 영향을 준다.
 
 **설계 선택**: 현행 구조를 유지한다.
 
@@ -342,10 +342,10 @@ SPARK_FACT_DEDUP_WATERMARK=10 minutes
 
 ```bash
 # Spark Structured Streaming 상태 크기
-# localhost:4040 → Structured Streaming → fact_event_stream → "State Rows Total"
+# localhost:4040 → Structured Streaming → event_log_stream → "State Rows Total"
 
 # 체크포인트 디렉터리 내 state 크기
-du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
+du -sh /data/log-etlm/spark_checkpoints/event_log/state/
 ```
 
 | 지표 | 확인 위치 | 기대 변화 |
@@ -362,7 +362,7 @@ du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
 
 **수정일**: 2026-05-20
 
-**위치**: `spark_job/fact/transforms/parse_event.py`, `spark_job/fact/parsers/fact_event.py`
+**위치**: `spark_job/fact/transforms/parse_event.py`, `spark_job/fact/parsers/event_log.py`
 
 `SPARK_STORE_RAW_JSON=false`(현재 기본값)일 때도 `parse_event`에서
 `raw_json` 컬럼을 항상 생성하고 `normalize_event`에서 `F.lit("")`로 교체했다.
@@ -371,7 +371,7 @@ du -sh /data/log-etlm/spark_checkpoints/fact_event/state/
 **변경 내용**:
 - `parse_event`에 `need_raw_json: bool = False` 파라미터 추가.
   `False`이면 `from_json` 직후 `raw_json`을 즉시 `drop`해 이후 단계로 전달하지 않는다.
-- `parse_fact_event_with_errors`에서 `need_raw_json = store_raw_json or build_bad_df`로 전달.
+- `parse_event_log_with_errors`에서 `need_raw_json = store_raw_json or build_bad_df`로 전달.
   기존 `parsed.drop("raw_json")` 사후 처리 제거.
 - 기본 경로(`store_raw_json=False`, `enable_dlq_stream=False`)에서 `raw_json`이
   `validate_event` → `normalize_event` 셔플 단계를 통과하지 않는다.
@@ -532,15 +532,15 @@ Spark 레벨의 task retry와 `SPARK_CLICKHOUSE_RETRY_MAX=1`로 재시도를 처
 
 INSERT당 9개 MV가 동기 실행되며 그 중 `quantileTDigestState`를 사용하는 6개가 CPU 부하의 주 원인이었다.
 
-**[A] 중복 MV 제거** — `fact_event_latency_service_1m`이 상위 집합
+**[A] 중복 MV 제거** — `event_log_latency_service_1m`이 상위 집합
 
 | 제거된 MV | 대체 테이블 | 제거 근거 |
 |---|---|---|
-| `mv_fact_event_latency_1m` | `fact_event_latency_service_1m` | `e2e_state`, `spark_processing_state` 등 모든 컬럼 포함 |
-| `mv_fact_event_latency_10s` | `fact_event_latency_stage_10s` | `e2e_state` 포함 |
+| `mv_event_log_latency_1m` | `event_log_latency_service_1m` | `e2e_state`, `spark_processing_state` 등 모든 컬럼 포함 |
+| `mv_event_log_latency_10s` | `event_log_latency_stage_10s` | `e2e_state` 포함 |
 
 Grafana 쿼리 5개 이전 (`GROUP BY bucket`으로 서비스 차원 집계, `quantileTDigestMerge`가 자동 합산).
-복잡한 3-way JOIN 쿼리를 단일 `SELECT FROM fact_event_latency_service_1m`으로 단순화.
+복잡한 3-way JOIN 쿼리를 단일 `SELECT FROM event_log_latency_service_1m`으로 단순화.
 
 **[B] async_insert flush 간격 확대**
 
@@ -615,7 +615,7 @@ SPARK_SKIP_EMPTY_BATCH=false   # 빈 배치가 줄면 불필요
 # 1) 현재 Kafka lag 확인
 python3 scripts/kafka_spark_lag.py
 
-# 2) Spark UI → Structured Streaming → fact_event_stream
+# 2) Spark UI → Structured Streaming → event_log_stream
 # "Num Input Rows" 가 0인 배치 비율 확인
 ```
 

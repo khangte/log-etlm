@@ -32,7 +32,7 @@ LAG_MS="$(
   docker exec -i clickhouse clickhouse-client -u log_user --password log_pwd --format=TSV \
     --query "SELECT \
                if(sum(cnt)=0, 0, (sum(sum_lag) / sum(cnt)) * 1000) AS lag_ms \
-             FROM analytics.fact_event_lag_1m \
+             FROM analytics.event_log_lag_1m \
              WHERE bucket >= now() - INTERVAL ${WINDOW_MIN} MINUTE"
 )"
 

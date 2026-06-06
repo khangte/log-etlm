@@ -1,5 +1,5 @@
 -- Fact event table
-CREATE TABLE IF NOT EXISTS analytics.fact_event
+CREATE TABLE IF NOT EXISTS analytics.event_log
 (
     event_ts     DateTime64(3) CODEC(Delta, ZSTD(3)),
     ingest_ts    DateTime64(3) CODEC(Delta, ZSTD(3)),
@@ -41,11 +41,11 @@ CREATE TABLE IF NOT EXISTS analytics.fact_event
 ENGINE = MergeTree
 PARTITION BY toDate(ingest_ts)
 ORDER BY (ingest_ts, service)
-TTL toDate(ingest_ts) + INTERVAL 1 DAY;
+TTL toDate(ingest_ts) + INTERVAL 3 DAY;
 
 
 -- DLQ table (parse/validation failures)
-CREATE TABLE IF NOT EXISTS analytics.fact_event_dlq
+CREATE TABLE IF NOT EXISTS analytics.event_log_dlq
 (
     ingest_ts     DateTime64(3),
     processed_ts  DateTime64(3),

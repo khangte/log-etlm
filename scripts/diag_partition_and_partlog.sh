@@ -16,7 +16,7 @@ SELECT
     rows,
     size_in_bytes
 FROM system.part_log
-WHERE database='analytics' AND table='fact_event'
+WHERE database='analytics' AND table='event_log'
   AND event_type LIKE 'NewPart%'
   AND event_time >= now() - INTERVAL 5 MINUTE
 ORDER BY event_time DESC

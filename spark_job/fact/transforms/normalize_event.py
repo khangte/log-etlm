@@ -6,7 +6,7 @@ from ..schema import FACT_EVENT_COLUMNS
 
 
 def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> DataFrame:
-    """fact_event 컬럼으로 표준화한다."""
+    """event_log 컬럼으로 표준화한다."""
 
     def _ms_diff(end_col: str, start_col: str) -> F.Column:
         """두 타임스탬프 차이를 밀리초로 계산한다."""
