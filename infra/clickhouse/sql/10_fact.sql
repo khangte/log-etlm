@@ -25,7 +25,7 @@ CREATE TABLE analytics.event_log
     duration_ms    Nullable(UInt32),
     level          LowCardinality(String),
 
-    user_id     Nullable(String),
+    user_id     Nullable(UInt32),
     order_id    Nullable(String),
     payment_id  Nullable(String),
     reason_code Nullable(String),

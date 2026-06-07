@@ -14,6 +14,7 @@ import orjson
 import random
 import time
 import unicodedata
+import uuid
 
 
 class BaseServiceSimulator:
@@ -60,6 +61,7 @@ class BaseServiceSimulator:
         "_rng",
         "_route_prefix_sums",
         "_route_total_weight",
+        "_user_pool",
     )
 
     def __init__(self, routes: List[Dict[str, Any]], profile: Dict[str, Any]):
@@ -97,6 +99,9 @@ class BaseServiceSimulator:
         # RNG(테스트 재현성 필요하면 seed 넣기)
         seed = profile.get("seed")
         self._rng = random.Random(seed) if seed is not None else random.Random()
+
+        pool_size = int(profile.get("user_pool_size", 10000))
+        self._user_pool = list(range(1, pool_size + 1))
 
         # -------- routes 전처리(핵심 최적화) --------
         # 1) methods 대문자화(매번 upper 하지 않게)
@@ -150,7 +155,7 @@ class BaseServiceSimulator:
 
     def generate_request_id(self) -> str:
         """generate_request_id 처리를 수행한다."""
-        return "req_" + self._rand_hex(12)
+        return "req_" + uuid.uuid4().hex
 
     def _normalize_event_id_value(self, value: Any) -> str:
         """event_id seed에 넣기 위한 값을 문자열로 정규화한다."""
@@ -198,9 +203,9 @@ class BaseServiceSimulator:
         digest = hashlib.blake2b(seed.encode("utf-8"), digest_size=16).hexdigest()
         return f"evt_{self.event_id_rule_version}_{digest}"
 
-    def generate_user_id(self) -> str:
-        """간단 user id(8 hex)"""
-        return self._rand_hex(8)
+    def generate_user_id(self) -> int:
+        """유저 풀에서 정수 user_id를 선택한다."""
+        return self._rng.choice(self._user_pool)
 
     def generate_order_id(self) -> str:
         """generate_order_id 처리를 수행한다."""
@@ -320,7 +325,7 @@ class BaseServiceSimulator:
         route_template: str,
         status_code: int,
         duration_ms: int,
-        user_id: Optional[str] = None,
+        user_id: Optional[int] = None,
         order_id: Optional[str] = None,
         payment_id: Optional[str] = None,
         api_group: Optional[str] = None,
@@ -358,7 +363,7 @@ class BaseServiceSimulator:
         request_id: str,
         event_name: str,
         result: str,
-        user_id: Optional[str] = None,
+        user_id: Optional[int] = None,
         order_id: Optional[str] = None,
         payment_id: Optional[str] = None,
         reason_code: Optional[str] = None,
