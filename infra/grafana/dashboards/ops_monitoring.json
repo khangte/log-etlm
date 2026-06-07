@@ -180,7 +180,7 @@
           "refId": "A"
         }
       ],
-      "title": "Freshness(ingest) (최근 5분)",
+      "title": "Ingest Freshness (최근 5분)",
       "type": "stat",
       "description": "1분 롤업 테이블 기반 freshness(ms)"
     },
@@ -242,7 +242,7 @@
           "refId": "A"
         }
       ],
-      "title": "Freshness(event) (최근 5분)",
+      "title": "Event Freshness (최근 5분)",
       "type": "stat",
       "description": "event_timestamp 기준 freshness(ms) — 최근 5분 내 이벤트의 max(event_timestamp)~now()"
     },
@@ -363,7 +363,7 @@
           "refId": "A"
         }
       ],
-      "title": "Spark ingest p95 (최근 5분)",
+      "title": "Kafka→Spark p95 (최근 5분)",
       "type": "stat"
     },
     {
@@ -1383,7 +1383,7 @@
   },
   "timepicker": {},
   "timezone": "Asia/Seoul",
-  "title": "Log Pipeline Ops Monitoring",
+  "title": "Log Pipeline Overview",
   "uid": "log-analytics",
   "version": 1,
   "weekStart": ""

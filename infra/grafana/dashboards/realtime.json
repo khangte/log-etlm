@@ -119,7 +119,7 @@
           "refId": "A"
         }
       ],
-      "title": "로그 EPS (kafka_received_at 기준) (10s)",
+      "title": "Ingest EPS (10s)",
       "type": "timeseries"
     },
     {
@@ -193,7 +193,7 @@
           "refId": "A"
         }
       ],
-      "title": "에러율 (ingest 기준) (10s)",
+      "title": "에러율 · 적재 기준 (10s)",
       "type": "timeseries"
     },
     {
@@ -263,7 +263,7 @@
           "refId": "A"
         }
       ],
-      "title": "End-to-End 지연 p95 (10s)",
+      "title": "E2E 지연 p95 (10s)",
       "type": "timeseries"
     },
     {
