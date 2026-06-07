@@ -14,23 +14,24 @@ SELECT
 FROM analytics.event_log
 GROUP BY bucket, service;
 
+-- created_cnt: event_timestamp 기준 분 버킷의 이벤트 수
+-- stored_cnt: 같은 분 안에 ClickHouse 저장까지 완료된 이벤트 수 (동일 분 내 e2e 완료 비율)
+-- UNION ALL 방식은 event_timestamp/clickhouse_stored_at 버킷이 달라지면 항상 0%가 되어 제거됨
+-- 서브쿼리로 bucket을 먼저 확정한 뒤 countIf에서 비교 (analyzer의 NOT_AN_AGGREGATE 오류 회피)
 CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_created_stored_1m
 TO analytics.event_log_created_stored_1m
 AS
 SELECT
-    toStartOfMinute(event_timestamp) AS bucket,
-    count() AS created_cnt,
-    toUInt64(0) AS stored_cnt
-FROM analytics.event_log
-WHERE event_timestamp IS NOT NULL
-GROUP BY bucket
-UNION ALL
-SELECT
-    toStartOfMinute(clickhouse_stored_at) AS bucket,
-    toUInt64(0) AS created_cnt,
-    count() AS stored_cnt
-FROM analytics.event_log
-WHERE clickhouse_stored_at IS NOT NULL
+    bucket,
+    count()                                                       AS created_cnt,
+    countIf(toStartOfMinute(clickhouse_stored_at) = bucket)      AS stored_cnt
+FROM (
+    SELECT
+        toStartOfMinute(event_timestamp) AS bucket,
+        clickhouse_stored_at
+    FROM analytics.event_log
+    WHERE event_timestamp IS NOT NULL
+)
 GROUP BY bucket;
 
 

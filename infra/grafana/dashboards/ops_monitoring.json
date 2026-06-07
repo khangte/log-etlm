@@ -1301,7 +1301,7 @@
         "type": "grafana-clickhouse-datasource",
         "uid": "clickhouse"
       },
-      "description": "event_timestamp vs clickhouse_stored_at 기준 로그 수 비율(1분 집계, MV). created/stored 버킷이 분 단위로 어긋나면 비율이 일시적으로 0%로 떨어질 수 있습니다(지연이 큰 구간에서 정상).",
+      "description": "event_timestamp 기준 분 버킷에서 동일한 분 안에 ClickHouse 저장까지 완료된 이벤트 비율. 100%이면 생성→저장 e2e가 1분 미만, 낮을수록 Spark 배치 지연이 분 경계를 넘는 빈도가 높음.",
       "fieldConfig": {
         "defaults": {
           "color": {
