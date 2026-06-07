@@ -27,14 +27,14 @@ class ClickHouseSettings:
     jdbc_batchsize: int | None
     jdbc_fetchsize: int | None
     write_partitions: int | None
-    allow_repartition: bool
+    allow_repartition: bool | None
     retry_max: int
-    fail_on_error: bool
+    fail_on_error: bool | None
     dlq_on_final_failure: bool
     dlq_topic: str | None
     kafka_bootstrap: str | None
-    batch_guard_enabled: bool
-    batch_guard_table: str
+    batch_guard_enabled: bool | None
+    batch_guard_table: str | None
 
     def build_jdbc_options(self, table_name: str) -> dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
@@ -107,29 +107,14 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
         jdbc_batchsize=get_env_int(source, "SPARK_CLICKHOUSE_JDBC_BATCHSIZE"),
         jdbc_fetchsize=get_env_int(source, "SPARK_CLICKHOUSE_JDBC_FETCHSIZE"),
         write_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
-        allow_repartition=get_env_bool(
-            source,
-            "SPARK_CLICKHOUSE_ALLOW_REPARTITION",
-            False,
-        ),
+        allow_repartition=get_env_bool(source, "SPARK_CLICKHOUSE_ALLOW_REPARTITION"),
         retry_max=get_env_int(source, "SPARK_CLICKHOUSE_RETRY_MAX", 0) or 0,
-        fail_on_error=get_env_bool(source, "SPARK_CLICKHOUSE_FAIL_ON_ERROR", True,),
+        fail_on_error=get_env_bool(source, "SPARK_CLICKHOUSE_FAIL_ON_ERROR"),
         dlq_on_final_failure=get_env_bool(source, "SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE", True),
         dlq_topic=get_env_str(source, "SPARK_DLQ_TOPIC"),
         kafka_bootstrap=get_env_str(source, "KAFKA_BOOTSTRAP"),
-        batch_guard_enabled=get_env_bool(
-            source,
-            "SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED",
-            True,
-        ),
-        batch_guard_table=(
-            get_env_str(
-                source,
-                "SPARK_CLICKHOUSE_BATCH_GUARD_TABLE",
-                "analytics.stream_batch_guard",
-            )
-            or "analytics.stream_batch_guard"
-        ),
+        batch_guard_enabled=get_env_bool(source, "SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED"),
+        batch_guard_table=get_env_str(source, "SPARK_CLICKHOUSE_BATCH_GUARD_TABLE"),
     )
 
 
