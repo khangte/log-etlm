@@ -122,7 +122,7 @@ assemble_pipeline()
   "domain":         "auth | order | payment | http",
   "ts_ms":          1700000000000,
   "service":        "auth | order | payment",
-  "request_id":     "req_<12hex>",
+  "request_id":     "req_<uuid4_32hex>",
   "method":         "POST",
   "route_template": "/api/v1/auth/login",
   "status_code":    200,
@@ -255,14 +255,14 @@ bad_df
 
 ```
 analytics
-├── event_log               MergeTree,  TTL 1일  (원본 이벤트 — Wide Table)
+├── event_log               MergeTree,  TTL 3일  (원본 이벤트 — Wide Table, 중복 적재 허용)
 ├── event_log_dlq           MergeTree,  TTL 7일  (파싱 실패)
 ├── stream_batch_guard       MergeTree,  TTL 30일 (배치 멱등성)
 │
-├── event_log_agg_1m        AggregatingMergeTree, TTL 2일  (1분 EPS·에러율)
-├── event_log_latency_service_1m  AggMT,  TTL 2일  (서비스별 단계 지연 — Grafana 주 참조)
-├── event_log_created_stored_1m  SummingMT, TTL 2일  (생성·적재 비율)
-├── event_log_lag_1m        SummingMergeTree,     TTL 2일  (event→ingest 편차)
+├── event_log_agg_1m        AggregatingMergeTree, TTL 7일  (1분 EPS·에러율)
+├── event_log_latency_service_1m  AggMT,  TTL 7일  (서비스별 단계 지연 — Grafana 주 참조)
+├── event_log_created_stored_1m  SummingMT, TTL 7일  (생성·적재 비율)
+├── event_log_lag_1m        SummingMergeTree,     TTL 7일  (event→ingest 편차)
 ├── event_log_dlq_agg_1m    SummingMergeTree,     TTL 8일  (DLQ 에러 집계)
 │
 ├── event_log_agg_10s       AggregatingMergeTree, TTL 1일  (10초 실시간 EPS)
@@ -298,7 +298,7 @@ event_log INSERT
 
 Spark `foreachBatch`의 exactly-once를 보완한다. 가드 테이블 미존재 시 자동 비활성화(기동 경고 출력).
 
-> **설계 트레이드오프**: `wait_for_async_insert=0`이므로 JDBC `.save()` 반환 시점은 ClickHouse 버퍼 수신 완료이지 디스크 flush 완료가 아니다. flush 직전 ClickHouse 재시작 시 "데이터 유실 + 가드 성공" 상태가 될 수 있으나, throughput 우선 설계 선택으로 이 위험을 수용한다. 정합성 요구가 높아지면 `wait_for_async_insert=1` 또는 `ReplacingMergeTree` 기반 멱등 적재로 전환을 고려한다.
+> **설계 트레이드오프**: `wait_for_async_insert=0`이므로 JDBC `.save()` 반환 시점은 ClickHouse 버퍼 수신 완료이지 디스크 flush 완료가 아니다. flush 직전 ClickHouse 재시작 시 "데이터 유실 + 가드 성공" 상태가 될 수 있으나, throughput 우선 설계 선택으로 이 위험을 수용한다. 정합성 요구가 높아지면 `wait_for_async_insert=1`로의 전환을 고려한다. `event_log`는 `MergeTree`로 수신 행을 누적 적재하며 재처리 중복을 허용한다. MV 건수와 지연 통계도 고유 이벤트가 아닌 적재 행 기준이다.
 
 ---
 
