@@ -55,7 +55,7 @@ def get_env_float(
         raise ValueError(f"{key} must be a float (got: {value})") from exc
 
 
-def get_env_bool(env: Mapping[str, str], key: str, default: bool) -> bool:
+def get_env_bool(env: Mapping[str, str], key: str, default: bool | None = None) -> bool | None:
     """환경 변수 불리언을 가져온다."""
     value = get_env_str(env, key)
     if value is None:
