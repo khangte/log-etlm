@@ -179,7 +179,7 @@ def _is_already_committed_batch(
     escaped_stream = _escape_sql_literal(stream_name)
     escaped_table = _escape_sql_literal(table_name)
     query = (
-        "SELECT count() AS cnt "
+        "SELECT toInt64(count()) AS cnt "
         f"FROM {guard_table} "
         f"WHERE stream_name = '{escaped_stream}' "
         f"AND target_table = '{escaped_table}' "
