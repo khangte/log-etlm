@@ -238,13 +238,14 @@
           },
           "queryType": "sql",
           "rawQuery": true,
-          "rawSql": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(event_timestamp), now()) AS freshness_ms\nFROM analytics.event_log\nWHERE kafka_received_at >= now() - INTERVAL 5 MINUTE\n  AND event_timestamp IS NOT NULL\nORDER BY time ASC",
+          "rawSql": "SELECT now() AS time, toFloat64(0) AS freshness_ms LIMIT 0",
+          "_rawSqlDisabled": "SELECT\n  now() AS time,\n  dateDiff('millisecond', max(event_timestamp), now()) AS freshness_ms\nFROM analytics.event_log FINAL\nWHERE kafka_received_at >= now() - INTERVAL 5 MINUTE\n  AND event_timestamp IS NOT NULL\nORDER BY time ASC",
           "refId": "A"
         }
       ],
       "title": "Event Freshness (최근 5분)",
       "type": "stat",
-      "description": "event_timestamp 기준 freshness(ms) — 최근 5분 내 이벤트의 max(event_timestamp)~now()"
+      "description": "비활성화됨 — event_log 직접 스캔 부하로 쿼리 중단. 유사 지표: 'Event Freshness (spark ingest)' 패널 참조"
     },
     {
       "datasource": {
