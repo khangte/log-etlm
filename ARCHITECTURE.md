@@ -128,7 +128,7 @@ assemble_pipeline()
   "status_code":    200,
   "duration_ms":    42,
   "result":         "success | fail",
-  "user_id":        "...",
+  "user_id":        1234,
   "order_id":       "...",
   "payment_id":     "...",
   "reason_code":    "...",

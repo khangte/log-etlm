@@ -21,7 +21,7 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("status_code",    T.IntegerType(), True),
         T.StructField("duration_ms",    T.IntegerType(), True),
         T.StructField("result",         T.StringType(),  True),
-        T.StructField("user_id",        T.StringType(),  True),
+        T.StructField("user_id",        T.LongType(),    True),
         T.StructField("order_id",       T.StringType(),  True),
         T.StructField("payment_id",     T.StringType(),  True),
         T.StructField("reason_code",    T.StringType(),  True),
