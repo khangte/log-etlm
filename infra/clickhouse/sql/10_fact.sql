@@ -1,5 +1,6 @@
 -- Fact event table
-CREATE TABLE IF NOT EXISTS analytics.event_log
+DROP TABLE IF EXISTS analytics.event_log;
+CREATE TABLE analytics.event_log
 (
     event_timestamp      Nullable(DateTime64(3, 'UTC')) CODEC(Delta, ZSTD(3)),
     kafka_received_at    DateTime64(3, 'UTC') CODEC(Delta, ZSTD(3)),
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS analytics.event_log
 )
 ENGINE = MergeTree
 PARTITION BY toDate(kafka_received_at)
-ORDER BY (kafka_received_at, service)
+ORDER BY (service, event_id)
 TTL toDate(kafka_received_at) + INTERVAL 3 DAY;
 
 
