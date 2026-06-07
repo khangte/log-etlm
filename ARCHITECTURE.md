@@ -236,12 +236,12 @@ bad_df
 | `SPARK_FACT_TRIGGER_INTERVAL` | `4 seconds` | 스트리밍 트리거 주기 |
 | `SPARK_MAX_OFFSETS_PER_TRIGGER` | 자동 계산 | 배치당 최대 오프셋. 미설정 시 `target_eps × trigger_sec × safety`로 계산 |
 | `SPARK_MAX_OFFSETS_CAP` | 30000 | maxOffsets 하드 상한 |
-| `SPARK_FACT_DEDUP_KEYS` | `event_id` | dedup 기준 컬럼 |
+| `SPARK_FACT_DEDUP_KEYS` | `(없음)` | dedup 기준 컬럼. 비어 있으면 Spark dedup 비활성화 — ReplacingMergeTree와 BATCH_GUARD에 위임 |
 | `SPARK_FACT_DEDUP_WATERMARK` | `(없음)` | 상태 기반 dedup 워터마크. 비어 있으면 foreachBatch dropDuplicates 사용 |
 | `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED` | `true` | 배치 가드 on/off |
 | `SPARK_RESET_CHECKPOINT_ON_START` | `true` | 시작 시 체크포인트 초기화 (재시작마다 latest 오프셋부터 소비) |
 | `SPARK_ENABLE_DLQ_STREAM` | `false` | DLQ 스트림 활성화 |
-| `SPARK_SKIP_EMPTY_BATCH` | `false` | 빈 배치 skip |
+| `SPARK_SKIP_EMPTY_BATCH` | `true` | 빈 배치 skip |
 | `SPARK_CLICKHOUSE_WRITE_PARTITIONS` | `3` | ClickHouse 쓰기 파티션 수 |
 
 ---
@@ -390,7 +390,7 @@ log-etlm/
 │
 ├── infra/
 │   ├── clickhouse/
-│   │   ├── sql/            # DDL (00_database, 10_fact, 20_aggregates, 21_mv, 30_dim) + 90_grants.sh (init)
+│   │   ├── sql/            # DDL (00_database, 10_fact, 20_aggregates, 21_mv) + 90_grants.sh (init)
 │   │   ├── config.d/       # listen_host, async insert 로그
 │   │   └── users.d/        # log_user async 프로파일
 │   ├── grafana/
