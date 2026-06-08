@@ -12,8 +12,13 @@ docker exec -i clickhouse clickhouse-client -u log_user --password log_pwd --mul
 
 ## 2. Grafana 권한 부여
 
+`grafana_user`는 `infra/clickhouse/users.d/20_grafana_user.xml`에서 `readonly=1`로 정의되어 있어 SQL GRANT 없이 모든 테이블에 읽기 접근이 가능합니다.
+
+별도 SQL 실행 없이 컨테이너 재시작 또는 XML 반영으로 자동 적용됩니다.
+
 ```bash
-docker exec -i clickhouse clickhouse-client -u log_user --password log_pwd --multiquery < infra/clickhouse/sql/90_grants.sql
+# 권한 재확인이 필요한 경우
+bash infra/clickhouse/sql/90_grants.sh
 ```
 
 ## 3. (선택) 과거 데이터 백필
