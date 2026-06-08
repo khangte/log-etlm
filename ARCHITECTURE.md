@@ -109,17 +109,18 @@ assemble_pipeline()
 | **time_weights** | `profiles.yml`의 시간대(KST)별 multiplier로 트래픽 패턴 시뮬레이션 |
 | **2단계 backpressure** | soft throttle(큐 85%↑, scale 단계 감소) + hard throttle(90%↑, drain 대기) |
 | **loops_per_service** | 서비스당 N개 루프를 병렬 실행해 asyncio 단일 스레드 한계 우회 |
-| **event_id canonical seed** | allowlist 고정 필드(service, domain, event_name, ts_ms 등)를 BLAKE2b(16B)로 해싱. 스키마 확장 시 기존 event_id 불변 보장 |
+| **event_id canonical seed** | allowlist 고정 필드(service, event_name, ts_ms 등)를 BLAKE2b(16B)로 해싱. 스키마 확장 시 기존 event_id 불변 보장 |
 | **event_mode** | `domain`(기본) / `http` / `all`. `domain`만 발행 시 Spark dedup 상태 부하 감소 |
 | **replicate_error** | status_code ≥ 500 또는 result == "fail"인 이벤트를 `logs.error` 토픽에도 자동 복제 |
 
 #### 이벤트 구조 (JSON)
 
+`event_name`은 `{service}.{event}` 형태로 이벤트 레이어를 표현한다(OTel 스타일).
+
 ```json
 {
   "event_id":       "evt_v1_<blake2b_hex>",
-  "event_name":     "login_success | http_request_completed | ...",
-  "domain":         "auth | order | payment | http",
+  "event_name":     "auth.login_succeeded | auth.http_request_completed | ...",
   "ts_ms":          1700000000000,
   "service":        "auth | order | payment",
   "request_id":     "req_<uuid4_32hex>",

@@ -17,7 +17,6 @@ from ..base import BaseServiceSimulator
 
 class OrderSimulator(BaseServiceSimulator):
     service = "order"
-    domain = "order"
 
     ORDER_REASON_CODES = (
         "OUT_OF_STOCK",

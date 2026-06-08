@@ -12,7 +12,6 @@ CREATE TABLE analytics.event_log
     clickhouse_stored_at DateTime64(3, 'UTC') DEFAULT now64(3) CODEC(Delta, ZSTD(3)),
 
     service        LowCardinality(String),
-    domain         LowCardinality(String),
     api_group      LowCardinality(String),
     event_name     LowCardinality(String),
     result         LowCardinality(String),

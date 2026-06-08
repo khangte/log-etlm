@@ -4,7 +4,6 @@ from ..base import BaseServiceSimulator
 
 class AuthSimulator(BaseServiceSimulator):
     service = "auth"
-    domain = "auth"
 
     AUTH_REASON_CODES = [
         "INVALID_CREDENTIALS",

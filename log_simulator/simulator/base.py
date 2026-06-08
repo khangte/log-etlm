@@ -27,11 +27,9 @@ class BaseServiceSimulator:
     """
 
     service: str = "base"
-    domain: str = "base"
     event_id_rule_version: str = "v1"
     event_id_seed_fields: tuple[str, ...] = (
         "service",
-        "domain",
         "event_name",
         "request_id",
         "ts_ms",
@@ -270,8 +268,8 @@ class BaseServiceSimulator:
         """fallback 도메인 이벤트명을 생성한다."""
         api_group = route.get("api_group")
         if api_group:
-            return f"{str(api_group).lower()}_event"
-        return f"{self.service}_event"
+            return f"{self.service}.{str(api_group).lower()}_event"
+        return f"{self.service}.event"
 
     def _estimate_http_event_rate(self) -> float:
         """estimate_http_event_rate 처리를 수행한다."""
@@ -333,8 +331,7 @@ class BaseServiceSimulator:
     ) -> Dict[str, Any]:
         """make_http_event 처리를 수행한다."""
         ev: Dict[str, Any] = {
-            "event_name": "http_request_completed",
-            "domain": "http",
+            "event_name": f"{self.service}.http_request_completed",
             "ts_ms": ts_ms,
             "service": self.service,
             "request_id": request_id,
@@ -375,7 +372,6 @@ class BaseServiceSimulator:
         """make_domain_event 처리를 수행한다."""
         ev: Dict[str, Any] = {
             "event_name": event_name,
-            "domain": self.domain,
             "ts_ms": ts_ms,
             "service": self.service,
             "request_id": request_id,
