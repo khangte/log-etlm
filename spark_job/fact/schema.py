@@ -12,7 +12,6 @@ log_value_schema: T.StructType = T.StructType(
         # v2 이벤트 필드(현재 simulator 기준)
         T.StructField("event_id",       T.StringType(),  True),
         T.StructField("event_name",     T.StringType(),  True),
-        T.StructField("domain",         T.StringType(),  True),
         T.StructField("ts_ms",          T.LongType(),    True),
         T.StructField("service",        T.StringType(),  True),
         T.StructField("request_id",     T.StringType(),  True),
@@ -56,7 +55,6 @@ FACT_EVENT_COLUMNS: list[str] = [
 
     # 3) 분류 메타
     "service",
-    "domain",
     "api_group",
     "event_name",
     "result",

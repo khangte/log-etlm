@@ -17,7 +17,6 @@ from ..base import BaseServiceSimulator
 
 class PaymentSimulator(BaseServiceSimulator):
     service = "payment"
-    domain = "payment"
 
     PAYMENT_REASON_CODES = (
         "PG_TIMEOUT",

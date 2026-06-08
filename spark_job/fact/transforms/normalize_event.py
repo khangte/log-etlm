@@ -17,14 +17,6 @@ def normalize_event(good_df: DataFrame, *, store_raw_json: bool = False) -> Data
             ).alias("unified_ts_ms"),
 
             F.coalesce(F.col("json.service"), F.lit("unknown")).alias("service"),
-            F.coalesce(
-                F.col("json.domain"),
-                F.when(
-                    F.col("json.method").isNotNull() | F.col("json.path").isNotNull(),
-                    F.lit("http"),
-                ),
-                F.lit("unknown"),
-            ).alias("domain"),
             F.coalesce(F.col("json.api_group"), F.lit("unknown")).alias("api_group"),
             F.coalesce(
                 F.col("json.event_name"),

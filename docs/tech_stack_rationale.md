@@ -122,7 +122,7 @@ Kafka에서 소비한 이벤트를 정규화·중복 제거하여 ClickHouse에 
 
 ### 장점
 
-- 컬럼 스토리지 + `LowCardinality(String)` 타입으로 반복값 컬럼(service, domain 등) 압축률·조회 성능 향상
+- 컬럼 스토리지 + `LowCardinality(String)` 타입으로 반복값 컬럼(service, event_name 등) 압축률·조회 성능 향상
 - `Delta + ZSTD` 코덱으로 타임스탬프 컬럼 압축 최대화
 - TTL 정책(`event_log` 1일, `event_log_dlq` 7일 등)으로 디스크 사용량을 자동 관리
 
