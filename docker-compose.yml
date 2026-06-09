@@ -229,7 +229,7 @@ services:
       - SPARK_CLICKHOUSE_RETRY_MAX=1
       - SPARK_CLICKHOUSE_FAIL_ON_ERROR=true
       - SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE=false
-      - SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=true
+      - SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=false
       - SPARK_CLICKHOUSE_BATCH_GUARD_TABLE=analytics.stream_batch_guard
     volumes:
       - ./common:/app/common:ro
