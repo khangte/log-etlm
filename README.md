@@ -172,7 +172,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 환경 프로파일 값은 `config/env/{low,mid,high}.env` 참고(적용은 `docker-compose.yml`)
 - 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
-  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `false`)
+  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `true` — 재시작마다 latest 오프셋부터 소비)
   - `SPARK_STREAM_SHUFFLE_PARTITIONS`, `SPARK_SKIP_EMPTY_BATCH`
   - `SPARK_BATCH_TIMING_LOG_PATH`, `SPARK_PROGRESS_LOG_PATH`
 

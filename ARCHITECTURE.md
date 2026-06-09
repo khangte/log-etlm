@@ -205,9 +205,9 @@ ClickHouseFactWriter.write_event_log_stream()
        ├─ spark_processed_at = current_timestamp()  ← sink 직전 재계산
        ├─ process_ms = spark_processed_at - spark_received_at
        └─ write_to_clickhouse()
-            ├─ 배치 가드 체크 (stream_batch_guard)
+            ├─ [배치 가드 체크] (BATCH_GUARD_ENABLED=true 시)
             ├─ JDBC write → analytics.event_log
-            └─ 배치 가드 기록
+            └─ [배치 가드 기록] (BATCH_GUARD_ENABLED=true 시)
 ```
 
 #### DLQ 흐름 (`SPARK_ENABLE_DLQ_STREAM=true` 시)
@@ -239,7 +239,7 @@ bad_df
 | `SPARK_MAX_OFFSETS_CAP` | 30000 | maxOffsets 하드 상한 |
 | `SPARK_FACT_DEDUP_KEYS` | `(없음)` | dedup 기준 컬럼. 비어 있으면 Spark dedup 비활성화 — ReplacingMergeTree와 BATCH_GUARD에 위임 |
 | `SPARK_FACT_DEDUP_WATERMARK` | `(없음)` | 상태 기반 dedup 워터마크. 비어 있으면 foreachBatch dropDuplicates 사용 |
-| `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED` | `true` | 배치 가드 on/off |
+| `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED` | `false` | 배치 가드 on/off. `RESET_CHECKPOINT_ON_START=true` 환경에서는 비활성 권장 |
 | `SPARK_RESET_CHECKPOINT_ON_START` | `true` | 시작 시 체크포인트 초기화 (재시작마다 latest 오프셋부터 소비) |
 | `SPARK_ENABLE_DLQ_STREAM` | `false` | DLQ 스트림 활성화 |
 | `SPARK_SKIP_EMPTY_BATCH` | `true` | 빈 배치 skip |
