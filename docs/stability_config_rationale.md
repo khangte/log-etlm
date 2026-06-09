@@ -105,13 +105,15 @@ ORDER BY (service, event_id)
 ### 레이어 3 — Spark `BATCH_GUARD` (쓰기 측)
 
 ```
-SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=true
+SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=false   # PoC 현재 설정
 SPARK_CLICKHOUSE_BATCH_GUARD_TABLE=analytics.stream_batch_guard
 ```
 
 동일 배치 ID가 이미 기록된 경우 해당 배치의 ClickHouse write를 건너뛴다.  
 Spark 재시작·체크포인트 재처리 시 동일 배치가 두 번 실행되는 경우를 방어한다.  
 → **Spark 재처리로 인한 배치 단위 중복을 방지.**
+
+> **현재 비활성 상태**: `SPARK_RESET_CHECKPOINT_ON_START=true` 설정에서는 재시작마다 `batch_id`가 0부터 초기화되어 이전 실행의 가드 기록과 충돌할 수 있다. 체크포인트를 보존하는 운영 환경 전환(`RESET_CHECKPOINT_ON_START=false`) 시 함께 활성화한다.
 
 ### 레이어별 역할 요약
 
