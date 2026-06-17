@@ -122,7 +122,11 @@ def build_streaming_spark(
     executor_memory_overhead = (
         get_env_str(env, "SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD") or None
     )
-    shuffle_partitions = get_env_int(env, "SPARK_STREAM_SHUFFLE_PARTITIONS")
+    dedup_keys = get_env_str(env, "SPARK_FACT_DEDUP_KEYS", "")
+    if dedup_keys and dedup_keys.strip():
+        shuffle_partitions = get_env_int(env, "SPARK_STREAM_SHUFFLE_PARTITIONS")
+    else:
+        shuffle_partitions = None
     return _build_spark_session(
         app_name=app_name,
         master=master,
@@ -131,7 +135,7 @@ def build_streaming_spark(
         ui_port="4040",
         event_log_enabled=True,
         event_log_dir="/data/log-etlm/spark-events",
-        shuffle_partitions=shuffle_partitions or 8,
+        shuffle_partitions=shuffle_partitions,
         driver_memory=driver_memory,
         driver_memory_overhead=driver_memory_overhead,
         executor_memory=executor_memory,
