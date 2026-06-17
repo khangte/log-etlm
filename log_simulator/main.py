@@ -38,6 +38,7 @@ logging.config.dictConfig({
 })
 
 from .engine import engine
+from .api.simulator import router as simulator_router
 
 
 @asynccontextmanager
@@ -51,9 +52,4 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(lifespan=lifespan)
-
-
-@app.get("/ping")
-async def ping():
-    """ping 처리를 수행한다."""
-    return {"status": "ok"}
+app.include_router(simulator_router)
