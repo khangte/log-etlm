@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: log_simulator/Dockerfile
     container_name: simulator
-    cpus: "1.0"
+    # cpus: "1.0"
     mem_limit: "256m"
     mem_reservation: "128m"
     oom_score_adj: 500
@@ -16,7 +16,7 @@ services:
       - SIMULATOR_SHARE=1.0
       - SIM_EVENT_MODE=domain
       - LOG_BATCH_SIZE=500
-      - TARGET_INTERVAL_SEC=0.50
+      - TARGET_INTERVAL_SEC=1.0
       - LOOPS_PER_SERVICE=1
       # --- Simulator queue (백프레셔/스로틀) ---
       - QUEUE_SIZE=4000
@@ -223,7 +223,7 @@ services:
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_RESET_CHECKPOINT_ON_START=true
-      - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
+      - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-6 seconds}"
       - SPARK_STORE_RAW_JSON=false
       - SPARK_STREAM_DRIVER_MEMORY=768m
       - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=256m
@@ -234,7 +234,7 @@ services:
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
       - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}" # 비어있으면 자동 계산
       - "SPARK_MAX_OFFSETS_SAFETY=${SPARK_MAX_OFFSETS_SAFETY:-1.1}"
-      - "SPARK_MAX_OFFSETS_CAP=${SPARK_MAX_OFFSETS_CAP:-30000}"
+      - "SPARK_MAX_OFFSETS_CAP=${SPARK_MAX_OFFSETS_CAP:-40000}"
       - "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=${SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER:-1}"
       # --- DLQ/에러 스트림 (선택) ---
       - SPARK_DLQ_TOPIC=logs.dlq
@@ -245,12 +245,12 @@ services:
       # --- Batch/metrics logging ---
       - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
       # --- ClickHouse sink tuning ---
-      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=0&decompress=1&socket_timeout=30000&retry=0
+      - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=1&decompress=1&socket_timeout=30000&retry=0
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-10000}"
-      - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}"
-      - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-3}"
+      - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-15000}"
+      - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-2}"
+      - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-2}"
       - SPARK_SKIP_EMPTY_BATCH=true
       - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}" # 업스케일은 repartition 필요
       - SPARK_FACT_DEDUP_KEYS=
@@ -267,6 +267,7 @@ services:
       - ./log_simulator/config:/app/log_simulator/config:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
+      - ./infra/spark/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf:ro
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -274,8 +275,8 @@ services:
         condition: service_started
       spark-worker-1:
         condition: service_started
-      spark-worker-2:
-        condition: service_started
+      # spark-worker-2:
+      #   condition: service_started
       clickhouse:
         condition: service_healthy
     networks: [logetlm-net]
@@ -310,7 +311,7 @@ services:
       - "org.apache.spark.deploy.worker.Worker"
       - "spark://spark-master:7077"
       - "--cores"
-      - "3"
+      - "4"
       - "--memory"
       - "1536m"
     volumes:
@@ -377,7 +378,7 @@ services:
       - /data/log-etlm/clickhouse:/var/lib/clickhouse
       - /data/log-etlm/clickhouse-logs:/var/log/clickhouse-server
       - ./infra/clickhouse/config.d:/etc/clickhouse-server/config.d:ro
-      - ./infra/clickhouse/users.d:/etc/clickhouse-server/users.d:ro
+      - ./infra/clickhouse/users.d:/etc/clickhouse-server/users.d
       - ./infra/clickhouse/sql/00_database.sql:/docker-entrypoint-initdb.d/00_database.sql:ro
       - ./infra/clickhouse/sql/10_fact.sql:/docker-entrypoint-initdb.d/10_fact.sql:ro
       - ./infra/clickhouse/sql/20_aggregates.sql:/docker-entrypoint-initdb.d/20_aggregates.sql:ro
