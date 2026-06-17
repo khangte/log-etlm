@@ -186,6 +186,20 @@ FastAPI `lifespan`이 `SimulatorEngine.start()`를 호출한다.
 
 두 태스크 그룹은 `asyncio.Queue`(`QUEUE_SIZE=4000`)를 통해 생산자-소비자 패턴으로 연결된다.
 
+**API를 통한 런타임 EPS 변경**: `PATCH /simulator/eps?value=<숫자>` 요청이 들어오면
+`SimulatorEngine.set_eps()`가 simulator 태스크만 취소·재시작한다. publisher 태스크와
+`publish_queue`는 유지되므로 Kafka 전송이 중단되지 않는다.
+
+```
+PATCH /simulator/eps?value=10000
+  │
+  └─ engine.set_eps(10000)
+       ├─ service_tasks 취소 (생성 루프만 중단)
+       ├─ allocate_service_eps(total_eps=10000, mix=...) 재계산
+       ├─ create_service_tasks_only(..., publish_queue=기존 큐) 재시작
+       └─ publisher_tasks / publish_queue 유지 (Kafka 전송 무중단)
+```
+
 ### 1-2. 설정 로드
 
 `profiles.yml`과 `routes.yml`을 읽어 `ProfileContext`를 구성한다.
