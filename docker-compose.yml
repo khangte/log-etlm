@@ -1,5 +1,4 @@
 services:
-
   simulator:
     build:
       context: .
@@ -10,7 +9,7 @@ services:
     mem_reservation: "128m"
     oom_score_adj: 500
     # restart: unless-stopped
-    ports: 
+    ports:
       - "8000:8000"
     environment:
       # --- Simulator load (전체 부하 프로필) ---
@@ -59,11 +58,20 @@ services:
       - ./common:/app/common:ro
       - ./log_simulator:/app/log_simulator:ro
     networks: [logetlm-net]
-    command: ["uvicorn", "log_simulator.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+    command:
+      [
+        "uvicorn",
+        "log_simulator.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--workers",
+        "1",
+      ]
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
-
 
   kafka:
     image: confluentinc/cp-kafka:7.6.1
@@ -73,11 +81,11 @@ services:
     mem_limit: "2g"
     mem_reservation: "1500m"
     oom_score_adj: 100
-    ports: 
+    ports:
       - "29092:29092"
     environment:
       # --- KRaft 기본 ---
-      CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w"  # KRaft 단일 노드 고정 ID
+      CLUSTER_ID: "nkfq3mlSTrG7l5xDu8Ks9w" # KRaft 단일 노드 고정 ID
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: "broker,controller"
       # --- Listener / Quorum ---
@@ -103,10 +111,10 @@ services:
       KAFKA_METADATA_LOG_DIR: "/var/lib/kafka/metadata"
       KAFKA_HEAP_OPTS: "-Xms1g -Xmx1536m"
       # --- Retention / Segment ---
-      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000  # 10분
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 600000 # 10분
       KAFKA_LOG_RETENTION_HOURS: 2
-      KAFKA_LOG_RETENTION_BYTES: 21474836480  # 20GB
-      KAFKA_LOG_SEGMENT_BYTES: 536870912  # 512MB
+      KAFKA_LOG_RETENTION_BYTES: 21474836480 # 20GB
+      KAFKA_LOG_SEGMENT_BYTES: 536870912 # 512MB
     volumes:
       - /data/log-etlm/kafka-logs:/var/lib/kafka/logs
       - /data/log-etlm/kafka-meta:/var/lib/kafka/metadata
@@ -119,12 +127,35 @@ services:
     healthcheck:
       # 고부하/디스크 IO 상황에서 kafka-* CLI가 오래 걸리거나 hang 될 수 있어
       # 포트 오픈 여부로 가볍게 체크한다.
-      test: ["CMD-SHELL", "timeout 5s bash -lc 'echo > /dev/tcp/localhost/9092' >/dev/null 2>&1 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "timeout 5s bash -lc 'echo > /dev/tcp/localhost/9092' >/dev/null 2>&1 || exit 1",
+        ]
       interval: 30s
       timeout: 10s
       retries: 10
       start_period: 60s
 
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks: [logetlm-net]
+    restart: "no"
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth    --partitions 3 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order   --partitions 2 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error   --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq     --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1
+        echo "[kafka-init] 토픽 생성 완료"
+        kafka-topics --bootstrap-server kafka:9092 --list
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -134,7 +165,7 @@ services:
     mem_limit: "384m"
     mem_reservation: "256m"
     oom_score_adj: 500
-    ports: 
+    ports:
       - "8080:8080"
     environment:
       # --- Kafka-UI (내부 브로커) ---
@@ -145,7 +176,6 @@ services:
       kafka:
         condition: service_healthy
     networks: [logetlm-net]
-
 
   spark-master:
     image: spark:4.0.1-python3
@@ -172,7 +202,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-
   spark-driver:
     build:
       context: .
@@ -184,8 +213,8 @@ services:
     mem_limit: "2g"
     mem_reservation: "1500m"
     oom_score_adj: -100
-    ports: 
-      - "4040:4040"   # Spark UI (stream)
+    ports:
+      - "4040:4040" # Spark UI (stream)
     environment:
       # --- Spark/Kafka connection (필수) ---
       - SPARK_MASTER_URL=spark://spark-master:7077
@@ -203,7 +232,7 @@ services:
       - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-3}"
       - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
-      - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}"    # 비어있으면 자동 계산
+      - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}" # 비어있으면 자동 계산
       - "SPARK_MAX_OFFSETS_SAFETY=${SPARK_MAX_OFFSETS_SAFETY:-1.1}"
       - "SPARK_MAX_OFFSETS_CAP=${SPARK_MAX_OFFSETS_CAP:-30000}"
       - "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=${SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER:-1}"
@@ -223,7 +252,7 @@ services:
       - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}"
       - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-3}"
       - "SPARK_SKIP_EMPTY_BATCH=${SPARK_SKIP_EMPTY_BATCH:-true}"
-      - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}"    # 업스케일은 repartition 필요
+      - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}" # 업스케일은 repartition 필요
       - SPARK_FACT_DEDUP_KEYS=
       - "SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
       - SPARK_CLICKHOUSE_RETRY_MAX=1
@@ -239,8 +268,8 @@ services:
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
     depends_on:
-      kafka:
-        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
       spark-master:
         condition: service_started
       spark-worker-1:
@@ -251,7 +280,11 @@ services:
         condition: service_healthy
     networks: [logetlm-net]
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "curl -sf http://localhost:4040/api/v1/applications >/dev/null || exit 1",
+        ]
       interval: 45s
       timeout: 5s
       retries: 5
@@ -260,7 +293,6 @@ services:
       options: { max-size: "10m", max-file: "5" }
     dns:
       - 127.0.0.11
-
 
   spark-worker-1:
     image: spark:4.0.1-python3
@@ -288,7 +320,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-
   spark-worker-2:
     image: spark:4.0.1-python3
     container_name: spark-worker-2
@@ -314,7 +345,6 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
-
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.8.1.5101
@@ -355,7 +385,11 @@ services:
       - ./infra/clickhouse/sql/90_grants.sh:/docker-entrypoint-initdb.d/90_grants.sh:ro
     networks: [logetlm-net]
     healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --host localhost --user log_user --password \"$$CH_LOG_USER_PASSWORD\" --query 'SELECT 1' >/dev/null"]
+      test:
+        [
+          "CMD-SHELL",
+          'clickhouse-client --host localhost --user log_user --password "$$CH_LOG_USER_PASSWORD" --query ''SELECT 1'' >/dev/null',
+        ]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -364,9 +398,8 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-
   ch-ui:
-    image: ghcr.io/caioricciuti/ch-ui:latest    
+    image: ghcr.io/caioricciuti/ch-ui:latest
     container_name: ch-ui
     # cpus: "0.05"
     # restart: always
@@ -393,7 +426,6 @@ services:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
 
-
   grafana:
     image: grafana/grafana:10.4.2
     container_name: grafana
@@ -402,7 +434,7 @@ services:
     mem_limit: "384m"
     mem_reservation: "256m"
     oom_score_adj: 200
-    ports: 
+    ports:
       - "3000:3000"
     environment:
       # --- Grafana auth / security ---
@@ -425,7 +457,6 @@ services:
     logging:
       driver: json-file
       options: { max-size: "10m", max-file: "5" }
-
 
 networks:
   logetlm-net:
