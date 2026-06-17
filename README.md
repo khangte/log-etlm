@@ -96,13 +96,18 @@
 # 1. Kafka + Kafka UI 우선 기동
 docker compose up -d kafka kafka-ui
 
+# 1-1. Kafka 토픽 초기화 (kafka-init이 자동 실행됨)
+#   kafka healthcheck 통과 후 kafka-init 컨테이너가 자동으로 6개 토픽을 생성하고 종료된다.
+#   spark-driver는 kafka-init 완료 후에만 기동하므로 별도 수동 생성 불필요.
+docker compose up -d kafka-init
+
 # 2. ClickHouse 기동
 docker compose up -d clickhouse ch-ui
 
 # 3. Spark 기동
 docker compose up -d spark-master spark-worker-1 spark-worker-2
 
-# 3-1. Spark-driver 기동 (Kafka/ClickHouse healthcheck 이후 권장)
+# 3-1. Spark-driver 기동 (kafka-init/ClickHouse healthcheck 이후 권장)
 docker compose up -d spark-driver
 
 # 4. Grafana 기동
@@ -125,9 +130,6 @@ crontab -e
 
 ## Kafka 토픽 파티션 분배(도메인 기준)
 
-`KAFKA_AUTO_CREATE_TOPICS_ENABLE=true`여도 기본 파티션은 1개이므로,
-초기 한 번은 명시적으로 생성하고 이후 `--alter --partitions N`으로 증설한다.
-
 파티션 수는 트래픽 비중(auth 50% / order 30% / payment 20%)과 Spark worker 코어(총 5)를 기준으로
 `PRE_COALESCE_PARTITIONS=3`, `SHUFFLE_PARTITIONS=3`, `WRITE_PARTITIONS=3`에 맞춰 결정한다.
 합계 7파티션 → pre_coalesce(7→3) → dropDuplicates 셔플(3→3, no-op) → JDBC write(3커넥션).
@@ -138,15 +140,14 @@ crontab -e
 | `logs.order` | 2 | 30% 트래픽 |
 | `logs.payment` | 1 | 20% 트래픽 |
 | `logs.error` | 1 | 극소량 |
+| `logs.dlq` | 1 | DLQ |
+| `logs.unknown` | 1 | 미분류 |
+
+토픽 생성은 `kafka-init` 컨테이너가 `docker compose up` 시 자동으로 처리한다(`--if-not-exists`).
+파티션 증설이 필요한 경우 아래 명령을 사용한다(감소는 불가하므로 필요 시 토픽 삭제 후 재생성).
 
 ```bash
-# 생성 예시(자동 생성이 켜져 있어도 명시적으로 1회)
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.auth --partitions 3 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order --partitions 2 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 1 --replication-factor 1
-docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error --partitions 1 --replication-factor 1
-
-# 증설 예시(줄이기 불가)
+# 증설 예시
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.auth --partitions 3
 docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --alter --topic logs.order --partitions 2
 
