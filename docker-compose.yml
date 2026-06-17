@@ -152,8 +152,8 @@ services:
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.order   --partitions 2 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error   --partitions 1 --replication-factor 1
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq     --partitions 1 --replication-factor 1
-        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1
+        # kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq     --partitions 1 --replication-factor 1  # DLQ 스트림 비활성화 시 불필요
+        # kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1  # service 누락 시 폴백, 정상 운영에서 미사용
         echo "[kafka-init] 토픽 생성 완료"
         kafka-topics --bootstrap-server kafka:9092 --list
 
@@ -229,8 +229,8 @@ services:
       - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=512m
       - SPARK_STREAM_EXECUTOR_MEMORY=2g
       - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=768m
-      - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-3}"
       - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
+      - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-}"
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
       - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}" # 비어있으면 자동 계산
       - "SPARK_MAX_OFFSETS_SAFETY=${SPARK_MAX_OFFSETS_SAFETY:-1.1}"
@@ -251,7 +251,7 @@ services:
       - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-10000}"
       - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-3}"
       - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-3}"
-      - "SPARK_SKIP_EMPTY_BATCH=${SPARK_SKIP_EMPTY_BATCH:-true}"
+      - SPARK_SKIP_EMPTY_BATCH=true
       - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}" # 업스케일은 repartition 필요
       - SPARK_FACT_DEDUP_KEYS=
       - "SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
