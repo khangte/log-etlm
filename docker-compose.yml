@@ -210,8 +210,8 @@ services:
     # cpus: "1.0"
     restart: unless-stopped
     user: "185:185"
-    mem_limit: "2g"
-    mem_reservation: "1500m"
+    mem_limit: "1500m"
+    mem_reservation: "1g"
     oom_score_adj: -100
     ports:
       - "4040:4040" # Spark UI (stream)
@@ -225,10 +225,10 @@ services:
       - SPARK_RESET_CHECKPOINT_ON_START=true
       - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
       - SPARK_STORE_RAW_JSON=false
-      - SPARK_STREAM_DRIVER_MEMORY=1g
-      - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=512m
-      - SPARK_STREAM_EXECUTOR_MEMORY=2g
-      - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=768m
+      - SPARK_STREAM_DRIVER_MEMORY=768m
+      - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=256m
+      - SPARK_STREAM_EXECUTOR_MEMORY=1g
+      - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=384m
       - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
       - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-}"
       # --- maxOffsets 자동 계산 (target EPS 기반) ---
@@ -300,8 +300,8 @@ services:
     # cpus: "1.8"
     # restart: unless-stopped
     user: "185:185"
-    mem_limit: "3500m"
-    mem_reservation: "2500m"
+    mem_limit: "2g"
+    mem_reservation: "1500m"
     oom_score_adj: -50
     depends_on:
       - spark-master
@@ -312,7 +312,7 @@ services:
       - "--cores"
       - "3"
       - "--memory"
-      - "3g"
+      - "1536m"
     volumes:
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     networks: [logetlm-net]
@@ -326,8 +326,8 @@ services:
     # cpus: "1.8"
     # restart: unless-stopped
     user: "185:185"
-    mem_limit: "3500m"
-    mem_reservation: "2500m"
+    mem_limit: "2g"
+    mem_reservation: "1500m"
     oom_score_adj: -50
     depends_on:
       - spark-master
@@ -338,7 +338,7 @@ services:
       - "--cores"
       - "2"
       - "--memory"
-      - "3g"
+      - "1536m"
     volumes:
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
     networks: [logetlm-net]
@@ -351,8 +351,8 @@ services:
     container_name: clickhouse
     # cpus: "0.8"
     # restart: unless-stopped  # PoC: 수동 재시작으로 로그 보존
-    mem_limit: "8g"
-    mem_reservation: "6g"
+    mem_limit: "5g"
+    mem_reservation: "3g"
     oom_score_adj: -200
     ports:
       - "8123:8123"
