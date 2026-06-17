@@ -27,6 +27,12 @@ class SimulatorEngine:
         self._tasks: list[asyncio.Task] = []
         self._pipe: Pipeline | None = None
         self._stats_task: asyncio.Task | None = None
+        self._current_eps: float = 0.0
+        # set_eps 재시작에 필요한 상태 보관
+        self._context = None
+        self._settings = None
+        self._simulators: dict = {}
+        self._eps_lock = asyncio.Lock()
 
     async def start(self) -> None:
         """start 처리를 수행한다."""
@@ -60,7 +66,52 @@ class SimulatorEngine:
         self._tasks = pipe.service_tasks + pipe.publisher_tasks + [stats_task]
         self._pipe = pipe
         self._stats_task = stats_task
+        self._current_eps = context.total_eps
+        self._context = context
+        self._settings = settings
+        self._simulators = simulators
         self._started = True
+
+    async def set_eps(self, new_eps: float) -> None:
+        """실행 중 EPS를 실시간으로 변경한다. service_tasks만 재시작하며 publisher_tasks는 유지한다."""
+        async with self._eps_lock:
+            if not self._started or self._pipe is None:
+                raise RuntimeError("엔진이 실행 중이 아닙니다.")
+            if new_eps <= 0:
+                raise ValueError(f"EPS는 0보다 커야 합니다: {new_eps}")
+
+            logger.info("EPS 변경 요청: %.0f → %.0f", self._current_eps, new_eps)
+
+            # 기존 service_tasks만 취소 (publisher_tasks/publish_queue는 유지)
+            for task in self._pipe.service_tasks:
+                task.cancel()
+            await asyncio.gather(*self._pipe.service_tasks, return_exceptions=True)
+
+            # 새 EPS로 service_tasks만 재생성
+            base_eps, service_eps = allocate_service_eps(
+                total_eps=new_eps,
+                mix=self._context.mix,
+                services=list(self._simulators.keys()),
+                simulator_share=self._settings.simulator_share,
+            )
+            from .simulator.task_builder import create_service_tasks_only
+            new_service_tasks = create_service_tasks_only(
+                simulators=self._simulators,
+                base_eps=base_eps,
+                service_eps=service_eps,
+                bands=self._context.bands,
+                publish_queue=self._pipe.publish_queue,
+            )
+
+            # Pipeline은 frozen dataclass이므로 새 인스턴스로 교체
+            self._pipe = Pipeline(
+                publish_queue=self._pipe.publish_queue,
+                stats_queue=self._pipe.stats_queue,
+                service_tasks=new_service_tasks,
+                publisher_tasks=self._pipe.publisher_tasks,
+            )
+            self._current_eps = new_eps
+            logger.info("EPS 변경 완료: %.0f (base_eps=%.0f)", new_eps, base_eps)
 
     async def wait(self) -> None:
         """wait 처리를 수행한다."""
