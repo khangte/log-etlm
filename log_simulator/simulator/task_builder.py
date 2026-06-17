@@ -110,3 +110,45 @@ def create_simulator_tasks(
         queue_size=queue_size,
         loops_per_service=loops_per_service,
     )
+
+
+def create_service_tasks_only(
+    simulators: Dict[str, Any],
+    base_eps: float,
+    service_eps: Dict[str, float],
+    bands: List[Any],
+    publish_queue: "asyncio.Queue[list[BatchMessage]]",
+    *,
+    settings: SimulatorSettings | None = None,
+    queue_config: QueueThrottleConfig | None = None,
+) -> List[asyncio.Task]:
+    """기존 publish_queue를 재사용해 service_tasks만 새로 생성한다. EPS 실시간 변경용."""
+    resolved_settings = settings or get_simulator_settings()
+    resolved_queue_config = queue_config or get_queue_config(resolved_settings)
+
+    available_services = list(simulators.keys())
+    service_count = max(len(available_services), 1)
+    fallback_eps = base_eps / service_count
+    loops = max(int(resolved_settings.loops_per_service), 1)
+
+    service_tasks: List[asyncio.Task] = []
+    for service in available_services:
+        target = service_eps.get(service, fallback_eps)
+        per_loop_eps = target / loops
+        for idx in range(loops):
+            task = asyncio.create_task(
+                run_simulator_loop(
+                    service=service,
+                    simulator=simulators[service],
+                    target_eps=per_loop_eps,
+                    publish_queue=publish_queue,
+                    bands=bands,
+                    log_batch_size=resolved_settings.log_batch_size,
+                    settings=resolved_settings,
+                    queue_config=resolved_queue_config,
+                ),
+                name=f"service-loop-{service}-{idx}",
+            )
+            service_tasks.append(task)
+
+    return service_tasks
