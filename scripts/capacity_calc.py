@@ -172,6 +172,7 @@ def load_cluster_config() -> ClusterConfig:
 class EnvProfile:
     """config/env/*.env 프로파일 설정을 담는다."""
     name: str
+    eps_max: int           # 이 프로파일이 커버하는 EPS 상한 (파일 주석에서 파싱)
     shuffle_partitions: int
     max_offsets_cap: int
     min_partitions_multiplier: float
@@ -191,6 +192,25 @@ def _load_env_file(path: Path) -> dict[str, str]:
     return result
 
 
+def _parse_eps_max(path: Path) -> int:
+    """파일 첫 번째 주석줄에서 EPS 상한을 파싱한다.
+
+    예: '# HIGH: 8~10k EPS' → 10000, '# MID: 5~7k EPS' → 7000
+    """
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line.startswith("#"):
+            break
+        m = re.search(r"(\d+)k?\s*eps", line, re.IGNORECASE)
+        # '5~7k' 형태에서 마지막 숫자를 상한으로 사용
+        nums = re.findall(r"(\d+)k", line, re.IGNORECASE)
+        if nums:
+            return int(nums[-1]) * 1000
+        if m:
+            return int(m.group(1)) * 1000
+    return 0
+
+
 def load_env_profiles() -> list[EnvProfile]:
     """config/env/*.env 파일을 읽어 EnvProfile 목록을 반환한다."""
     profiles: list[EnvProfile] = []
@@ -198,6 +218,7 @@ def load_env_profiles() -> list[EnvProfile]:
         env = _load_env_file(path)
         profiles.append(EnvProfile(
             name=path.stem,
+            eps_max=_parse_eps_max(path),
             shuffle_partitions=int(env.get("SPARK_STREAM_SHUFFLE_PARTITIONS", "6")),
             max_offsets_cap=int(env.get("SPARK_MAX_OFFSETS_CAP", "24000")),
             min_partitions_multiplier=float(env.get("SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER", "1")),
@@ -209,13 +230,13 @@ def load_env_profiles() -> list[EnvProfile]:
 
 
 def _resolve_profile(eps: int, profiles: list[EnvProfile]) -> EnvProfile:
-    """EPS에 가장 적합한 프로파일을 반환한다."""
-    # max_offsets_cap 오름차순으로 정렬 후 cap이 처음으로 충분한 프로파일 선택
-    sorted_profiles = sorted(profiles, key=lambda p: p.max_offsets_cap)
-    trigger_sec = 4  # 여기서는 근사값으로 사용
-    needed = int(eps * trigger_sec * 1.1)
+    """EPS에 가장 적합한 프로파일을 반환한다.
+
+    eps_max 오름차순으로 정렬 후 eps를 처음으로 커버하는 프로파일을 선택한다.
+    """
+    sorted_profiles = sorted(profiles, key=lambda p: p.eps_max)
     for p in sorted_profiles:
-        if needed <= p.max_offsets_cap:
+        if eps <= p.eps_max:
             return p
     return sorted_profiles[-1]
 
