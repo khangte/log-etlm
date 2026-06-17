@@ -176,6 +176,7 @@ class EnvProfile:
     shuffle_partitions: int
     max_offsets_cap: int
     min_partitions_multiplier: float
+    pre_coalesce_partitions: int
     write_partitions: int
     jdbc_batchsize: int
     safety: float
@@ -216,13 +217,15 @@ def load_env_profiles() -> list[EnvProfile]:
     profiles: list[EnvProfile] = []
     for path in sorted(ENV_DIR.glob("*.env")):
         env = _load_env_file(path)
+        write_parts = int(env.get("SPARK_CLICKHOUSE_WRITE_PARTITIONS", "2"))
         profiles.append(EnvProfile(
             name=path.stem,
             eps_max=_parse_eps_max(path),
             shuffle_partitions=int(env.get("SPARK_STREAM_SHUFFLE_PARTITIONS", "6")),
             max_offsets_cap=int(env.get("SPARK_MAX_OFFSETS_CAP", "24000")),
             min_partitions_multiplier=float(env.get("SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER", "1")),
-            write_partitions=int(env.get("SPARK_CLICKHOUSE_WRITE_PARTITIONS", "2")),
+            pre_coalesce_partitions=int(env.get("SPARK_FACT_PRE_COALESCE_PARTITIONS", str(write_parts))),
+            write_partitions=write_parts,
             jdbc_batchsize=int(env.get("SPARK_CLICKHOUSE_JDBC_BATCHSIZE", "5000")),
             safety=float(env.get("SPARK_MAX_OFFSETS_SAFETY", "1.1")),
         ))
@@ -319,7 +322,7 @@ def calc(eps: int, cluster: ClusterConfig, profiles: list[EnvProfile]) -> None:
     print(f"    DataFrame 메모리 (~3×) : {df_mb:.0f} MB")
 
     print("\n[4] pre_coalesce → JDBC write")
-    print(f"    pre_coalesce           : {min_parts} → {cluster.pre_coalesce_partitions}개")
+    print(f"    pre_coalesce           : {min_parts} → {profile.pre_coalesce_partitions}개")
     print(f"    write_partitions       : {profile.write_partitions}개  {_judge(profile.write_partitions <= cores, f'write({profile.write_partitions}) > 코어({cores})')}")
     print(f"    jdbc_batchsize         : {profile.jdbc_batchsize:,}개 = {jdbc_mb:.1f} MB/배치")
     print(f"    동시 write 총량        : {write_total_mb:.1f} MB")
@@ -356,7 +359,7 @@ def main() -> None:
     print(f"  파이프라인 용량 계산기")
     print(f"  클러스터 : 코어 {cluster.total_cores}개 {dict(cluster.worker_cores)}")
     print(f"  Kafka    : 파티션 {cluster.total_kafka_partitions}개  보존 {cluster.kafka_retention_bytes // 1024**3}GB / {cluster.kafka_retention_hours}h")
-    print(f"  Spark    : executor {cluster.executor_memory_mb}MB  트리거 {cluster.trigger_sec}s  pre_coalesce {cluster.pre_coalesce_partitions}")
+    print(f"  Spark    : executor {cluster.executor_memory_mb}MB  트리거 {cluster.trigger_sec}s")
     print(f"  프로파일 : {[p.name for p in profiles]}")
     print(f"{'='*60}\n")
 
