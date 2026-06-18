@@ -1,7 +1,9 @@
 <clickhouse>
     <!-- ClickHouse 자체 메모리 한도 비활성화.
-         mmap 기반 background merge 로 인해 트래커(~4.5 GiB)와 실제 RSS(~1 GiB)
-         간 괴리가 크다. 실제 보호는 Docker mem_limit: "5g" 에 위임한다.
+         background merge 시 MergeTree가 내부적으로 파티션 파일을 mmap으로 매핑하며
+         (MMappedFileBytes), 이 영역이 ClickHouse 트래커에는 집계되나 OS anonymous
+         RSS에는 미반영되어 트래커(~4.5 GiB)와 실제 RSS(~1 GiB) 간 괴리가 발생한다.
+         실제 보호는 Docker mem_limit: "5g" 에 위임한다.
          max_server_memory_usage=0 단독으로는 ratio 계산이 여전히 적용되므로
          두 값 모두 0으로 설정해야 실질적으로 무제한이 된다. -->
     <max_server_memory_usage>0</max_server_memory_usage>
