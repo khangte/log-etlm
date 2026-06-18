@@ -216,50 +216,51 @@ services:
     ports:
       - "4040:4040" # Spark UI (stream)
     environment:
-      # --- Spark/Kafka connection (필수) ---
+      # --- 연결 ---
       - SPARK_MASTER_URL=spark://spark-master:7077
       - KAFKA_BOOTSTRAP=kafka:9092
-      # --- Spark Streaming ingest ---
+      # --- Kafka ingest ---
       - SPARK_FACT_TOPICS=logs.auth,logs.order,logs.payment,logs.error
       - SPARK_STARTING_OFFSETS=latest
       - SPARK_RESET_CHECKPOINT_ON_START=true
-      - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-6 seconds}"
-      - SPARK_STORE_RAW_JSON=false
-      - SPARK_STREAM_DRIVER_MEMORY=768m
-      - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=256m
-      - SPARK_STREAM_EXECUTOR_MEMORY=1g
-      - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=384m
-      - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
-      - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-}"
-      # --- maxOffsets 자동 계산 (target EPS 기반) ---
       - "SPARK_MAX_OFFSETS_PER_TRIGGER=${SPARK_MAX_OFFSETS_PER_TRIGGER:-}" # 비어있으면 자동 계산
       - "SPARK_MAX_OFFSETS_SAFETY=${SPARK_MAX_OFFSETS_SAFETY:-1.1}"
       - "SPARK_MAX_OFFSETS_CAP=${SPARK_MAX_OFFSETS_CAP:-40000}"
       - "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER=${SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER:-1}"
-      # --- DLQ/에러 스트림 (선택) ---
-      - SPARK_DLQ_TOPIC=logs.dlq
-      - SPARK_ENABLE_DLQ_STREAM=false
-      - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
-      - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
-      - SPARK_DLQ_KAFKA_LOG_EMPTY=false
-      # --- Batch/metrics logging ---
-      - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
-      # --- ClickHouse sink tuning ---
+      # --- 트리거 / Spark 자원 ---
+      - "SPARK_FACT_TRIGGER_INTERVAL=${SPARK_FACT_TRIGGER_INTERVAL:-4 seconds}"
+      - SPARK_STREAM_DRIVER_MEMORY=768m
+      - SPARK_STREAM_DRIVER_MEMORY_OVERHEAD=256m
+      - SPARK_STREAM_EXECUTOR_MEMORY=1g
+      - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=384m
+      - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-}"
+      - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
+      # --- Transform ---
+      - SPARK_STORE_RAW_JSON=false
+      - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-2}"
+      - SPARK_FACT_DEDUP_KEYS=
+      - "SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
+      - SPARK_SKIP_EMPTY_BATCH=true
+      # --- ClickHouse write ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=1&decompress=1&socket_timeout=30000&retry=0
       - SPARK_CLICKHOUSE_USER=log_user
       - SPARK_CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - "SPARK_CLICKHOUSE_JDBC_BATCHSIZE=${SPARK_CLICKHOUSE_JDBC_BATCHSIZE:-15000}"
       - "SPARK_CLICKHOUSE_WRITE_PARTITIONS=${SPARK_CLICKHOUSE_WRITE_PARTITIONS:-2}"
-      - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-2}"
-      - SPARK_SKIP_EMPTY_BATCH=true
       - "SPARK_CLICKHOUSE_ALLOW_REPARTITION=${SPARK_CLICKHOUSE_ALLOW_REPARTITION:-false}" # 업스케일은 repartition 필요
-      - SPARK_FACT_DEDUP_KEYS=
-      - "SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
       - SPARK_CLICKHOUSE_RETRY_MAX=1
       - SPARK_CLICKHOUSE_FAIL_ON_ERROR=true
+      # --- DLQ 스트림 (선택) ---
+      - SPARK_DLQ_TOPIC=logs.dlq
+      - SPARK_ENABLE_DLQ_STREAM=false
+      - SPARK_DLQ_TRIGGER_INTERVAL=30 seconds
+      - SPARK_DLQ_KAFKA_TRIGGER_INTERVAL=60 seconds
+      - SPARK_DLQ_KAFKA_LOG_EMPTY=false
       - SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE=false
       - SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=false
       - SPARK_CLICKHOUSE_BATCH_GUARD_TABLE=analytics.stream_batch_guard
+      # --- 모니터링 ---
+      - SPARK_BATCH_TIMING_LOG_PATH=/data/log-etlm/spark-events/batch_timing.log
     volumes:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
