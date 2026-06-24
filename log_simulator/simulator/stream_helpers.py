@@ -114,44 +114,6 @@ def log_behind(
     return last_behind_log_ts
 
 
-def _apply_soft_throttle(
-    logger,
-    config: QueueThrottleConfig,
-    *,
-    service: str,
-    throttle_scale: float,
-    queue_depth: int,
-    queue_capacity: int,
-    fill_ratio: float,
-) -> float:
-    """apply_soft_throttle 처리를 수행한다."""
-    if fill_ratio >= config.soft_throttle_ratio:
-        new_scale = max(config.soft_scale_min, throttle_scale - config.soft_scale_step)
-        if new_scale < throttle_scale:
-            throttle_scale = new_scale
-            logger.info(
-                "[simulator] soft throttle service=%s scale=%.2f queue=%d/%d (%.0f%%)",
-                service,
-                throttle_scale,
-                queue_depth,
-                queue_capacity,
-                fill_ratio * 100,
-            )
-    elif fill_ratio <= config.soft_resume_ratio:
-        new_scale = min(config.soft_scale_max, throttle_scale + config.soft_scale_step)
-        if new_scale > throttle_scale:
-            throttle_scale = new_scale
-            logger.info(
-                "[simulator] soft throttle release service=%s scale=%.2f queue=%d/%d (%.0f%%)",
-                service,
-                throttle_scale,
-                queue_depth,
-                queue_capacity,
-                fill_ratio * 100,
-            )
-    return throttle_scale
-
-
 async def apply_queue_backpressure(
     logger,
     *,
@@ -199,15 +161,30 @@ async def apply_queue_backpressure(
                 break
         return throttle_scale, sleep_time, True
 
-    throttle_scale = _apply_soft_throttle(
-        logger,
-        config,
-        service=service,
-        throttle_scale=throttle_scale,
-        queue_depth=queue_depth,
-        queue_capacity=queue_capacity,
-        fill_ratio=fill_ratio,
-    )
+    if fill_ratio >= config.soft_throttle_ratio:
+        new_scale = max(config.soft_scale_min, throttle_scale - config.soft_scale_step)
+        if new_scale < throttle_scale:
+            throttle_scale = new_scale
+            logger.info(
+                "[simulator] soft throttle service=%s scale=%.2f queue=%d/%d (%.0f%%)",
+                service,
+                throttle_scale,
+                queue_depth,
+                queue_capacity,
+                fill_ratio * 100,
+            )
+    elif fill_ratio <= config.soft_resume_ratio:
+        new_scale = min(config.soft_scale_max, throttle_scale + config.soft_scale_step)
+        if new_scale > throttle_scale:
+            throttle_scale = new_scale
+            logger.info(
+                "[simulator] soft throttle release service=%s scale=%.2f queue=%d/%d (%.0f%%)",
+                service,
+                throttle_scale,
+                queue_depth,
+                queue_capacity,
+                fill_ratio * 100,
+            )
 
     if sleep_time > 0 and fill_ratio <= config.low_watermark_ratio:
         sleep_time *= config.low_sleep_scale

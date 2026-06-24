@@ -8,17 +8,9 @@ from __future__ import annotations
 import asyncio
 import time
 from collections import Counter
-from dataclasses import dataclass
 from typing import Tuple
 
 from ..models.messages import BatchMessage
-
-
-@dataclass(frozen=True)
-class WorkerMetricsConfig:
-    idle_warn_sec: float
-    send_warn_sec: float
-    queue_warn_ratio: float
 
 
 async def collect_batch(
@@ -47,7 +39,9 @@ async def collect_batch(
 def log_worker_metrics(
     logger,
     *,
-    config: WorkerMetricsConfig,
+    idle_warn_sec: float,
+    send_warn_sec: float,
+    queue_warn_ratio: float,
     worker_id: int,
     wait_duration: float,
     send_duration: float,
@@ -56,7 +50,7 @@ def log_worker_metrics(
     queue_capacity: int,
 ) -> None:
     """log_worker_metrics 처리를 수행한다."""
-    if wait_duration > config.idle_warn_sec:
+    if wait_duration > idle_warn_sec:
         logger.info(
             "[publisher] idle worker=%d wait=%.3fs queue=%d",
             worker_id,
@@ -64,7 +58,7 @@ def log_worker_metrics(
             queue_depth,
         )
 
-    if send_duration > config.send_warn_sec:
+    if send_duration > send_warn_sec:
         logger.info(
             "[publisher] slow send worker=%d batch=%d duration=%.3fs",
             worker_id,
@@ -74,7 +68,7 @@ def log_worker_metrics(
 
     if queue_capacity and queue_capacity > 0:
         fill_ratio = queue_depth / queue_capacity
-        if fill_ratio >= config.queue_warn_ratio:
+        if fill_ratio >= queue_warn_ratio:
             logger.info(
                 "[publisher] queue backlog worker=%d queue=%d/%d (%.0f%%)",
                 worker_id,
