@@ -15,124 +15,116 @@ from .sink import write_to_clickhouse
 logger = logging.getLogger(__name__)
 
 
-class ClickHouseStreamWriterBase:
-    """스트리밍 데이터의 ClickHouse 적재를 담당한다."""
+def write_clickhouse_stream(
+    df: DataFrame,
+    table_name: str,
+    checkpoint_dir: str,
+    *,
+    output_mode: str = "append",
+    query_name: str | None = None,
+    stream_name: str | None = None,
+    deduplicate_keys: list[str] | None = None,
+    skip_empty: bool = False,
+    trigger_processing_time: str | None = None,
+    pre_coalesce_partitions: int | None = None,
+):
+    """스트리밍 데이터를 ClickHouse로 적재한다."""
+    resolved_stream = stream_name or query_name or table_name
+    prefix_parts = [
+        "[spark batch]",
+        f"stream={resolved_stream}",
+        f"table={table_name}",
+    ]
+    if query_name:
+        prefix_parts.append(f"query={query_name}")
+    prefix = " ".join(prefix_parts)
 
-    def __init__(self, foreach_writer=write_to_clickhouse):
-        """배치 처리 함수를 주입한다."""
-        self._foreach_writer = foreach_writer
+    def _foreach(batch_df: DataFrame, batch_id: int):
+        """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
+        start_time = time.perf_counter()
 
-    def write_stream(
-        self,
-        df: DataFrame,
-        table_name: str,
-        checkpoint_dir: str,
-        *,
-        output_mode: str = "append",
-        query_name: str | None = None,
-        stream_name: str | None = None,
-        deduplicate_keys: list[str] | None = None,
-        skip_empty: bool = False,
-        trigger_processing_time: str | None = None,
-        pre_coalesce_partitions: int | None = None,
-    ):
-        """스트리밍 데이터를 ClickHouse로 적재한다."""
-        resolved_stream = stream_name or query_name or table_name
-        prefix_parts = [
-            "[spark batch]",
-            f"stream={resolved_stream}",
-            f"table={table_name}",
-        ]
-        if query_name:
-            prefix_parts.append(f"query={query_name}")
-        prefix = " ".join(prefix_parts)
+        working_df = batch_df
+        current_parts: int | None = None
+        if pre_coalesce_partitions and pre_coalesce_partitions > 0:
+            raw_parts = working_df.rdd.getNumPartitions()
+            if raw_parts > pre_coalesce_partitions:
+                working_df = working_df.coalesce(pre_coalesce_partitions)
+                current_parts = pre_coalesce_partitions
+            else:
+                current_parts = raw_parts
 
-        def _foreach(batch_df: DataFrame, batch_id: int):
-            """배치별 ClickHouse 쓰기와 타이밍 로그를 처리한다."""
-            start_time = time.perf_counter()
-
-            working_df = batch_df
-            current_parts: int | None = None
-            if pre_coalesce_partitions and pre_coalesce_partitions > 0:
-                raw_parts = working_df.rdd.getNumPartitions()
-                if raw_parts > pre_coalesce_partitions:
-                    working_df = working_df.coalesce(pre_coalesce_partitions)
-                    current_parts = pre_coalesce_partitions
-                else:
-                    current_parts = raw_parts
-
-            persisted = False
-            if skip_empty:
-                # 불필요한 Spark Job 재실행을 피하기 위해 empty 체크 시 캐시
-                working_df.persist()
-                persisted = True
-            if skip_empty and working_df.isEmpty():
-                elapsed = time.perf_counter() - start_time
-                line = (
-                    f"{prefix} batch_id={batch_id} stage=transform empty=true "
-                    f"duration={elapsed:.3f}s"
-                )
-                logger.info(line)
-                append_batch_log(line)
-                line = (
-                    f"{prefix} batch_id={batch_id} stage=write empty=true "
-                    "duration=0.000s"
-                )
-                logger.info(line)
-                append_batch_log(line)
-                if persisted:
-                    working_df.unpersist()  # 캐시 해제
-                return
-
-            out_df = working_df
-
-            if deduplicate_keys:
-                # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
-                out_df = out_df.dropDuplicates(deduplicate_keys)
-
-            # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
-            if "spark_processed_at" in out_df.columns:
-                out_df = out_df.withColumn("spark_processed_at", F.current_timestamp())
-
-            transform_elapsed = time.perf_counter() - start_time
+        persisted = False
+        if skip_empty:
+            # 불필요한 Spark Job 재실행을 피하기 위해 empty 체크 시 캐시
+            working_df.persist()
+            persisted = True
+        if skip_empty and working_df.isEmpty():
+            elapsed = time.perf_counter() - start_time
             line = (
-                f"{prefix} batch_id={batch_id} stage=transform "
-                f"duration={transform_elapsed:.3f}s"
+                f"{prefix} batch_id={batch_id} stage=transform empty=true "
+                f"duration={elapsed:.3f}s"
             )
             logger.info(line)
             append_batch_log(line)
-
-            write_start = time.perf_counter()
-            self._foreach_writer(
-                out_df,
-                table_name,
-                batch_id=batch_id,
-                stream_name=resolved_stream,
-                # dropDuplicates가 셔플을 유발하면 current_parts는 stale해지므로
-                # dedup 시에는 None을 전달해 실제 파티션 수를 재평가한다.
-                current_partitions=None if deduplicate_keys else current_parts,
+            line = (
+                f"{prefix} batch_id={batch_id} stage=write empty=true "
+                "duration=0.000s"
             )
-            write_elapsed = time.perf_counter() - write_start
-
+            logger.info(line)
+            append_batch_log(line)
             if persisted:
                 working_df.unpersist()  # 캐시 해제
-            line = (
-                f"{prefix} batch_id={batch_id} stage=write "
-                f"duration={write_elapsed:.3f}s"
-            )
-            logger.info(line)
-            append_batch_log(line)
+            return
 
-        writer = (
-            df.writeStream
-            .outputMode(output_mode)
-            .foreachBatch(_foreach)
-            .option("checkpointLocation", checkpoint_dir)
+        out_df = working_df
+
+        if deduplicate_keys:
+            # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
+            out_df = out_df.dropDuplicates(deduplicate_keys)
+
+        # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
+        if "spark_processed_at" in out_df.columns:
+            out_df = out_df.withColumn("spark_processed_at", F.current_timestamp())
+
+        transform_elapsed = time.perf_counter() - start_time
+        line = (
+            f"{prefix} batch_id={batch_id} stage=transform "
+            f"duration={transform_elapsed:.3f}s"
         )
+        logger.info(line)
+        append_batch_log(line)
 
-        if trigger_processing_time:
-            writer = writer.trigger(processingTime=trigger_processing_time)
+        write_start = time.perf_counter()
+        write_to_clickhouse(
+            out_df,
+            table_name,
+            batch_id=batch_id,
+            stream_name=resolved_stream,
+            # dropDuplicates가 셔플을 유발하면 current_parts는 stale해지므로
+            # dedup 시에는 None을 전달해 실제 파티션 수를 재평가한다.
+            current_partitions=None if deduplicate_keys else current_parts,
+        )
+        write_elapsed = time.perf_counter() - write_start
 
-        if query_name:
-            writer = writer.queryName(query_name)
-        return writer.start()
+        if persisted:
+            working_df.unpersist()  # 캐시 해제
+        line = (
+            f"{prefix} batch_id={batch_id} stage=write "
+            f"duration={write_elapsed:.3f}s"
+        )
+        logger.info(line)
+        append_batch_log(line)
+
+    writer = (
+        df.writeStream
+        .outputMode(output_mode)
+        .foreachBatch(_foreach)
+        .option("checkpointLocation", checkpoint_dir)
+    )
+
+    if trigger_processing_time:
+        writer = writer.trigger(processingTime=trigger_processing_time)
+
+    if query_name:
+        writer = writer.queryName(query_name)
+    return writer.start()
