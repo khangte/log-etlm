@@ -2,25 +2,17 @@ from __future__ import annotations
 
 import re
 
+import yaml
+
 
 def read_eps_from_profile(path: str) -> int | None:
-    """profiles.yml에서 eps 값을 추출한다. (간단 파서)"""
+    """profiles.yml에서 eps 값을 추출한다."""
     try:
         with open(path, "r", encoding="utf-8") as f:
-            for line in f:
-                stripped = line.strip()
-                if not stripped or stripped.startswith("#"):
-                    continue
-                if stripped.startswith("eps:"):
-                    value = stripped.split(":", 1)[1].strip().strip("'\"")
-                    if not value:
-                        return None
-                    try:
-                        return int(float(value))
-                    except ValueError:
-                        return None
-        return None
-    except FileNotFoundError:
+            data = yaml.safe_load(f) or {}
+        value = data.get("eps")
+        return int(float(value)) if value is not None else None
+    except (FileNotFoundError, ValueError, TypeError):
         return None
 
 
