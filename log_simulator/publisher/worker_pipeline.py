@@ -16,22 +16,12 @@ from ..producer.kafka_client import KafkaProducerClient, get_client
 from ..models.messages import BatchMessage
 from .settings import PublisherSettings, get_publisher_settings
 from .worker_helpers import (
-    WorkerMetricsConfig,
     collect_batch,
     log_worker_metrics,
     push_stats,
 )
 
 _logger = logging.getLogger("log_simulator.publisher.worker_pipeline")
-
-
-def _build_metrics_config(settings: PublisherSettings) -> WorkerMetricsConfig:
-    """메트릭 설정을 구성한다."""
-    return WorkerMetricsConfig(
-        idle_warn_sec=settings.idle_warn_sec,
-        send_warn_sec=settings.send_warn_sec,
-        queue_warn_ratio=settings.queue_warn_ratio,
-    )
 
 
 @dataclass(frozen=True)
@@ -41,7 +31,6 @@ class PublisherWorker:
     publish_queue: "asyncio.Queue[list[BatchMessage]]"
     stats_queue: "asyncio.Queue[Tuple[str, int]]"
     settings: PublisherSettings
-    metrics_config: WorkerMetricsConfig
     producer: KafkaProducerClient
     dlq_publisher: DlqPublisher
     logger: logging.Logger
@@ -75,7 +64,9 @@ class PublisherWorker:
 
             log_worker_metrics(
                 self.logger,
-                config=self.metrics_config,
+                idle_warn_sec=self.settings.idle_warn_sec,
+                send_warn_sec=self.settings.send_warn_sec,
+                queue_warn_ratio=self.settings.queue_warn_ratio,
                 worker_id=self.worker_id,
                 wait_duration=wait_duration,
                 send_duration=send_duration,
@@ -103,7 +94,6 @@ def create_publisher_workers(
 ) -> List[asyncio.Task]:
     """Kafka 퍼블리셔 워커 태스크 생성."""
     resolved_settings = settings or get_publisher_settings()
-    resolved_metrics = _build_metrics_config(resolved_settings)
     resolved_producer = producer or get_client()
     resolved_dlq = dlq_publisher or get_dlq_publisher(resolved_producer)
     resolved_worker_count = (
@@ -116,7 +106,6 @@ def create_publisher_workers(
                 publish_queue=publish_queue,
                 stats_queue=stats_queue,
                 settings=resolved_settings,
-                metrics_config=resolved_metrics,
                 producer=resolved_producer,
                 dlq_publisher=resolved_dlq,
                 logger=_logger,
