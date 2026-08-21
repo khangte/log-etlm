@@ -179,7 +179,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 적재 튜닝: `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`
 - 배치 가드(중복 배치 skip): `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED`, `SPARK_CLICKHOUSE_BATCH_GUARD_TABLE`
   - `wait_for_async_insert=0` 설정으로 인해 배치 가드는 "버퍼 수신 완료" 기준으로 기록된다. throughput 우선 설계 선택이며, flush 직전 재시작 시 유실 위험이 있음을 인지하고 수용한다.
-- 읽기/리파티션: `SPARK_CLICKHOUSE_JDBC_FETCHSIZE`, `SPARK_CLICKHOUSE_ALLOW_REPARTITION`
+- 리파티션: `SPARK_CLICKHOUSE_ALLOW_REPARTITION`
 - 서버/사용자 설정: `infra/clickhouse/`
   - `config.d/` (예: listen_host, async insert 로그)
   - `users.d/` (예: log_user async_insert, `wait_for_async_insert=0`)
@@ -193,7 +193,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ### 유틸 스크립트 목록
 - Spark 프로파일: `scripts/apply_spark_env.sh`, `scripts/current_spark_env.sh`, `scripts/autoswitch_spark_env.sh`
-- Kafka/Spark 지연: `scripts/check_backlog.sh`, `scripts/kafka_spark_lag.py`
+- Kafka/Spark 지연: `scripts/kafka_spark_lag.py`
 - ClickHouse 진단: `scripts/clickhouse_diagnostics.sh`, `scripts/diag_partition_and_partlog.sh`
 - 스파이크 분석: `scripts/publish_spike_diag.sh`
 
