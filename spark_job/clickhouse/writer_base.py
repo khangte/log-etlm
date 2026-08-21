@@ -23,7 +23,6 @@ def write_clickhouse_stream(
     output_mode: str = "append",
     query_name: str | None = None,
     stream_name: str | None = None,
-    deduplicate_keys: list[str] | None = None,
     skip_empty: bool = False,
     trigger_processing_time: str | None = None,
     pre_coalesce_partitions: int | None = None,
@@ -78,10 +77,6 @@ def write_clickhouse_stream(
 
         out_df = working_df
 
-        if deduplicate_keys:
-            # 마이크로 배치 단위 중복 제거로 적재 중복을 줄인다.
-            out_df = out_df.dropDuplicates(deduplicate_keys)
-
         # 처리 완료 시각을 sink 직전에 재부여한다(컬럼이 존재하는 경우만).
         if "spark_processed_at" in out_df.columns:
             out_df = out_df.withColumn("spark_processed_at", F.current_timestamp())
@@ -98,9 +93,7 @@ def write_clickhouse_stream(
         write_to_clickhouse(
             out_df,
             table_name,
-            # dropDuplicates가 셔플을 유발하면 current_parts는 stale해지므로
-            # dedup 시에는 None을 전달해 실제 파티션 수를 재평가한다.
-            current_partitions=None if deduplicate_keys else current_parts,
+            current_partitions=current_parts,
         )
         write_elapsed = time.perf_counter() - write_start
 
