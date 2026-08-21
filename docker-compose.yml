@@ -234,7 +234,6 @@ services:
       - SPARK_STREAM_EXECUTOR_MEMORY=1g
       - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=384m
       - "SPARK_STREAM_SHUFFLE_PARTITIONS=${SPARK_STREAM_SHUFFLE_PARTITIONS:-}"
-      - "SPARK_ENV_PROFILE=${SPARK_ENV_PROFILE:-}"
       # --- Transform ---
       - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-2}"
       - SPARK_FACT_DEDUP_KEYS=
@@ -252,7 +251,6 @@ services:
     volumes:
       - ./common:/app/common:ro
       - ./spark_job:/app/spark_job:ro
-      - ./config/env:/app/config/env:ro
       - ./log_simulator/config:/app/log_simulator/config:ro
       - /data/log-etlm/spark_checkpoints:/data/log-etlm/spark_checkpoints
       - /data/log-etlm/spark-events:/data/log-etlm/spark-events
