@@ -37,22 +37,6 @@ class SimulatorSettings:
     event_mode: str  # 전체/도메인/HTTP 모드 구분
 
 
-@dataclass(frozen=True)
-class QueueThrottleConfig:
-    """큐 백프레셔 설정 값을 담는다."""
-    warn_ratio: float
-    low_watermark_ratio: float
-    low_sleep_scale: float
-    throttle_ratio: float
-    resume_ratio: float
-    throttle_sleep: float
-    soft_throttle_ratio: float
-    soft_resume_ratio: float
-    soft_scale_step: float
-    soft_scale_min: float
-    soft_scale_max: float
-
-
 _DEFAULT_SIMULATOR_SHARE = 1.0
 _DEFAULT_LOG_BATCH_SIZE = 240
 _DEFAULT_TARGET_INTERVAL_SEC = 0.22
@@ -193,26 +177,3 @@ def load_simulator_settings(env: Mapping[str, str] | None = None) -> SimulatorSe
 def get_simulator_settings() -> SimulatorSettings:
     """캐시된 시뮬레이터 설정을 반환한다."""
     return load_simulator_settings()
-
-
-def build_queue_config(settings: SimulatorSettings) -> QueueThrottleConfig:
-    """시뮬레이터 설정으로 큐 정책을 생성한다."""
-    return QueueThrottleConfig(
-        warn_ratio=settings.queue_warn_ratio,
-        low_watermark_ratio=settings.queue_low_watermark_ratio,
-        low_sleep_scale=settings.queue_low_sleep_scale,
-        throttle_ratio=settings.queue_throttle_ratio,
-        resume_ratio=settings.queue_resume_ratio,
-        throttle_sleep=settings.queue_throttle_sleep,
-        soft_throttle_ratio=settings.queue_soft_throttle_ratio,
-        soft_resume_ratio=settings.queue_soft_resume_ratio,
-        soft_scale_step=settings.queue_soft_scale_step,
-        soft_scale_min=settings.queue_soft_scale_min,
-        soft_scale_max=settings.queue_soft_scale_max,
-    )
-
-
-@lru_cache(maxsize=1)
-def get_queue_config() -> QueueThrottleConfig:
-    """큐 정책 설정을 반환한다."""
-    return build_queue_config(get_simulator_settings())

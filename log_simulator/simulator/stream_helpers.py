@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from ..models.messages import BatchMessage
-from .settings import QueueThrottleConfig
+from .settings import SimulatorSettings
 
 
 def adjust_eps_for_event_mode(eps: float) -> float:
@@ -95,7 +95,7 @@ def log_behind(
 async def apply_queue_backpressure(
     logger,
     *,
-    config: QueueThrottleConfig,
+    settings: SimulatorSettings,
     service: str,
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     throttle_scale: float,
@@ -108,8 +108,8 @@ async def apply_queue_backpressure(
         return throttle_scale, sleep_time, False
 
     fill_ratio = queue_depth / queue_capacity
-    if fill_ratio >= config.throttle_ratio:
-        throttle_scale = config.soft_scale_min
+    if fill_ratio >= settings.queue_throttle_ratio:
+        throttle_scale = settings.queue_soft_scale_min
         throttle_started_at = time.perf_counter()
         logger.info(
             "[simulator] throttling service=%s queue=%d/%d (%.0f%%)",
@@ -119,10 +119,10 @@ async def apply_queue_backpressure(
             fill_ratio * 100,
         )
         while True:
-            await asyncio.sleep(config.throttle_sleep)
+            await asyncio.sleep(settings.queue_throttle_sleep)
             queue_depth = publish_queue.qsize()
             fill_ratio = queue_depth / queue_capacity
-            if fill_ratio <= config.resume_ratio:
+            if fill_ratio <= settings.queue_resume_ratio:
                 logger.info(
                     "[simulator] throttle release service=%s queue=%d/%d (%.0f%%)",
                     service,
@@ -139,8 +139,11 @@ async def apply_queue_backpressure(
                 break
         return throttle_scale, sleep_time, True
 
-    if fill_ratio >= config.soft_throttle_ratio:
-        new_scale = max(config.soft_scale_min, throttle_scale - config.soft_scale_step)
+    if fill_ratio >= settings.queue_soft_throttle_ratio:
+        new_scale = max(
+            settings.queue_soft_scale_min,
+            throttle_scale - settings.queue_soft_scale_step,
+        )
         if new_scale < throttle_scale:
             throttle_scale = new_scale
             logger.info(
@@ -151,8 +154,11 @@ async def apply_queue_backpressure(
                 queue_capacity,
                 fill_ratio * 100,
             )
-    elif fill_ratio <= config.soft_resume_ratio:
-        new_scale = min(config.soft_scale_max, throttle_scale + config.soft_scale_step)
+    elif fill_ratio <= settings.queue_soft_resume_ratio:
+        new_scale = min(
+            settings.queue_soft_scale_max,
+            throttle_scale + settings.queue_soft_scale_step,
+        )
         if new_scale > throttle_scale:
             throttle_scale = new_scale
             logger.info(
@@ -164,9 +170,9 @@ async def apply_queue_backpressure(
                 fill_ratio * 100,
             )
 
-    if sleep_time > 0 and fill_ratio <= config.low_watermark_ratio:
-        sleep_time *= config.low_sleep_scale
-    if fill_ratio >= config.warn_ratio:
+    if sleep_time > 0 and fill_ratio <= settings.queue_low_watermark_ratio:
+        sleep_time *= settings.queue_low_sleep_scale
+    if fill_ratio >= settings.queue_warn_ratio:
         logger.info(
             "[simulator] queue backlog service=%s queue=%d/%d (%.0f%%)",
             service,
