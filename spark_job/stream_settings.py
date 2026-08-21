@@ -18,7 +18,6 @@ class StreamIngestSettings:
     """스트리밍 적재 설정을 담는다."""
     kafka_bootstrap: str
     fact_topics: str
-    dlq_topic: str | None
     starting_offsets: str | None
     max_offsets_per_trigger: str | None
     max_offsets_cap: int | None
@@ -27,7 +26,6 @@ class StreamIngestSettings:
     target_eps_profile_path: str | None
     kafka_min_partitions: int | None
     kafka_min_partitions_multiplier: float | None
-    enable_dlq_stream: bool
     reset_checkpoint_on_start: bool
 
 
@@ -41,7 +39,6 @@ def load_stream_ingest_settings(
     return StreamIngestSettings(
         kafka_bootstrap=kafka_bootstrap,
         fact_topics=fact_topics,
-        dlq_topic=get_env_optional_str(source, "SPARK_DLQ_TOPIC"),
         starting_offsets=get_env_optional_str(source, "SPARK_STARTING_OFFSETS"),
         max_offsets_per_trigger=get_env_str(source, "SPARK_MAX_OFFSETS_PER_TRIGGER"),
         max_offsets_cap=get_env_int(source, "SPARK_MAX_OFFSETS_CAP"),
@@ -54,7 +51,6 @@ def load_stream_ingest_settings(
         kafka_min_partitions_multiplier=get_env_float(
             source, "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER"
         ),
-        enable_dlq_stream=get_env_bool(source, "SPARK_ENABLE_DLQ_STREAM", True),
         reset_checkpoint_on_start=get_env_bool(
             source,
             "SPARK_RESET_CHECKPOINT_ON_START",

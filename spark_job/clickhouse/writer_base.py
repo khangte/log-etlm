@@ -98,8 +98,6 @@ def write_clickhouse_stream(
         write_to_clickhouse(
             out_df,
             table_name,
-            batch_id=batch_id,
-            stream_name=resolved_stream,
             # dropDuplicates가 셔플을 유발하면 current_parts는 stale해지므로
             # dedup 시에는 None을 전달해 실제 파티션 수를 재평가한다.
             current_partitions=None if deduplicate_keys else current_parts,

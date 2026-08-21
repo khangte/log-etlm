@@ -17,7 +17,6 @@ class FactStreamSettings:
     table_name: str
     checkpoint_dir: str
     trigger_interval: str | None
-    store_raw_json: bool
     pre_coalesce_partitions: int | None
     skip_empty_batch: bool
     deduplicate_keys: list[str] | None
@@ -41,7 +40,6 @@ def load_fact_stream_settings(
         table_name=FACT_EVENT_TABLE,
         checkpoint_dir=FACT_EVENT_CHECKPOINT_DIR,
         trigger_interval=get_env_str(source, "SPARK_FACT_TRIGGER_INTERVAL"),
-        store_raw_json=get_env_bool(source, "SPARK_STORE_RAW_JSON", False),
         pre_coalesce_partitions=get_env_int(source, "SPARK_FACT_PRE_COALESCE_PARTITIONS"),
         skip_empty_batch=get_env_bool(source, "SPARK_SKIP_EMPTY_BATCH", False),
         deduplicate_keys=_parse_dedup_keys(get_env_str(source, "SPARK_FACT_DEDUP_KEYS")),

@@ -2,7 +2,7 @@ from pyspark.sql import types as T
 
 # -----------------------------------------------------------------------------
 # 1) Kafka value(JSON) 스키마
-#    - simulator v2 이벤트 필드 + 레거시 필드 동시 수용
+#    - simulator v2 이벤트 필드 수용
 #    - from_json(col("value"), log_value_schema) 에서 사용
 # -----------------------------------------------------------------------------
 
@@ -26,12 +26,6 @@ log_value_schema: T.StructType = T.StructType(
         T.StructField("reason_code",    T.StringType(),  True),
         T.StructField("api_group",      T.StringType(),  True),
         T.StructField("amount",         T.IntegerType(), True),
-
-        # 레거시 호환 필드(기존 이벤트 포맷)
-        T.StructField("timestamp_ms",      T.LongType(),    True),
-        T.StructField("level",             T.StringType(),  True),
-        T.StructField("path",              T.StringType(),  True),
-        T.StructField("product_id",        T.IntegerType(), True),
     ]
 )
 
@@ -62,26 +56,18 @@ FACT_EVENT_COLUMNS: list[str] = [
     # 4) HTTP/요청 정보
     "method",
     "route_template",
-    "path",
     "status_code",
     "duration_ms",
 
-    # 5) 로그 레벨/메시지
-    "level",
-
-    # 6) 비즈니스 필드
+    # 5) 비즈니스 필드
     "user_id",
     "order_id",
     "payment_id",
     "reason_code",
-    "product_id",
     "amount",
 
-    # 7) Kafka 메타(재처리/포렌식 핵심)
+    # 6) Kafka 메타(재처리/포렌식 핵심)
     "topic",
     "kafka_partition",
     "kafka_offset",
-
-    # 8) 원문
-    "raw_json",
 ]
