@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -17,9 +17,6 @@ logger = logging.getLogger(__name__)
 class KafkaStreamBuilder:
     settings: StreamIngestSettings
     fact_settings: FactStreamSettings
-    _partition_count_cache: dict[str, int] = field(
-        default_factory=dict, init=False, repr=False
-    )
 
     def build_kafka_stream(self, spark: SparkSession, topics: str) -> DataFrame:
         """Kafka 스트림 데이터프레임을 생성한다."""
@@ -54,56 +51,9 @@ class KafkaStreamBuilder:
             max_offsets = capped or max_offsets
             reader = reader.option("maxOffsetsPerTrigger", max_offsets)
 
-        min_partitions = self._resolve_min_partitions(spark, topics)
-        if min_partitions:
-            reader = reader.option("minPartitions", str(min_partitions))
-        return reader.load()
-
-    def _resolve_min_partitions(self, spark: SparkSession, topics: str) -> int | None:
-        """스큐 완화를 위해 minPartitions를 계산/반환한다."""
         if self.settings.kafka_min_partitions:
-            return self.settings.kafka_min_partitions
-        multiplier = self.settings.kafka_min_partitions_multiplier
-        if not multiplier:
-            return None
-        partition_count = self._fetch_kafka_partition_count(spark, topics)
-        if not partition_count:
-            return None
-        return max(1, int(partition_count * multiplier))
-
-    def _fetch_kafka_partition_count(
-        self, spark: SparkSession, topics: str
-    ) -> int | None:
-        """Kafka 메타데이터에서 파티션 수를 조회한다."""
-        cached = self._partition_count_cache.get(topics)
-        if cached is not None:
-            return cached
-        topic_list = [t.strip() for t in (topics or "").split(",") if t.strip()]
-        if not topic_list:
-            return None
-        try:
-            jvm = spark._jvm
-            props = jvm.java.util.Properties()
-            props.put("bootstrap.servers", self.settings.kafka_bootstrap)
-            admin = jvm.org.apache.kafka.clients.admin.AdminClient.create(props)
-            try:
-                java_topics = jvm.java.util.ArrayList()
-                for topic in topic_list:
-                    java_topics.add(topic)
-                desc = admin.describeTopics(java_topics).all().get()
-                it = desc.entrySet().iterator()
-                total = 0
-                while it.hasNext():
-                    entry = it.next()
-                    total += entry.getValue().partitions().size()
-                total = int(total)
-                self._partition_count_cache[topics] = total
-                return total
-            finally:
-                admin.close()
-        except Exception as exc:
-            logger.warning("[WARN] Kafka 파티션 수 조회 실패: %s", exc)
-            return None
+            reader = reader.option("minPartitions", str(self.settings.kafka_min_partitions))
+        return reader.load()
 
     def _compute_max_offsets_per_trigger(self) -> int | None:
         """목표 EPS와 트리거 간격으로 maxOffsetsPerTrigger를 계산한다."""

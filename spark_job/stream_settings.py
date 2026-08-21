@@ -26,7 +26,6 @@ class StreamIngestSettings:
     max_offsets_safety: float | None
     target_eps_profile_path: str | None
     kafka_min_partitions: int | None
-    kafka_min_partitions_multiplier: float | None
     reset_checkpoint_on_start: bool
 
 
@@ -49,9 +48,6 @@ def load_stream_ingest_settings(
             source, "SPARK_TARGET_EPS_PROFILE_PATH"
         ),
         kafka_min_partitions=get_env_int(source, "SPARK_KAFKA_MIN_PARTITIONS"),
-        kafka_min_partitions_multiplier=get_env_float(
-            source, "SPARK_KAFKA_MIN_PARTITIONS_MULTIPLIER"
-        ),
         reset_checkpoint_on_start=get_env_bool(
             source,
             "SPARK_RESET_CHECKPOINT_ON_START",
