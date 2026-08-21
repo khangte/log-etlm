@@ -234,8 +234,6 @@ services:
       - SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD=384m
       # --- Transform ---
       - "SPARK_FACT_PRE_COALESCE_PARTITIONS=${SPARK_FACT_PRE_COALESCE_PARTITIONS:-2}"
-      - SPARK_FACT_DEDUP_KEYS=
-      - "SPARK_FACT_DEDUP_WATERMARK=${SPARK_FACT_DEDUP_WATERMARK:-}"
       - SPARK_SKIP_EMPTY_BATCH=true
       # --- ClickHouse write ---
       - SPARK_CLICKHOUSE_URL=jdbc:clickhouse://clickhouse:8123/analytics?compress=1&decompress=1&socket_timeout=30000&retry=0

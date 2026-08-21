@@ -5,7 +5,7 @@ from functools import lru_cache
 import os
 from typing import Mapping
 
-from common.get_env import get_env_bool, get_env_int, get_env_optional_str, get_env_str
+from common.get_env import get_env_bool, get_env_int
 
 
 FACT_EVENT_TABLE = "analytics.event_log"
@@ -20,16 +20,6 @@ class FactStreamSettings:
     trigger_interval_sec: int | None
     pre_coalesce_partitions: int | None
     skip_empty_batch: bool
-    deduplicate_keys: list[str] | None
-    deduplicate_watermark: str | None
-
-
-def _parse_dedup_keys(value: str | None) -> list[str] | None:
-    if not value:
-        return None
-    keys = [k.strip() for k in value.split(",")]
-    keys = [k for k in keys if k]
-    return keys or None
 
 
 def load_fact_stream_settings(
@@ -43,8 +33,6 @@ def load_fact_stream_settings(
         trigger_interval_sec=get_env_int(source, "SPARK_FACT_TRIGGER_INTERVAL_SEC"),
         pre_coalesce_partitions=get_env_int(source, "SPARK_FACT_PRE_COALESCE_PARTITIONS"),
         skip_empty_batch=get_env_bool(source, "SPARK_SKIP_EMPTY_BATCH", False),
-        deduplicate_keys=_parse_dedup_keys(get_env_str(source, "SPARK_FACT_DEDUP_KEYS")),
-        deduplicate_watermark=get_env_optional_str(source, "SPARK_FACT_DEDUP_WATERMARK"),
     )
 
 

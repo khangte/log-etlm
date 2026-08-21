@@ -53,11 +53,13 @@ Kafka에서 읽은 레코드가 0개인 마이크로배치를 ClickHouse write �
 
 ---
 
-## 3. `SPARK_FACT_DEDUP_KEYS`: `event_id` → (비활성화)
+## 3. Spark dedup 경로: 제거됨
 
-### 역할
+### 역할(과거)
 
-Spark Structured Streaming이 watermark 윈도우 안에서 `event_id` 기준으로 중복 이벤트를 제거하던 stateful 연산.
+Spark Structured Streaming이 watermark 윈도우 안에서, 또는 `foreachBatch` 배치 단위로 `event_id`
+기준 중복 이벤트를 제거하던 두 연산. 둘 다 게이트였던 `SPARK_FACT_DEDUP_KEYS`가 항상 빈 값으로
+고정돼 있어 도달 불가능했고, 코드 자체를 삭제했다.
 
 ### 트레이드오프
 
@@ -74,7 +76,7 @@ Spark Structured Streaming이 watermark 윈도우 안에서 `event_id` 기준으
 
 ## 중복 이벤트 처리 전략
 
-Spark dedup을 끄더라도 파이프라인 전반에 걸쳐 세 레이어가 중복을 억제한다.
+Spark dedup을 제거했더라도 파이프라인 전반에 걸쳐 세 레이어가 중복을 억제한다.
 
 ### 레이어 1 — Simulator (발행 측)
 
@@ -131,7 +133,7 @@ Spark 재시작·체크포인트 재처리 시 동일 배치가 두 번 실행�
 
 | 항목                          | 현재 값            | 재검토 방향                              |
 | ----------------------------- | ------------------ | ---------------------------------------- |
-| `SPARK_FACT_DEDUP_KEYS`       | 비활성화           | `event_id` 재활성화, watermark 범위 설정 |
+| Spark dedup 경로              | 제거됨             | 재도입 시 `writer_base`에 `dropDuplicates` 재삽입 |
 | `PRODUCER_ACKS`               | `0` (at-most-once) | `1` 또는 `all` (at-least-once)           |
 | `PRODUCER_ENABLE_IDEMPOTENCE` | `false`            | `true` + `acks=all` (exactly-once 근접)  |
 
