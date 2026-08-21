@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 from typing import Mapping
 
@@ -65,21 +66,13 @@ def load_batch_timing_log_settings(
     )
 
 
-_clickhouse_settings_cache: ClickHouseSettings | None = None
-_batch_log_settings_cache: BatchTimingLogSettings | None = None
-
-
+@lru_cache(maxsize=1)
 def get_clickhouse_settings() -> ClickHouseSettings:
     """캐시된 ClickHouse 설정을 반환한다."""
-    global _clickhouse_settings_cache
-    if _clickhouse_settings_cache is None:
-        _clickhouse_settings_cache = load_clickhouse_settings()
-    return _clickhouse_settings_cache
+    return load_clickhouse_settings()
 
 
+@lru_cache(maxsize=1)
 def get_batch_timing_log_settings() -> BatchTimingLogSettings:
     """캐시된 배치 타이밍 로그 설정을 반환한다."""
-    global _batch_log_settings_cache
-    if _batch_log_settings_cache is None:
-        _batch_log_settings_cache = load_batch_timing_log_settings()
-    return _batch_log_settings_cache
+    return load_batch_timing_log_settings()

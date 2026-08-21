@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 from typing import Mapping
 
@@ -59,12 +60,7 @@ def load_stream_ingest_settings(
     )
 
 
-_settings_cache: StreamIngestSettings | None = None
-
-
+@lru_cache(maxsize=1)
 def get_stream_ingest_settings() -> StreamIngestSettings:
     """캐시된 스트리밍 적재 설정을 반환한다."""
-    global _settings_cache
-    if _settings_cache is None:
-        _settings_cache = load_stream_ingest_settings()
-    return _settings_cache
+    return load_stream_ingest_settings()
