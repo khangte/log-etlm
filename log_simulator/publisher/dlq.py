@@ -78,8 +78,3 @@ def get_dlq_publisher(
     if _dlq_publisher is None:
         _dlq_publisher = DlqPublisher(producer or get_client())
     return _dlq_publisher
-
-
-async def publish_dlq_batch(batch: Sequence[BatchMessage], error: Exception) -> None:
-    """publish_dlq_batch 처리를 수행한다."""
-    await get_dlq_publisher().publish_batch(batch, error)

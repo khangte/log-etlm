@@ -1,6 +1,6 @@
 # -----------------------------------------------------------------------------
 # 파일명 : log_simulator/producer/kafka_client.py
-# 목적   : confluent-kafka Producer 래퍼(단일 publish_batch_direct 경로)
+# 목적   : confluent-kafka Producer 래퍼(단일 publish_batch 경로)
 # 설명   : bootstrap/batching/idempotence 설정과 서비스명→토픽 맵 제공, poll 책임을 단일화
 # -----------------------------------------------------------------------------
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Dict, Optional, Sequence
+from typing import Optional, Sequence
 
 from confluent_kafka import Producer
 
@@ -17,12 +17,6 @@ from .settings import ProducerSettings, get_producer_settings
 from .topic import get_topic
 
 logger = logging.getLogger("log_simulator.producer")
-
-
-def build_producer_config(settings: ProducerSettings | None = None) -> Dict[str, Any]:
-    """build_producer_config 처리를 수행한다."""
-    s = settings or get_producer_settings()
-    return s.to_kafka_config()
 
 
 class KafkaProducerClient:
@@ -34,12 +28,8 @@ class KafkaProducerClient:
     def _ensure_producer(self) -> Producer:
         """프로듀서 인스턴스를 준비한다."""
         if self._producer is None:
-            self._producer = Producer(build_producer_config(self._settings))
+            self._producer = Producer(self._settings.to_kafka_config())
         return self._producer
-
-    def get_producer(self) -> Producer:
-        """인스턴스 단위로 Producer를 반환한다."""
-        return self._ensure_producer()
 
     def close(self, timeout: float = 5.0) -> None:
         """프로듀서를 flush 후 정리한다."""
@@ -110,13 +100,6 @@ def get_client() -> KafkaProducerClient:
     return _client
 
 
-def get_producer() -> Producer:
-    """
-    모듈 전역에서 재사용할 단일 Producer 인스턴스를 반환한다.
-    """
-    return get_client().get_producer()
-
-
 def close_producer(timeout: float = 5.0) -> None:
     """프로듀서를 flush 후 정리한다."""
     global _client
@@ -175,17 +158,3 @@ def _deliver(
             key=encoded_key,
             callback=_delivery_report,
         )
-
-
-async def publish_batch_direct(
-    batch: Sequence[BatchMessage],
-    *,
-    poll_every: int = 1000,
-    backoff_sec: float = 0.001,
-) -> None:
-    """단일 클라이언트 인스턴스를 통해 batch를 발행한다."""
-    await get_client().publish_batch(
-        batch,
-        poll_every=poll_every,
-        backoff_sec=backoff_sec,
-    )

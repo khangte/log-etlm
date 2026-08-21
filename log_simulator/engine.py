@@ -24,7 +24,6 @@ logger = logging.getLogger("log_simulator.engine")
 class SimulatorEngine:
     def __init__(self) -> None:
         self._started = False
-        self._tasks: list[asyncio.Task] = []
         self._pipe: Pipeline | None = None
         self._stats_task: asyncio.Task | None = None
         self._current_eps: float = 0.0
@@ -54,7 +53,6 @@ class SimulatorEngine:
             simulators=simulators,
             base_eps=base_eps,
             service_eps=service_eps,
-            bands=context.bands,
         )
 
         # stats 리포터는 백그라운드 태스크로 붙여 throughput 로그를 남긴다.
@@ -63,7 +61,6 @@ class SimulatorEngine:
             name="stats-reporter",
         )
 
-        self._tasks = pipe.service_tasks + pipe.publisher_tasks + [stats_task]
         self._pipe = pipe
         self._stats_task = stats_task
         self._current_eps = context.total_eps
@@ -99,7 +96,6 @@ class SimulatorEngine:
                 simulators=self._simulators,
                 base_eps=base_eps,
                 service_eps=service_eps,
-                bands=self._context.bands,
                 publish_queue=self._pipe.publish_queue,
             )
 
@@ -112,12 +108,6 @@ class SimulatorEngine:
             )
             self._current_eps = new_eps
             logger.info("EPS 변경 완료: %.0f (base_eps=%.0f)", new_eps, base_eps)
-
-    async def wait(self) -> None:
-        """wait 처리를 수행한다."""
-        if not self._tasks:
-            return
-        await asyncio.gather(*self._tasks)
 
     async def stop(self) -> None:
         """stop 처리를 수행한다."""
@@ -146,19 +136,9 @@ class SimulatorEngine:
             self._stats_task.cancel()
             await asyncio.gather(self._stats_task, return_exceptions=True)
         close_producer(5)
-        self._tasks = []
         self._pipe = None
         self._stats_task = None
         self._started = False
 
 
 engine = SimulatorEngine()
-
-
-async def run_simulator() -> None:
-    """시뮬레이터 파이프라인을 실행한다."""
-    await engine.start()
-    try:
-        await engine.wait()
-    finally:
-        await engine.stop()

@@ -29,28 +29,6 @@ def _is_error_event(ev: dict) -> bool:
     return False
 
 
-def build_batch_messages(
-    simulator: Any,
-    service: str,
-    events: list[dict],
-) -> list[BatchMessage]:
-    """build_batch_messages 처리를 수행한다."""
-    batch_items: list[BatchMessage] = []
-    for ev in events:
-        payload = simulator.render_bytes(ev)
-        request_id = ev.get("request_id")
-        key = str(request_id).encode("utf-8") if request_id else None
-        batch_items.append(
-            BatchMessage(
-                service=service,
-                value=payload,
-                key=key,
-                replicate_error=_is_error_event(ev),
-            )
-        )
-    return batch_items
-
-
 def build_batch_messages_from_simulator(
     simulator: Any,
     service: str,
