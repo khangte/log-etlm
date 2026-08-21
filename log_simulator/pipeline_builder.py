@@ -10,10 +10,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from .simulator.task_builder import create_simulator_tasks
-from .simulator.settings import QueueThrottleConfig, SimulatorSettings
-from .publisher.settings import PublisherSettings
-from .publisher.dlq import DlqPublisher
-from .producer.kafka_client import KafkaProducerClient
 from .publisher.worker_pipeline import create_publisher_workers
 from .models.messages import BatchMessage
 
@@ -31,27 +27,12 @@ def assemble_pipeline(
     simulators: dict[str, Any],
     base_eps: float,
     service_eps: dict[str, float],
-    *,
-    simulator_settings: SimulatorSettings | None = None,
-    queue_config: QueueThrottleConfig | None = None,
-    publisher_settings: PublisherSettings | None = None,
-    producer: KafkaProducerClient | None = None,
-    dlq_publisher: DlqPublisher | None = None,
-    worker_count: int | None = None,
-    log_batch_size: int | None = None,
-    queue_size: int | None = None,
-    loops_per_service: int | None = None,
 ) -> Pipeline:
     """큐/태스크를 조립해 반환한다."""
     publish_queue, service_tasks = create_simulator_tasks(
         simulators=simulators,
         base_eps=base_eps,
         service_eps=service_eps,
-        log_batch_size=log_batch_size,
-        queue_size=queue_size,
-        loops_per_service=loops_per_service,
-        settings=simulator_settings,
-        queue_config=queue_config,
     )
 
     # 퍼블리셔가 stats를 넣고 리포터가 소비하는 큐.
@@ -59,10 +40,6 @@ def assemble_pipeline(
     publisher_tasks = create_publisher_workers(
         publish_queue=publish_queue,
         stats_queue=stats_queue,
-        worker_count=worker_count,
-        settings=publisher_settings,
-        producer=producer,
-        dlq_publisher=dlq_publisher,
     )
 
     return Pipeline(
