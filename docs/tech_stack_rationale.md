@@ -86,8 +86,7 @@ Spark는 **분산 데이터 처리 엔진**이다. Structured Streaming은 Kafka
 이 프로젝트에서 Kafka와 ClickHouse 사이에는 단순 소비자가 아닌 **ETL 레이어**가 필요했다. 원본 이벤트를 파싱·검증·정규화한 뒤 ClickHouse에 안정적으로 적재해야 하고, ClickHouse는 트랜잭션을 지원하지 않아 멱등성을 애플리케이션 레벨에서 직접 구현해야 한다. Spark의 `foreachBatch`는 마이크로배치 단위로 임의 Python 코드를 실행할 수 있어, JDBC 적재와 `stream_batch_guard` 중복 방지 체크를 같은 흐름 안에 자연스럽게 결합할 수 있었다. Flink의 커스텀 싱크나 Kafka Streams의 Processor API로도 유사하게 구현할 수 있지만, `foreachBatch` 패턴이 Python 코드로 가장 직관적으로 표현된다.
 
 - **체크포인트 기반 장애 복구**: 재시작 시 마지막 Kafka 오프셋과 처리 상태를 자동 복원. 별도 복구 로직 구현 불필요
-- **`foreachBatch` 커스텀 싱크**: 마이크로배치 단위로 임의 Python 코드를 실행할 수 있어, JDBC 적재·dedup·타이밍 로그·빈 배치 스킵 등을 같은 흐름 안에 결합 가능. 표준 JDBC 싱크로는 이 커스텀 로직 삽입이 불가능
-- **`dropDuplicates` dedup**: 배치 단위 중복 제거를 상태 저장소 없이 처리해 state I/O 오버헤드 제거. 워터마크 기반 dedup은 `SPARK_FACT_DEDUP_WATERMARK` 설정으로 선택 가능
+- **`foreachBatch` 커스텀 싱크**: 마이크로배치 단위로 임의 Python 코드를 실행할 수 있어, JDBC 적재·타이밍 로그·빈 배치 스킵 등을 같은 흐름 안에 결합 가능. 표준 JDBC 싱크로는 이 커스텀 로직 삽입이 불가능
 - **`maxOffsetsPerTrigger` 배압**: 트리거당 소비할 Kafka 오프셋 수를 제한해 ClickHouse 과부하를 Spark 레벨에서 선제 방어
 
 ### 장점
@@ -101,7 +100,6 @@ Spark는 **분산 데이터 처리 엔진**이다. Structured Streaming은 Kafka
 - **JVM 메모리 압박**: worker 2개(각 3g 제공, executor heap 2g), driver 1GB 등 단일 VM에서 최대 메모리 소비 컴포넌트. CPU 포화의 주요 원인
 - **PySpark 직렬화 오버헤드**: Python ↔ JVM 간 데이터 직렬화 비용 존재. Scala/Java 대비 처리량 불리
 - **마이크로배치 한계**: 4초 트리거 + 단일 VM 자원 포화로 E2E 지연이 ~10초 수준. 레코드 단위 처리가 필요한 진정한 실시간에는 부적합
-- **Shuffle 수동 튜닝 필요**: `SPARK_STREAM_SHUFFLE_PARTITIONS`(기본값 3) 등 환경에 따라 수동 조정 필요
 
 ### 대안 비교
 
