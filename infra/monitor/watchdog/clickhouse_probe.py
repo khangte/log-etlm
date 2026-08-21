@@ -22,7 +22,6 @@ from .config import (
     FRESHNESS_MS_MAX,
     EPS_MIN,
     ERROR_RATE_PCT_MAX,
-    DLQ_RATE_PCT_MAX,
 )
 
 _SQL_STAGE = """
@@ -36,8 +35,7 @@ SELECT
   lat_s.spark_processing_p95_ms AS spark_processing_p95_ms,
   lat_s.spark_to_stored_p95_ms AS spark_to_stored_p95_ms,
   lat_s.e2e_p95_ms AS e2e_p95_ms,
-  fresh.freshness_ms AS freshness_ms,
-  dlq.dlq_rate_pct AS dlq_rate_pct
+  fresh.freshness_ms AS freshness_ms
 FROM
   (SELECT 1 AS k) AS base
 LEFT JOIN
@@ -86,25 +84,6 @@ LEFT JOIN
     WHERE kafka_received_at >= now() - INTERVAL 10 MINUTE
   ) AS fresh
 ON base.k = fresh.k
-LEFT JOIN
-  (
-    SELECT
-      1 AS k,
-      if(t.total = 0, 0, d.dlq / t.total) * 100 AS dlq_rate_pct
-    FROM
-    (
-      SELECT sum(total) AS dlq
-      FROM analytics.event_log_dlq_agg_1m
-      WHERE bucket >= now() - INTERVAL 5 MINUTE
-    ) AS d
-    CROSS JOIN
-    (
-      SELECT countMerge(total_state) AS total
-      FROM analytics.event_log_agg_1m
-      WHERE bucket >= now() - INTERVAL 5 MINUTE
-    ) AS t
-  ) AS dlq
-ON base.k = dlq.k
 """.strip()
 
 
@@ -165,7 +144,6 @@ async def clickhouse_stage_probe() -> None:
             await _check_ingest_metrics(row, now)
             await _check_latency_metrics(row, now)
             await _check_freshness_metric(row, now)
-            await _check_dlq_metric(row, now)
 
         await asyncio.sleep(CH_QUERY_INTERVAL_SEC)
 
@@ -216,12 +194,3 @@ async def _check_freshness_metric(row: dict[str, object], now: float) -> None:
         await send_alert(f"stage=freshness ms={freshness:.0f} threshold_ms={FRESHNESS_MS_MAX}")
     if not breached:
         breach_ready("freshness", now, False)
-
-
-async def _check_dlq_metric(row: dict[str, object], now: float) -> None:
-    dlq_rate = _as_float(row.get("dlq_rate_pct"))
-    breached = dlq_rate is not None and dlq_rate > DLQ_RATE_PCT_MAX
-    if breached and breach_ready("dlq_rate", now, True) and should_alert("dlq_rate", now):
-        await send_alert(f"stage=dlq rate_pct={dlq_rate:.3f} threshold={DLQ_RATE_PCT_MAX}")
-    if not breached:
-        breach_ready("dlq_rate", now, False)
