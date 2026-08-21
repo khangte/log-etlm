@@ -58,21 +58,6 @@ ORDER BY (bucket, service)
 TTL toDate(bucket) + INTERVAL 7 DAY;
 
 
-CREATE TABLE IF NOT EXISTS analytics.event_log_dlq_agg_1m
-(
-    bucket     DateTime,
-    service    LowCardinality(String),
-    error_type LowCardinality(String),
-    total      UInt64
-)
-ENGINE = SummingMergeTree
-PARTITION BY toDate(bucket)
-ORDER BY (bucket, service, error_type)
--- 기존: TTL bucket + INTERVAL 7 DAY (행 단위)
--- 변경: 파티션(일) 단위 TTL
-TTL toDate(bucket) + INTERVAL 8 DAY;
-
-
 -- ============================================================================
 -- Realtime aggregates (10 second buckets)
 -- ============================================================================
