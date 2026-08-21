@@ -10,9 +10,8 @@ import logging
 import time
 import random
 import math
-from typing import Any, List
+from typing import Any
 
-from ..config.timeband import current_hour_kst, pick_multiplier
 from .settings import (
     QueueThrottleConfig,
     SimulatorSettings,
@@ -35,7 +34,6 @@ async def run_simulator_loop(
     simulator: Any,
     target_eps: float,
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
-    bands: List[Any],
     log_batch_size: int | None = None,
     *,
     settings: SimulatorSettings | None = None,
@@ -67,10 +65,8 @@ async def run_simulator_loop(
         now_ts = loop_start
         dt_actual = max(0.0, now_ts - prev_ts)
         prev_ts = now_ts
-        hour = current_hour_kst()
 
-        multiplier = pick_multiplier(bands, hour_kst=hour) if bands else 1.0
-        effective_eps = adjust_eps_for_event_mode(target_eps * multiplier)
+        effective_eps = adjust_eps_for_event_mode(target_eps)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
