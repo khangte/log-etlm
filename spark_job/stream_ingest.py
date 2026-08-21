@@ -11,7 +11,7 @@ from pyspark.sql import SparkSession
 
 from .fact.parsers.event_log import parse_event_log
 from .fact.settings import get_fact_stream_settings
-from .fact.writers.fact_writer import ClickHouseFactWriter
+from .fact.writers.fact_writer import write_event_log_stream
 from .stream_checkpoint import maybe_reset_checkpoint
 from .stream_settings import get_stream_ingest_settings
 from .stream_kafka import KafkaStreamBuilder
@@ -22,7 +22,6 @@ def start_event_ingest_streams(spark: SparkSession) -> None:
     settings = get_stream_ingest_settings()
     fact_settings = get_fact_stream_settings()
     kafka_builder = KafkaStreamBuilder(settings, fact_settings)
-    fact_writer = ClickHouseFactWriter(fact_settings)
 
     maybe_reset_checkpoint(
         fact_settings.checkpoint_dir,
@@ -32,4 +31,4 @@ def start_event_ingest_streams(spark: SparkSession) -> None:
     event_kafka_df = kafka_builder.build_kafka_stream(spark, settings.fact_topics)
     event_df = parse_event_log(event_kafka_df)
 
-    fact_writer.write_event_log_stream(event_df)
+    write_event_log_stream(event_df)
