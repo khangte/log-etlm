@@ -566,7 +566,7 @@ out_df = out_df.dropDuplicates(["event_id"])  # foreachBatch 내, 배치 단위 
 
 ### 3-4. foreachBatch → ClickHouse 적재 (`writer_base.py`, `sink.py`)
 
-`SPARK_FACT_TRIGGER_INTERVAL=4 seconds`마다 마이크로 배치가 확정되면 `_foreach(batch_df, batch_id)`가 호출된다.
+`SPARK_FACT_TRIGGER_INTERVAL_SEC=4`마다 마이크로 배치가 확정되면 `_foreach(batch_df, batch_id)`가 호출된다.
 
 ```
 _foreach(batch_df, batch_id):
@@ -671,7 +671,7 @@ _foreach(batch_df, batch_id):
 [Simulator] ts_ms = time.time_ns() // 1_000_000
     │  ↓ producer → kafka 지연 (네트워크 + 브로커 처리, PRODUCER_ACKS=0이므로 응답 대기 없음)
 [Kafka]  kafka_received_at = Kafka 브로커 타임스탬프
-    │  ↓ kafka → spark ingest 지연 (poll 주기 + trigger 대기, SPARK_FACT_TRIGGER_INTERVAL=4s)
+    │  ↓ kafka → spark ingest 지연 (poll 주기 + trigger 대기, SPARK_FACT_TRIGGER_INTERVAL_SEC=4)
 [Spark]  spark_received_at = parse_event()의 current_timestamp()
     │  ↓ spark 처리 지연 (dedup, coalesce, JDBC 직전)
 [Spark]  spark_processed_at = foreachBatch 내 write 직전 current_timestamp()

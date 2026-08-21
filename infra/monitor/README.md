@@ -16,8 +16,8 @@ infra/monitor/
 ```
 
 ## 실행 방법
+저장소 루트에서 실행합니다.
 ```bash
-cd /home/kang/log-etlm
 chmod 774 ./infra/monitor/.env
 set -a && source infra/monitor/.env && set +a
 python3 infra/monitor/main.py
@@ -31,9 +31,10 @@ python3 infra/monitor/main.py
 - **healthcheck**: 30초마다 `docker inspect` 로 Health 상태를 확인(`docker-compose.yml`의 spark-driver/clickhouse healthcheck 설정 활용).
 - **로그 패턴**: `docker logs -f` 로 각 컨테이너 로그를 추적해 `OutOfMemoryError`, `StreamingQueryException`, `Code: 241` 등의 문자열을 감지하면 경보를 보냅니다.
 - **Spark REST**: `http://localhost:4040/api/v1/applications` 를 주기적으로 호출하여 UI 가 응답하지 않으면 알림을 전송합니다.
-- **단계별 지표**: ClickHouse 집계 테이블을 조회해 EPS/에러율/지연(p95)/freshness/DLQ 비율이 임계값을 넘으면 알림을 전송합니다.
+- **단계별 지표**: ClickHouse 집계 테이블을 조회해 EPS/에러율/지연(p95)/freshness가 임계값을 넘으면 알림을 전송합니다.
 
 ## 환경 변수 (선택)
+아래 값들은 `infra/monitor/.env`에 넣고 `set -a && source infra/monitor/.env && set +a`로 셸에 주입합니다.
 - `ALERT_WEBHOOK_URL`: Slack 등 Webhook URL
 - `ALERT_COOLDOWN_SEC`: 동일 알림 최소 간격 (기본 300)
 - `ALERT_BREACH_GRACE_SEC`: 임계값 초과가 이 시간 이상 지속될 때만 알림 (기본 300)
@@ -50,7 +51,6 @@ python3 infra/monitor/main.py
 - `FRESHNESS_MS_MAX`: freshness 임계값 ms (기본 120000)
 - `EPS_MIN`: EPS 최소값 (기본 1)
 - `ERROR_RATE_PCT_MAX`: 에러율 임계값 % (기본 1)
-- `DLQ_RATE_PCT_MAX`: DLQ 비율 임계값 % (기본 1)
 
 ## 서비스로 상시 실행하기 (예시)
 `systemd` 를 사용하는 경우 `/etc/systemd/system/logetlm-watchdog.service` 파일을 만들어 항상 자동 재시작되도록 할 수 있습니다.
