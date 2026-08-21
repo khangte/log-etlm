@@ -48,7 +48,6 @@ flowchart TD
         direction TB
         SUB["Kafka 구독\nmaxOffsets=22,000/트리거\n트리거 주기=4s"]
         PARSE["파싱 파이프라인\nparse → validate → normalize"]
-        DEDUP["배치 내 dedup\n현재 비활성화\n※ ReplacingMergeTree + batch_guard 위임"]
 
         subgraph FB["foreachBatch"]
             COA["coalesce(3파티션)"]
@@ -56,7 +55,7 @@ flowchart TD
             JDBC["JDBC write → ClickHouse\n3커넥션 · 10,000건/배치"]
         end
 
-        SUB --> PARSE --> DEDUP --> FB
+        SUB --> PARSE --> FB
         COA --> BG --> JDBC
     end
 
@@ -497,7 +496,7 @@ ClickHouse 적재에 필요한 컬럼으로 표준화한다.
 ```python
 # ts_ms → event_timestamp 변환 (레거시 timestamp_ms 필드도 처리)
 unified_ts_ms = coalesce(json.ts_ms, json.timestamp_ms, kafka_received_at * 1000)
-event_timestamp = to_timestamp(unified_ts_ms / 1000)   # dedup / watermark 기준 컬럼
+event_timestamp = to_timestamp(unified_ts_ms / 1000)   # MV 버킷/지연 계산 기준 컬럼
 
 # result 추론: result 필드가 없으면 status_code로 판단
 result = coalesce(json.result,
@@ -513,56 +512,19 @@ event_id = coalesce(json.event_id,
 
 ### 3-3. 중복 제거
 
-`SPARK_FACT_DEDUP_KEYS`와 `SPARK_FACT_DEDUP_WATERMARK` 두 환경변수로 전략을 선택한다.
+Spark 처리 단계에서는 dedup을 하지 않는다. `dropDuplicatesWithinWatermark`(상태 기반)와
+`foreachBatch dropDuplicates`(배치 단위) 두 경로 모두 제거됐다. 이유는 계층별로 정리하면 다음과 같다.
 
-**현재 설정 (`SPARK_FACT_DEDUP_KEYS=` 빈 값)**
+| 중복 발생 경로             | 발생 빈도   | 처리 계층   | 설명                                                     |
+| -------------------------- | ----------- | ----------- | -------------------------------------------------------- |
+| 같은 이벤트가 두 번 생성됨 | 사실상 0    | 이벤트 생성 | `uuid4` + `ts_ms` seed → UUID 충돌 확률 수준              |
+| Kafka at-least-once 재전송 | 드물게 발생 | ClickHouse  | `ReplacingMergeTree`가 `event_id` 기준으로 최신 행만 유지 |
 
-`_parse_dedup_keys()`가 빈 문자열을 `None`으로 변환하므로 `dropDuplicates` 자체가 호출되지 않는다.
-Spark 처리 단계에서 dedup을 하지 않는 이유:
-
-- `event_id` seed에 `uuid4` 기반 `request_id`와 ns 정밀도 `ts_ms`가 포함되어 배치 내 충돌 확률이 사실상 0
-- Kafka at-least-once 재전송으로 인한 배치 간 중복은 전략 B로도 잡히지 않음
-- 최종 중복 제거는 ClickHouse `ReplacingMergeTree`가 담당하므로 Spark dedup은 비용(셔플)만 발생
-
-**중복을 Spark에서 처리하지 않아도 되는 근본 이유**를 계층별로 정리하면 다음과 같다.
-
-| 중복 발생 경로                        | 발생 빈도   | 처리 계층   | 설명                                                              |
-| ------------------------------------- | ----------- | ----------- | ----------------------------------------------------------------- |
-| 같은 이벤트가 두 번 생성됨            | 사실상 0    | 이벤트 생성 | `uuid4` + `ts_ms` seed → UUID 충돌 확률 수준                      |
-| Kafka at-least-once 재전송            | 드물게 발생 | ClickHouse  | `ReplacingMergeTree`가 `event_id` 기준으로 최신 행만 유지         |
-| Spark exactly-once 실패 → 배치 재처리 | 드물게 발생 | batch_guard | `(stream_name, table, batch_id)` 조합으로 이미 커밋된 배치를 skip |
-
-Spark `dropDuplicates`가 커버하는 범위는 **단일 마이크로 배치 내 중복**뿐이다.
-위 표에서 실제로 중복이 발생할 수 있는 두 경로(Kafka 재전송·배치 재처리)는 Spark dedup으로 막을 수 없고,
-더 하위 계층인 ReplacingMergeTree와 batch_guard가 담당한다.
-따라서 Spark dedup은 셔플 비용(JDBC 커넥션 급증, executor 메모리 압박)만 유발하고 실질적 효과가 없다.
-
-**전략 A: 상태 기반 dedup (`SPARK_FACT_DEDUP_KEYS=event_id` + `SPARK_FACT_DEDUP_WATERMARK` 설정 시)**
-
-```python
-out_df = (
-    out_df
-    .withWatermark("event_timestamp", "10 minutes")  # 상태 유지 기간
-    .dropDuplicatesWithinWatermark(["event_id"])      # watermark 내 event_id 중복 제거
-)
-```
-
-배치 경계를 넘는 중복도 제거할 수 있으나, 상태 저장소에 최대 `EPS × watermark 기간`개의 event_id가 누적된다.
-5,000 EPS × 10분 = 300만 건 → 상태 I/O 오버헤드가 배치 처리 시간을 초과할 수 있다.
-
-**전략 B: 배치 내 dedup (`SPARK_FACT_DEDUP_KEYS=event_id`, watermark 미설정 시)**
-
-```python
-out_df = out_df.dropDuplicates(["event_id"])  # foreachBatch 내, 배치 단위 dedup
-```
-
-상태 저장소 없이 배치 내 중복만 제거한다. 셔플이 발생해 파티션 수가 `SPARK_STREAM_SHUFFLE_PARTITIONS`로 재결정되므로,
-이후 `_apply_partitioning`이 실제 파티션 수를 재확인해 `coalesce(WRITE_PARTITIONS=3)`로 JDBC 커넥션 수를 제어해야 한다.
-
-> **전략 B 활성화 시 파티션 수 주의**: `dropDuplicates()` 셔플 후 파티션 수가 `SPARK_STREAM_SHUFFLE_PARTITIONS=8`로 재결정된다.
-> pre_coalesce 이후 캡처한 `current_parts`가 stale해지므로, `current_partitions=None`을 전달해
-> `_apply_partitioning`이 실제 파티션 수를 재확인하도록 한다.
-> 이를 무시하면 JDBC 커넥션이 8개로 늘어나 ClickHouse merge CPU가 급등한다 (실측: 394%).
+Spark `dropDuplicates`가 커버하는 범위는 **단일 마이크로 배치 내 중복**뿐이라 위 표의 실제 중복 경로(Kafka
+재전송)는 애초에 막지 못하고, 셔플 비용(JDBC 커넥션 급증, executor 메모리 압박)만 유발했다. 최종 중복
+제거는 ClickHouse `ReplacingMergeTree(event_id)`가 전담한다. 재도입이 필요해지면
+`writer_base.py`의 `foreachBatch` 안에 `out_df.dropDuplicates(["event_id"])` 한 줄을 다시 넣으면 된다
+(과거 계측 이력은 `docs/pipeline_issue_log.md`, 롤백 판단 근거는 `docs/stability_config_rationale.md` 참고).
 
 ### 3-4. foreachBatch → ClickHouse 적재 (`writer_base.py`, `sink.py`)
 
@@ -577,12 +539,10 @@ _foreach(batch_df, batch_id):
   2. isEmpty() 검사 (SPARK_SKIP_EMPTY_BATCH=true 시 / mid.env에서는 false)
      → 빈 배치면 조기 반환. persist() 후 isEmpty()로 DataFrame 재계산 방지
 
-  3. dropDuplicates()   ← SPARK_FACT_DEDUP_KEYS 설정 시에만 실행 (현재 비활성화)
-
-  4. spark_processed_at = current_timestamp()
+  3. spark_processed_at = current_timestamp()
      → sink 직전 정확한 시각 부여 (normalize_event 단계에서는 null)
 
-  5. write_to_clickhouse(df, "analytics.event_log", batch_id)
+  4. write_to_clickhouse(df, "analytics.event_log", batch_id)
 ```
 
 `write_to_clickhouse()` 내부:
@@ -640,7 +600,7 @@ _foreach(batch_df, batch_id):
 **`event_log` 엔진**: `ReplacingMergeTree(spark_processed_at)`
 
 - `event_id` 기준 중복 행이 있을 경우 백그라운드 머지 또는 `SELECT FINAL` 시 최신 `spark_processed_at`을 가진 행이 남는다.
-- Spark foreachBatch dedup과 조합해 이중 안전망을 형성한다.
+- Kafka 재전송 등으로 유입되는 중복은 Spark가 아닌 이 계층에서 전담 제거한다.
 
 > **최종 안전망으로서의 ReplacingMergeTree**: 상위 계층(이벤트 생성, batch_guard)이 중복을 거의 차단하지만,
 > 예외적으로 중복이 삽입되더라도 ReplacingMergeTree가 최종적으로 정리한다.
@@ -673,7 +633,7 @@ _foreach(batch_df, batch_id):
 [Kafka]  kafka_received_at = Kafka 브로커 타임스탬프
     │  ↓ kafka → spark ingest 지연 (poll 주기 + trigger 대기, SPARK_FACT_TRIGGER_INTERVAL_SEC=4)
 [Spark]  spark_received_at = parse_event()의 current_timestamp()
-    │  ↓ spark 처리 지연 (dedup, coalesce, JDBC 직전)
+    │  ↓ spark 처리 지연 (coalesce, JDBC 직전)
 [Spark]  spark_processed_at = foreachBatch 내 write 직전 current_timestamp()
     │  ↓ spark → stored 지연 (JDBC + async_insert 버퍼링)
 [CH]     clickhouse_stored_at = ClickHouse DEFAULT now64(3)

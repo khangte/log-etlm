@@ -63,7 +63,6 @@ Dimension 테이블과 배치 갱신 잡은 이 모델에서 불필요하므로 
   parse_event()                                           analytics.event_log
   validate_event()                                        analytics.event_log_dlq
   normalize_event()
-  dedup (watermark 또는 foreachBatch)
 
 [ClickHouse] ──Materialized View──▶ 집계 테이블 (1m / 10s)
 
@@ -110,7 +109,7 @@ assemble_pipeline()
 | **2단계 backpressure** | soft throttle(큐 85%↑, scale 단계 감소) + hard throttle(90%↑, drain 대기) |
 | **loops_per_service** | 서비스당 N개 루프를 병렬 실행해 asyncio 단일 스레드 한계 우회 |
 | **event_id canonical seed** | allowlist 고정 필드(service, event_name, ts_ms 등)를 BLAKE2b(16B)로 해싱. 스키마 확장 시 기존 event_id 불변 보장 |
-| **event_mode** | `domain`(기본) / `http` / `all`. `domain`만 발행 시 Spark dedup 상태 부하 감소 |
+| **event_mode** | `domain`(기본) / `http` / `all`. `domain`만 발행 시 이벤트량·처리 부하 감소 |
 | **replicate_error** | status_code ≥ 500 또는 result == "fail"인 이벤트를 `logs.error` 토픽에도 자동 복제 |
 
 #### 이벤트 구조 (JSON)
@@ -190,18 +189,14 @@ validate_event()
 normalize_event()
   ├─ unified_ts_ms = COALESCE(ts_ms, timestamp_ms, kafka_received_at×1000)
   ├─ event_timestamp = to_timestamp(unified_ts_ms / 1000)
-  ├─ event_timestamp = event_timestamp           ← dedup/watermark 기준
+  ├─ event_timestamp = event_timestamp           ← MV 버킷/지연 계산 기준
   ├─ kafka_received_at = kafka_received_at            ← Kafka 도착 시각
   └─ 레거시 필드 coalesce (path, event, timestamp_ms)
     │
     ▼
-ClickHouseFactWriter.write_event_log_stream()
-  ├─ [선택] withWatermark("event_timestamp", SPARK_FACT_DEDUP_WATERMARK)
-  │         + dropDuplicatesWithinWatermark(["event_id"])  ← 상태 기반 dedup (WATERMARK 설정 시)
-  │
+write_event_log_stream()
   └─ foreachBatch(_foreach)
        ├─ coalesce(SPARK_CLICKHOUSE_WRITE_PARTITIONS)
-       ├─ dropDuplicates(dedup_keys)          ← 배치 dedup (SPARK_FACT_DEDUP_WATERMARK 미설정 시 기본)
        ├─ spark_processed_at = current_timestamp()  ← sink 직전 재계산
        ├─ process_ms = spark_processed_at - spark_received_at
        └─ write_to_clickhouse()
@@ -224,7 +219,7 @@ bad_df
 
 | 컬럼 | 의미 | 생성 위치 |
 |---|---|---|
-| `event_timestamp` | 이벤트 생성 시각 (ts_ms 기반), dedup·watermark 기준 | normalize_event |
+| `event_timestamp` | 이벤트 생성 시각 (ts_ms 기반), MV 버킷·지연 계산 기준 | normalize_event |
 | `kafka_received_at` | Kafka 수신 시각, 파티션·MV 버킷 기준 | parse_event |
 | `spark_received_at` | Spark 파싱 시각 | parse_event |
 | `spark_processed_at` | foreachBatch 직전 재계산 | writer_base |
@@ -237,8 +232,6 @@ bad_df
 | `SPARK_FACT_TRIGGER_INTERVAL_SEC` | `4` | 스트리밍 트리거 주기(초) |
 | `SPARK_MAX_OFFSETS_PER_TRIGGER` | 자동 계산 | 배치당 최대 오프셋. 미설정 시 `target_eps × trigger_sec × safety`로 계산 |
 | `SPARK_MAX_OFFSETS_CAP` | 30000 | maxOffsets 하드 상한 |
-| `SPARK_FACT_DEDUP_KEYS` | `(없음)` | dedup 기준 컬럼. 비어 있으면 Spark dedup 비활성화 — ReplacingMergeTree와 BATCH_GUARD에 위임 |
-| `SPARK_FACT_DEDUP_WATERMARK` | `(없음)` | 상태 기반 dedup 워터마크. 비어 있으면 foreachBatch dropDuplicates 사용 |
 | `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED` | `false` | 배치 가드 on/off. `RESET_CHECKPOINT_ON_START=true` 환경에서는 비활성 권장 |
 | `SPARK_RESET_CHECKPOINT_ON_START` | `true` | 시작 시 체크포인트 초기화 (재시작마다 latest 오프셋부터 소비) |
 | `SPARK_ENABLE_DLQ_STREAM` | `false` | DLQ 스트림 활성화 |
@@ -332,8 +325,7 @@ asyncio.gather()
     │    clickhouse:   Code:241, Memory limit exceeded, DB::Exception
     │    grafana:      level=error, panic:
     ├─ check_health_loop()      # docker inspect health (30초 주기)
-    ├─ spark_rest_probe()       # localhost:4040/api/v1/applications (30초)
-    ├─ grafana_health_probe()   # localhost:3000/api/health (30초)
+    ├─ http_probe() × HTTP_PROBES  # spark REST(4040)·grafana health(3000) (30초)
     └─ clickhouse_stage_probe() # ClickHouse 집계 쿼리 (10분 주기)
          EPS, 에러율, 단계별 p95, Freshness, DLQ 비율 임계값 비교
 ```
