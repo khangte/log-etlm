@@ -8,12 +8,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict, List, Tuple
 
-from .settings import (
-    QueueThrottleConfig,
-    SimulatorSettings,
-    get_queue_config,
-    get_simulator_settings,
-)
+from .settings import get_queue_config, get_simulator_settings
 from .stream_pipeline import run_simulator_loop
 from ..models.messages import BatchMessage
 
@@ -22,35 +17,19 @@ def create_simulator_tasks(
     simulators: Dict[str, Any],
     base_eps: float,
     service_eps: Dict[str, float],
-    log_batch_size: int | None = None,
-    queue_size: int | None = None,
-    loops_per_service: int | None = None,
-    *,
-    settings: SimulatorSettings | None = None,
-    queue_config: QueueThrottleConfig | None = None,
 ) -> Tuple["asyncio.Queue[list[BatchMessage]]", List[asyncio.Task]]:
-    resolved_settings = settings or get_simulator_settings()
-    resolved_queue_config = queue_config or get_queue_config(resolved_settings)
-
-    resolved_log_batch_size = (
-        resolved_settings.log_batch_size if log_batch_size is None else log_batch_size
-    )
-    resolved_queue_size = (
-        resolved_settings.queue_size if queue_size is None else queue_size
-    )
-    resolved_loops = (
-        resolved_settings.loops_per_service if loops_per_service is None else loops_per_service
-    )
+    settings = get_simulator_settings()
+    queue_config = get_queue_config(settings)
 
     publish_queue: "asyncio.Queue[list[BatchMessage]]" = asyncio.Queue(
-        maxsize=resolved_queue_size
+        maxsize=settings.queue_size
     )
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)
     fallback_eps = base_eps / service_count
 
-    loops = max(int(resolved_loops), 1)
+    loops = max(int(settings.loops_per_service), 1)
     service_tasks: List[asyncio.Task] = []
     for service in available_services:
         target = service_eps.get(service, fallback_eps)
@@ -62,9 +41,9 @@ def create_simulator_tasks(
                     simulator=simulators[service],
                     target_eps=per_loop_eps,
                     publish_queue=publish_queue,
-                    log_batch_size=resolved_log_batch_size,
-                    settings=resolved_settings,
-                    queue_config=resolved_queue_config,
+                    log_batch_size=settings.log_batch_size,
+                    settings=settings,
+                    queue_config=queue_config,
                 ),
                 name=f"service-loop-{service}-{idx}",
             )
@@ -78,18 +57,15 @@ def create_service_tasks_only(
     base_eps: float,
     service_eps: Dict[str, float],
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
-    *,
-    settings: SimulatorSettings | None = None,
-    queue_config: QueueThrottleConfig | None = None,
 ) -> List[asyncio.Task]:
     """기존 publish_queue를 재사용해 service_tasks만 새로 생성한다. EPS 실시간 변경용."""
-    resolved_settings = settings or get_simulator_settings()
-    resolved_queue_config = queue_config or get_queue_config(resolved_settings)
+    settings = get_simulator_settings()
+    queue_config = get_queue_config(settings)
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)
     fallback_eps = base_eps / service_count
-    loops = max(int(resolved_settings.loops_per_service), 1)
+    loops = max(int(settings.loops_per_service), 1)
 
     service_tasks: List[asyncio.Task] = []
     for service in available_services:
@@ -102,9 +78,9 @@ def create_service_tasks_only(
                     simulator=simulators[service],
                     target_eps=per_loop_eps,
                     publish_queue=publish_queue,
-                    log_batch_size=resolved_settings.log_batch_size,
-                    settings=resolved_settings,
-                    queue_config=resolved_queue_config,
+                    log_batch_size=settings.log_batch_size,
+                    settings=settings,
+                    queue_config=queue_config,
                 ),
                 name=f"service-loop-{service}-{idx}",
             )

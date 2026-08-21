@@ -86,31 +86,23 @@ class PublisherWorker:
 def create_publisher_workers(
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
     stats_queue: "asyncio.Queue[Tuple[str, int]]",
-    worker_count: int | None = None,
-    *,
-    settings: PublisherSettings | None = None,
-    producer: KafkaProducerClient | None = None,
-    dlq_publisher: DlqPublisher | None = None,
 ) -> List[asyncio.Task]:
     """Kafka 퍼블리셔 워커 태스크 생성."""
-    resolved_settings = settings or get_publisher_settings()
-    resolved_producer = producer or get_client()
-    resolved_dlq = dlq_publisher or get_dlq_publisher(resolved_producer)
-    resolved_worker_count = (
-        resolved_settings.workers if worker_count is None else worker_count
-    )
+    settings = get_publisher_settings()
+    producer = get_client()
+    dlq_publisher = get_dlq_publisher(producer)
     return [
         asyncio.create_task(
             PublisherWorker(
                 worker_id=i,
                 publish_queue=publish_queue,
                 stats_queue=stats_queue,
-                settings=resolved_settings,
-                producer=resolved_producer,
-                dlq_publisher=resolved_dlq,
+                settings=settings,
+                producer=producer,
+                dlq_publisher=dlq_publisher,
                 logger=_logger,
             ).run(),
             name=f"publisher-{i}",
         )
-        for i in range(resolved_worker_count)
+        for i in range(settings.workers)
     ]
