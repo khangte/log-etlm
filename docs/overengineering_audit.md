@@ -7,6 +7,28 @@
 태그: `delete`(죽은 코드·불필요한 유연성) / `stdlib`(표준 라이브러리 대체) / `native`(플랫폼 기능 대체) /
 `yagni`(구현체 1개 추상화·미사용 설정·호출자 1개 레이어) / `shrink`(같은 로직 더 짧게)
 
+## 미처리 우선순위 (1~8번 처리완료, 이하 원본 삭제량 정렬 유지)
+
+9. `yagni` `QueueThrottleConfig`+`build_queue_config()`+`get_queue_config()` — `SimulatorSettings` 필드 11개 복제. (L24)
+10. `shrink` watchdog 체크 함수 4벌 동일 패턴 반복(~55줄) — 테이블 방식으로 흡수. (L25)
+11. `yagni` `_fetch_kafka_partition_count()` py4j 35줄 — 파티션 수 상수 지정으로 대체. (L26)
+12. `shrink` `parse_duration_seconds` 16개 단위맵+정규식(44줄) — 초 단위 정수 env로 대체. (L27)
+13. `native` watchdog `config.py` 수동 env 파서 11줄 + 구버전 폴백 3개 — env_file/dotenv로 대체. (L29)
+14. `shrink` `spark_rest_probe()`/`grafana_health_probe()` 동일 본문(각 19줄) — `http_probe()` 하나로 통합. (L30)
+15. `yagni` `ClickHouseFactWriter`/`ClickHouseDlqWriter` 클래스 — 메서드 1개·호출자 1개, 모듈 함수로 강등. (L31)
+16. `yagni` `SPARK_STREAM_SHUFFLE_PARTITIONS` — 적용 조건(`SPARK_FACT_DEDUP_KEYS`)이 항상 빈 값이라 죽은 분기. (L36)
+17. `yagni` dedup 3중 경로 중 watermark/배치 dropDuplicates 2개 — 죽은 분기, ReplacingMergeTree만 실제 동작. (L37)
+18. `shrink` `_apply_partitioning`의 `allow_repartition` 업스케일 분기 — 세 프로파일 모두 false 고정. (L40)
+19. `shrink` `get_env_optional_str()` — `get_env_str()`과 완전 중복, 호출부 5곳 치환. (L41)
+20. `native` `spark_job/__init__.py`의 `_ensure_project_root()` — Dockerfile `PYTHONPATH`로 이미 해결됨. (L43)
+21. `yagni` `_to_bytes()` — `BatchMessage.value`/`key`가 이미 `bytes | None` 고정 타입. (L46)
+22. `yagni` `get_topic()` 폴백 2개 — 서비스 목록이 REGISTRY로 닫혀 있어 미도달 경로. (L47)
+23. `yagni` `QUEUE_LOW_WATERMARK_RATIO`/`QUEUE_LOW_SLEEP_SCALE` — 기본값이 무연산(`*= 1.0`). (L49)
+24. `yagni` `adjust_eps_for_event_mode(eps)` — `max(eps, 0.01)` 한 줄, 호출부 인라인. (L50)
+25. `yagni` `pick_route(routes=...)` 외부 routes 폴백 — 세 서비스 모두 인자 없이 호출, 주석도 "레거시 호환". (L52)
+26. `yagni` `profile.get("seed")`/`profile.get("user_pool_size")` — `profiles.yml`에 두 키 모두 없어 항상 기본값. (L53)
+27. `yagni` `SPARK_TARGET_EPS`/`SPARK_TARGET_EPS_PROFILE_PATH` — 어디에도 설정 안 됨, 항상 하드코딩 경로 폴백. (L54)
+
 ---
 
 - [처리완료] delete DLQ 파이프라인 전체(`dlq/` 패키지 315줄 + `stream_ingest` 분기 + `sink.py` DLQ 우회 90줄 + `event_log_dlq`·`event_log_dlq_agg_1m` 테이블/MV + watchdog `_check_dlq_metric`). `SPARK_ENABLE_DLQ_STREAM=false`, `SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE=false`, `logs.dlq` 토픽 생성도 주석 처리 상태라 어느 경로로도 실행되지 않는다. 파싱 실패 건은 `parse_event_log_with_errors`의 `build_bad_df=False` 경로처럼 드롭 카운트만 남긴다. [spark_job/dlq/, spark_job/clickhouse/sink.py:41-131, spark_job/stream_ingest.py:47-57, infra/clickhouse/sql/10_fact.sql:47-68, infra/clickhouse/sql/21_materialized_views.sql:91-106, infra/monitor/watchdog/clickhouse_probe.py:221-227]
