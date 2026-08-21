@@ -54,8 +54,6 @@ class BaseServiceSimulator:
         "error_rate",
         "domain_event_policy",
         "event_mode",
-        "domain_event_rate",
-        "http_event_rate",
         "_rng",
         "_route_prefix_sums",
         "_route_total_weight",
@@ -134,8 +132,6 @@ class BaseServiceSimulator:
 
         self._route_prefix_sums = prefix
         self._route_total_weight = total
-        self.domain_event_rate = self._estimate_domain_event_rate()
-        self.http_event_rate = self._estimate_http_event_rate()
 
 
     # ---------- 공통 유틸 ----------
@@ -271,38 +267,6 @@ class BaseServiceSimulator:
             return f"{self.service}.{str(api_group).lower()}_event"
         return f"{self.service}.event"
 
-    def _estimate_http_event_rate(self) -> float:
-        """estimate_http_event_rate 처리를 수행한다."""
-        return 1.0 if self.event_mode in ("all", "http") else 0.0
-
-    def _estimate_domain_event_rate(self) -> float:
-        """estimate_domain_event_rate 처리를 수행한다."""
-        total_weight = float(self._route_total_weight or 0)
-        if total_weight <= 0:
-            return 0.0
-
-        emit_get = self.domain_event_policy["emit_for_get_routes"]
-        emit_on_fail = self.domain_event_policy["emit_on_fail"]
-        err_rate = max(0.0, min(1.0, float(self.error_rate)))
-        rate = 0.0
-
-        for route in self.routes:
-            de = route.get("domain_events")
-            if not isinstance(de, dict):
-                continue
-            methods = route.get("methods") or ["GET"]
-            if not isinstance(methods, list) or not methods:
-                methods = ["GET"]
-            per_method = 1.0 / float(len(methods))
-
-            for method in methods:
-                if method == "GET" and not emit_get:
-                    continue
-                p = 1.0 if emit_on_fail else (1.0 - err_rate)
-                rate += (route.get("weight", 1) / total_weight) * per_method * p
-
-        return rate
-
     def _emit_http_event(self) -> bool:
         """emit_http_event 처리를 수행한다."""
         return self.event_mode in ("all", "http")
@@ -401,13 +365,6 @@ class BaseServiceSimulator:
     def generate_events_one(self) -> List[Dict[str, Any]]:
         """요청 1건 -> 이벤트 리스트(서브클래스 구현)"""
         raise NotImplementedError
-
-    def generate_events(self, count: int) -> List[Dict[str, Any]]:
-        """count번 요청 -> 이벤트 평탄화"""
-        out: List[Dict[str, Any]] = []
-        for _ in range(count):
-            out.extend(self.generate_events_one())
-        return out
 
     # ---------- 출력 ----------
 
