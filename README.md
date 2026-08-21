@@ -166,7 +166,8 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `true` — 재시작마다 latest 오프셋부터 소비)
   - `SPARK_STREAM_SHUFFLE_PARTITIONS`, `SPARK_SKIP_EMPTY_BATCH`
-  - `SPARK_BATCH_TIMING_LOG_PATH`, `SPARK_PROGRESS_LOG_PATH`
+  - `SPARK_BATCH_TIMING_LOG_PATH`
+  - 스트리밍 progress 조회(eventLog 기반): `grep QueryProgressEvent /data/log-etlm/spark-events/<app-id> | jq .progress`
 
 ### ClickHouse
 - 적재 튜닝: `SPARK_CLICKHOUSE_WRITE_PARTITIONS`, `SPARK_CLICKHOUSE_JDBC_BATCHSIZE`
