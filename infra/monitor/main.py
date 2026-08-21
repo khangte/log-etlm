@@ -14,17 +14,17 @@ import asyncio
 from watchdog.clickhouse_probe import clickhouse_stage_probe
 from watchdog.config import LOG_PATTERNS
 from watchdog.docker_probes import check_health_loop, watch_events, watch_logs
-from watchdog.service_probes import grafana_health_probe, spark_rest_probe
+from watchdog.service_probes import HTTP_PROBES, http_probe
 
 
 async def main() -> None:
     tasks = [
         asyncio.create_task(watch_events()),
         asyncio.create_task(check_health_loop()),
-        asyncio.create_task(spark_rest_probe()),
-        asyncio.create_task(grafana_health_probe()),
         asyncio.create_task(clickhouse_stage_probe()),
     ]
+    for name, url in HTTP_PROBES:
+        tasks.append(asyncio.create_task(http_probe(name, url)))
     for container, pats in LOG_PATTERNS.items():
         tasks.append(asyncio.create_task(watch_logs(container, pats)))
 
