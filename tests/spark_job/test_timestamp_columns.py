@@ -2,32 +2,18 @@
 # 목적  : 타임스탬프 리팩터링 후 컬럼명 정합성 검증
 #         - FACT_EVENT_COLUMNS 컬럼 목록
 #         - 소스 코드 내 구 컬럼명 잔존 여부
-# 실행  : uv run python tests/spark_job/test_timestamp_columns.py
+# 실행  : uv run pytest tests/spark_job/test_timestamp_columns.py -v
 # -----------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import ast
-import os
 import re
-import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-PASS = "✅"
-FAIL = "❌"
+import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
-
-
-def check(label: str, actual, expected) -> bool:
-    ok = actual == expected
-    print(f"  {'✅' if ok else '❌'} {label}")
-    if not ok:
-        print(f"       expected: {expected!r}")
-        print(f"       actual  : {actual!r}")
-    return ok
 
 
 # ---------------------------------------------------------------------------
@@ -76,19 +62,19 @@ def load_fact_event_columns() -> list[str]:
     return _extract_list_from_ast(PROJECT_ROOT / "spark_job" / "fact" / "schema.py", "FACT_EVENT_COLUMNS")
 
 
-def test_fact_event_columns() -> bool:
-    print("=== FACT_EVENT_COLUMNS 타임스탬프 컬럼 검증 ===")
-    cols = load_fact_event_columns()
-    col_set = set(cols)
+@pytest.fixture(scope="module")
+def fact_event_col_set():
+    return set(load_fact_event_columns())
 
-    results = []
-    for expected_col in sorted(EXPECTED_FACT_TIMESTAMP_COLUMNS):
-        results.append(check(f"{expected_col} 포함", expected_col in col_set, True))
 
-    for banned_col in sorted(BANNED_FACT_TIMESTAMP_COLUMNS):
-        results.append(check(f"{banned_col} 미포함", banned_col not in col_set, True))
+@pytest.mark.parametrize("expected_col", sorted(EXPECTED_FACT_TIMESTAMP_COLUMNS))
+def test_fact_event_columns_포함(fact_event_col_set, expected_col):
+    assert expected_col in fact_event_col_set
 
-    return all(results)
+
+@pytest.mark.parametrize("banned_col", sorted(BANNED_FACT_TIMESTAMP_COLUMNS))
+def test_fact_event_columns_미포함(fact_event_col_set, banned_col):
+    assert banned_col not in fact_event_col_set
 
 
 # ---------------------------------------------------------------------------
@@ -136,64 +122,49 @@ def scan_banned_patterns() -> dict[str, list[tuple[int, str]]]:
     return hits
 
 
-def test_no_banned_column_names() -> bool:
-    print("\n=== 소스 코드 내 구 컬럼명 잔존 검사 ===")
-    hits = scan_banned_patterns()
-    if not hits:
-        print(f"  {PASS} 구 컬럼명 없음")
-        return True
+def _format_hits(hits: dict[str, list[tuple[int, str]]]) -> str:
+    lines = ["구 컬럼명 발견:"]
+    for file, entries in hits.items():
+        lines.append(f"  {file}")
+        for lineno, content in entries:
+            lines.append(f"    L{lineno}: {content}")
+    return "\n".join(lines)
 
-    print(f"  {FAIL} 구 컬럼명 발견:")
-    for file, lines in hits.items():
-        print(f"    {file}")
-        for lineno, content in lines:
-            print(f"      L{lineno}: {content}")
-    return False
+
+def test_no_banned_column_names():
+    hits = scan_banned_patterns()
+    assert not hits, _format_hits(hits)
 
 
 # ---------------------------------------------------------------------------
 # 3) ClickHouse DDL 컬럼명 검증
 # ---------------------------------------------------------------------------
 
-def test_clickhouse_ddl_columns() -> bool:
-    print("\n=== ClickHouse DDL 타임스탬프 컬럼 검증 ===")
-    ddl = (PROJECT_ROOT / "infra" / "clickhouse" / "sql" / "10_fact.sql").read_text()
+DDL_EXPECTED_COLUMNS = [
+    "event_timestamp",
+    "kafka_received_at",
+    "spark_received_at",
+    "spark_processed_at",
+    "clickhouse_stored_at",
+]
 
-    expected = [
-        "event_timestamp",
-        "kafka_received_at",
-        "spark_received_at",
-        "spark_processed_at",
-        "clickhouse_stored_at",
-    ]
-    banned = [
-        "event_ts", "kafka_ingest_ts", "kafka_ts",
-        "spark_ts", "processed_ts", "stored_ts",
-        "producer_ts", "created_ts",
-    ]
-
-    results = []
-    for c in expected:
-        results.append(check(f"{c} 포함", c in ddl, True))
-    for c in banned:
-        results.append(check(f"{c} 미포함", c not in ddl, True))
-
-    return all(results)
+DDL_BANNED_COLUMNS = [
+    "event_ts", "kafka_ingest_ts", "kafka_ts",
+    "spark_ts", "processed_ts", "stored_ts",
+    "producer_ts", "created_ts",
+]
 
 
-# ---------------------------------------------------------------------------
-# main
-# ---------------------------------------------------------------------------
+@pytest.fixture(scope="module")
+def ddl():
+    return (PROJECT_ROOT / "infra" / "clickhouse" / "sql" / "10_fact.sql").read_text()
 
-if __name__ == "__main__":
-    results = [
-        test_fact_event_columns(),
-        test_no_banned_column_names(),
-        test_clickhouse_ddl_columns(),
-    ]
-    print()
-    if all(results):
-        print(f"{PASS} 전체 통과")
-    else:
-        print(f"{FAIL} 실패 케이스 있음")
-        raise SystemExit(1)
+
+@pytest.mark.parametrize("column", DDL_EXPECTED_COLUMNS)
+def test_clickhouse_ddl_columns_포함(ddl, column):
+    assert column in ddl
+
+
+@pytest.mark.parametrize("column", DDL_BANNED_COLUMNS)
+def test_clickhouse_ddl_columns_미포함(ddl, column):
+    assert column not in ddl
