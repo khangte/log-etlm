@@ -16,6 +16,7 @@ from .pipeline_builder import Pipeline, assemble_pipeline
 from .producer.kafka_client import close_producer
 from .simulator.eps_policy import allocate_service_eps
 from .simulator.simulators_builder import build_simulators
+from .simulator.task_builder import create_service_tasks
 
 
 logger = logging.getLogger("log_simulator.engine")
@@ -91,8 +92,7 @@ class SimulatorEngine:
                 services=list(self._simulators.keys()),
                 simulator_share=self._settings.simulator_share,
             )
-            from .simulator.task_builder import create_service_tasks_only
-            new_service_tasks = create_service_tasks_only(
+            new_service_tasks = create_service_tasks(
                 simulators=self._simulators,
                 base_eps=base_eps,
                 service_eps=service_eps,
