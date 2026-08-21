@@ -5,7 +5,7 @@ from functools import lru_cache
 import os
 from typing import Mapping
 
-from common.get_env import get_env_bool, get_env_int, get_env_str
+from common.get_env import get_env_int, get_env_str
 
 
 @dataclass(frozen=True)
@@ -16,7 +16,6 @@ class ClickHouseSettings:
     password: str | None
     jdbc_batchsize: int | None
     write_partitions: int | None
-    allow_repartition: bool | None
 
     def build_jdbc_options(self, table_name: str) -> dict[str, str]:
         """JDBC 옵션 딕셔너리를 생성한다."""
@@ -52,7 +51,6 @@ def load_clickhouse_settings(env: Mapping[str, str] | None = None) -> ClickHouse
         password=get_env_str(source, "SPARK_CLICKHOUSE_PASSWORD"),
         jdbc_batchsize=get_env_int(source, "SPARK_CLICKHOUSE_JDBC_BATCHSIZE"),
         write_partitions=get_env_int(source, "SPARK_CLICKHOUSE_WRITE_PARTITIONS"),
-        allow_repartition=get_env_bool(source, "SPARK_CLICKHOUSE_ALLOW_REPARTITION"),
     )
 
 
