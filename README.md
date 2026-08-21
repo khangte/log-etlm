@@ -187,8 +187,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ### 유틸 스크립트 목록
 - Kafka/Spark 지연: `scripts/kafka_spark_lag.py`
-- ClickHouse 진단: `scripts/clickhouse_diagnostics.sh`, `scripts/diag_partition_and_partlog.sh`
-- 스파이크 분석: `scripts/publish_spike_diag.sh`
+- 통합 진단: `scripts/diag.sh <ch|latency|parts|all>`
 
 
 ## 지표 해석(요약)
