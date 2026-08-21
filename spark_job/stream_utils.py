@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import re
-
 import yaml
 
 
@@ -14,49 +12,3 @@ def read_eps_from_profile(path: str) -> int | None:
         return int(float(value)) if value is not None else None
     except (FileNotFoundError, ValueError, TypeError):
         return None
-
-
-def parse_duration_seconds(value: str | None) -> float | None:
-    """문자열 기간(예: '3 seconds', '5s', '1500ms')을 초로 변환한다."""
-    if not value:
-        return None
-    raw = value.strip().lower()
-    if not raw:
-        return None
-    if raw.isdigit():
-        return float(raw)
-
-    match = re.match(r"^([0-9]+(?:\.[0-9]+)?)\s*([a-z]+)$", raw)
-    if not match:
-        parts = raw.split()
-        if len(parts) == 2 and parts[0].replace(".", "", 1).isdigit():
-            number = float(parts[0])
-            unit = parts[1]
-        else:
-            return None
-    else:
-        number = float(match.group(1))
-        unit = match.group(2)
-
-    unit_map = {
-        "ms": 1 / 1000,
-        "millisecond": 1 / 1000,
-        "milliseconds": 1 / 1000,
-        "s": 1,
-        "sec": 1,
-        "secs": 1,
-        "second": 1,
-        "seconds": 1,
-        "m": 60,
-        "min": 60,
-        "mins": 60,
-        "minute": 60,
-        "minutes": 60,
-        "h": 3600,
-        "hr": 3600,
-        "hour": 3600,
-        "hours": 3600,
-    }
-    if unit not in unit_map:
-        return None
-    return number * unit_map[unit]

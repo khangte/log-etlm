@@ -45,6 +45,10 @@ class ClickHouseFactWriter:
             stream_name="event_log",
             deduplicate_keys=batch_dedup_keys,
             skip_empty=settings.skip_empty_batch,
-            trigger_processing_time=settings.trigger_interval,
+            trigger_processing_time=(
+                f"{settings.trigger_interval_sec} seconds"
+                if settings.trigger_interval_sec
+                else None
+            ),
             pre_coalesce_partitions=settings.pre_coalesce_partitions,
         )

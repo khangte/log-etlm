@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame, SparkSession
 
 from .fact.settings import FactStreamSettings
 from .stream_settings import StreamIngestSettings
-from .stream_utils import parse_duration_seconds, read_eps_from_profile
+from .stream_utils import read_eps_from_profile
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,7 @@ class KafkaStreamBuilder:
         target_eps = self._resolve_target_eps()
         if not target_eps:
             return None
-        trigger_seconds = parse_duration_seconds(self.fact_settings.trigger_interval)
+        trigger_seconds = self.fact_settings.trigger_interval_sec
         if not trigger_seconds:
             return None
         safety = self.settings.max_offsets_safety or 1.0
