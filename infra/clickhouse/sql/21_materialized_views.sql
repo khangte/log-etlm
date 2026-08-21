@@ -88,18 +88,6 @@ WHERE event_timestamp IS NOT NULL
 GROUP BY bucket, service;
 
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_event_log_dlq_agg_1m
-TO analytics.event_log_dlq_agg_1m
-AS
-SELECT
-    toStartOfMinute(kafka_received_at) AS bucket,
-    coalesce(service, 'unknown') AS service,
-    coalesce(error_type, 'unknown') AS error_type,
-    count() AS total
-FROM analytics.event_log_dlq
-GROUP BY bucket, service, error_type;
-
-
 -- ============================================================================
 -- Realtime materialized views (10 second buckets)
 -- ============================================================================
