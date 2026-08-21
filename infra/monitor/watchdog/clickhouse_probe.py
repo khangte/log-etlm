@@ -141,56 +141,58 @@ async def clickhouse_stage_probe() -> None:
             continue
 
         if row:
-            await _check_ingest_metrics(row, now)
-            await _check_latency_metrics(row, now)
-            await _check_freshness_metric(row, now)
+            await _check_metrics(row, now)
 
         await asyncio.sleep(CH_QUERY_INTERVAL_SEC)
 
 
-async def _check_ingest_metrics(row: dict[str, object], now: float) -> None:
-    eps = _as_float(row.get("eps"))
-    err = _as_float(row.get("error_rate_pct"))
-    bucket = row.get("eps_bucket")
-
-    eps_breached = eps is not None and eps < EPS_MIN
-    if eps_breached and breach_ready("eps_low", now, True) and should_alert("eps_low", now):
-        await send_alert(f"stage=ingest eps={eps:.2f} threshold={EPS_MIN} bucket={bucket}")
-    if not eps_breached:
-        breach_ready("eps_low", now, False)
-
-    err_breached = err is not None and err > ERROR_RATE_PCT_MAX
-    if err_breached and breach_ready("error_rate", now, True) and should_alert("error_rate", now):
-        await send_alert(
-            f"stage=ingest error_rate_pct={err:.3f} threshold={ERROR_RATE_PCT_MAX} bucket={bucket}"
-        )
-    if not err_breached:
-        breach_ready("error_rate", now, False)
-
-
-async def _check_latency_metrics(row: dict[str, object], now: float) -> None:
-    bucket = row.get("latency_bucket")
-    checks = [
-        ("producer_to_kafka_p95",     _as_float(row.get("producer_to_kafka_p95_ms")),     P95_PRODUCER_TO_KAFKA_MS_MAX,     "producer_to_kafka"),
-        ("kafka_to_spark_ingest_p95", _as_float(row.get("kafka_to_spark_ingest_p95_ms")), P95_KAFKA_TO_SPARK_INGEST_MS_MAX, "kafka_to_spark_ingest"),
-        ("spark_processing_p95",      _as_float(row.get("spark_processing_p95_ms")),      P95_SPARK_PROCESSING_MS_MAX,      "spark_processing"),
-        ("spark_to_stored_p95",       _as_float(row.get("spark_to_stored_p95_ms")),       P95_SPARK_TO_STORED_MS_MAX,       "spark_to_stored"),
-        ("e2e_p95",                   _as_float(row.get("e2e_p95_ms")),                   P95_E2E_MS_MAX,                   "e2e"),
-    ]
-    for key, val, threshold, stage in checks:
-        breached = val is not None and val > threshold
-        if breached and breach_ready(key, now, True) and should_alert(key, now):
-            await send_alert(
-                f"stage={stage} p95_ms={val:.0f} threshold_ms={threshold} bucket={bucket}"
-            )
-        if not breached:
-            breach_ready(key, now, False)
-
-
-async def _check_freshness_metric(row: dict[str, object], now: float) -> None:
-    freshness = _as_float(row.get("freshness_ms"))
-    breached = freshness is not None and freshness > FRESHNESS_MS_MAX
-    if breached and breach_ready("freshness", now, True) and should_alert("freshness", now):
-        await send_alert(f"stage=freshness ms={freshness:.0f} threshold_ms={FRESHNESS_MS_MAX}")
+async def _check_threshold(
+    key: str,
+    now: float,
+    value: float | None,
+    threshold: float,
+    template: str,
+    *,
+    below: bool = False,
+    **fields: object,
+) -> None:
+    """임계값 위반을 판정하고 grace/cooldown을 거쳐 알림을 보낸다."""
+    breached = value is not None and (value < threshold if below else value > threshold)
+    if breached and breach_ready(key, now, True) and should_alert(key, now):
+        await send_alert(template.format(value=value, threshold=threshold, **fields))
     if not breached:
-        breach_ready("freshness", now, False)
+        breach_ready(key, now, False)
+
+
+_LATENCY_CHECKS = (
+    ("producer_to_kafka_p95",     "producer_to_kafka_p95_ms",     P95_PRODUCER_TO_KAFKA_MS_MAX,     "producer_to_kafka"),
+    ("kafka_to_spark_ingest_p95", "kafka_to_spark_ingest_p95_ms", P95_KAFKA_TO_SPARK_INGEST_MS_MAX, "kafka_to_spark_ingest"),
+    ("spark_processing_p95",      "spark_processing_p95_ms",      P95_SPARK_PROCESSING_MS_MAX,      "spark_processing"),
+    ("spark_to_stored_p95",       "spark_to_stored_p95_ms",       P95_SPARK_TO_STORED_MS_MAX,       "spark_to_stored"),
+    ("e2e_p95",                   "e2e_p95_ms",                   P95_E2E_MS_MAX,                   "e2e"),
+)
+
+
+async def _check_metrics(row: dict[str, object], now: float) -> None:
+    eps_bucket = row.get("eps_bucket")
+    await _check_threshold(
+        "eps_low", now, _as_float(row.get("eps")), EPS_MIN,
+        "stage=ingest eps={value:.2f} threshold={threshold} bucket={bucket}",
+        below=True, bucket=eps_bucket,
+    )
+    await _check_threshold(
+        "error_rate", now, _as_float(row.get("error_rate_pct")), ERROR_RATE_PCT_MAX,
+        "stage=ingest error_rate_pct={value:.3f} threshold={threshold} bucket={bucket}",
+        bucket=eps_bucket,
+    )
+    latency_bucket = row.get("latency_bucket")
+    for key, column, threshold, stage in _LATENCY_CHECKS:
+        await _check_threshold(
+            key, now, _as_float(row.get(column)), threshold,
+            "stage={stage} p95_ms={value:.0f} threshold_ms={threshold} bucket={bucket}",
+            stage=stage, bucket=latency_bucket,
+        )
+    await _check_threshold(
+        "freshness", now, _as_float(row.get("freshness_ms")), FRESHNESS_MS_MAX,
+        "stage=freshness ms={value:.0f} threshold_ms={threshold}",
+    )
