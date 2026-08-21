@@ -7,7 +7,7 @@ from pathlib import Path
 from pyspark import SparkContext
 from pyspark.sql import SparkSession
 
-from common.get_env import get_env_int, get_env_str
+from common.get_env import get_env_str
 
 
 def _reset_stopped_spark_context() -> None:
@@ -38,7 +38,6 @@ def _build_spark_session(
     ui_port: str,
     event_log_enabled: bool,
     event_log_dir: str | None,
-    shuffle_partitions: int | None,
     driver_memory: str | None,
     driver_memory_overhead: str | None,
     executor_memory: str | None,
@@ -60,8 +59,6 @@ def _build_spark_session(
         .config("spark.ui.port", ui_port)
         .config("spark.sql.streaming.ui.enabled", "true")
     )
-    if shuffle_partitions is not None:
-        builder = builder.config("spark.sql.shuffle.partitions", str(shuffle_partitions))
     if driver_memory:
         builder = builder.config("spark.driver.memory", driver_memory)
     if executor_memory:
@@ -122,11 +119,6 @@ def build_streaming_spark(
     executor_memory_overhead = (
         get_env_str(env, "SPARK_STREAM_EXECUTOR_MEMORY_OVERHEAD") or None
     )
-    dedup_keys = get_env_str(env, "SPARK_FACT_DEDUP_KEYS", "")
-    if dedup_keys and dedup_keys.strip():
-        shuffle_partitions = get_env_int(env, "SPARK_STREAM_SHUFFLE_PARTITIONS")
-    else:
-        shuffle_partitions = None
     return _build_spark_session(
         app_name=app_name,
         master=master,
@@ -135,7 +127,6 @@ def build_streaming_spark(
         ui_port="4040",
         event_log_enabled=True,
         event_log_dir="/data/log-etlm/spark-events",
-        shuffle_partitions=shuffle_partitions,
         driver_memory=driver_memory,
         driver_memory_overhead=driver_memory_overhead,
         executor_memory=executor_memory,
