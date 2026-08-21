@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Dict, List
 
-from .settings import get_queue_config, get_simulator_settings
+from .settings import get_simulator_settings
 from .stream_pipeline import run_simulator_loop
 from ..models.messages import BatchMessage
 
@@ -21,7 +21,6 @@ def create_service_tasks(
 ) -> List[asyncio.Task]:
     """기존 publish_queue를 재사용해 service_tasks만 새로 생성한다. EPS 실시간 변경용."""
     settings = get_simulator_settings()
-    queue_config = get_queue_config()
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)
@@ -39,9 +38,6 @@ def create_service_tasks(
                     simulator=simulators[service],
                     target_eps=per_loop_eps,
                     publish_queue=publish_queue,
-                    log_batch_size=settings.log_batch_size,
-                    settings=settings,
-                    queue_config=queue_config,
                 ),
                 name=f"service-loop-{service}-{idx}",
             )

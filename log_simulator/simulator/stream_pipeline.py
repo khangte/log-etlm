@@ -12,12 +12,7 @@ import random
 import math
 from typing import Any
 
-from .settings import (
-    QueueThrottleConfig,
-    SimulatorSettings,
-    get_queue_config,
-    get_simulator_settings,
-)
+from .settings import get_simulator_settings
 from ..models.messages import BatchMessage
 from .stream_helpers import (
     adjust_eps_for_event_mode,
@@ -34,27 +29,17 @@ async def run_simulator_loop(
     simulator: Any,
     target_eps: float,
     publish_queue: "asyncio.Queue[list[BatchMessage]]",
-    log_batch_size: int | None = None,
-    *,
-    settings: SimulatorSettings | None = None,
-    queue_config: QueueThrottleConfig | None = None,
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
-    resolved_settings = settings or get_simulator_settings()
-    resolved_queue_config = queue_config or get_queue_config()
-    throttle_scale = resolved_queue_config.soft_scale_max
-    target_interval_sec = max(resolved_settings.target_interval_sec, 0.01)
-    resolved_batch_size = (
-        resolved_settings.log_batch_size
-        if log_batch_size is None
-        else log_batch_size
-    )
-    base_batch_size = max(int(resolved_batch_size), 1)
+    settings = get_simulator_settings()
+    throttle_scale = settings.queue_soft_scale_max
+    target_interval_sec = max(settings.target_interval_sec, 0.01)
+    base_batch_size = max(int(settings.log_batch_size), 1)
     auto_batch_size = int(math.ceil(target_eps * target_interval_sec))
     max_batch_size = max(base_batch_size, max(auto_batch_size, 1))
     carry = 0.0
     prev_ts = time.perf_counter()
-    behind_log_every_sec = resolved_settings.behind_log_every_sec
+    behind_log_every_sec = settings.behind_log_every_sec
     last_behind_log_ts = 0.0
 
     # 여러 루프가 같은 타이밍에 쏟아내는 걸 방지하기 위해 start jitter를 준다.
@@ -118,7 +103,7 @@ async def run_simulator_loop(
 
         throttle_scale, sleep_time, throttled = await apply_queue_backpressure(
             _logger,
-            config=resolved_queue_config,
+            settings=settings,
             service=service,
             publish_queue=publish_queue,
             throttle_scale=throttle_scale,
