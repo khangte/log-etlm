@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 from typing import Mapping
 
@@ -64,12 +65,7 @@ def load_publisher_settings(env: Mapping[str, str] | None = None) -> PublisherSe
     )
 
 
-_settings_cache: PublisherSettings | None = None
-
-
+@lru_cache(maxsize=1)
 def get_publisher_settings() -> PublisherSettings:
     """캐시된 퍼블리셔 설정을 반환한다."""
-    global _settings_cache
-    if _settings_cache is None:
-        _settings_cache = load_publisher_settings()
-    return _settings_cache
+    return load_publisher_settings()

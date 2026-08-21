@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 from typing import Mapping, Optional
 
@@ -188,16 +189,10 @@ def load_simulator_settings(env: Mapping[str, str] | None = None) -> SimulatorSe
     )
 
 
-_settings_cache: SimulatorSettings | None = None
-_queue_config_cache: QueueThrottleConfig | None = None
-
-
+@lru_cache(maxsize=1)
 def get_simulator_settings() -> SimulatorSettings:
     """캐시된 시뮬레이터 설정을 반환한다."""
-    global _settings_cache
-    if _settings_cache is None:
-        _settings_cache = load_simulator_settings()
-    return _settings_cache
+    return load_simulator_settings()
 
 
 def build_queue_config(settings: SimulatorSettings) -> QueueThrottleConfig:
@@ -217,13 +212,7 @@ def build_queue_config(settings: SimulatorSettings) -> QueueThrottleConfig:
     )
 
 
-def get_queue_config(
-    settings: SimulatorSettings | None = None,
-) -> QueueThrottleConfig:
+@lru_cache(maxsize=1)
+def get_queue_config() -> QueueThrottleConfig:
     """큐 정책 설정을 반환한다."""
-    if settings is None:
-        global _queue_config_cache
-        if _queue_config_cache is None:
-            _queue_config_cache = build_queue_config(get_simulator_settings())
-        return _queue_config_cache
-    return build_queue_config(settings)
+    return build_queue_config(get_simulator_settings())

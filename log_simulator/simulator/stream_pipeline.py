@@ -41,7 +41,7 @@ async def run_simulator_loop(
 ) -> None:
     """서비스별로 배치 로그를 생성해 퍼블리시 큐에 쌓는다."""
     resolved_settings = settings or get_simulator_settings()
-    resolved_queue_config = queue_config or get_queue_config(resolved_settings)
+    resolved_queue_config = queue_config or get_queue_config()
     throttle_scale = resolved_queue_config.soft_scale_max
     target_interval_sec = max(resolved_settings.target_interval_sec, 0.01)
     resolved_batch_size = (

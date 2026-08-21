@@ -19,7 +19,7 @@ def create_simulator_tasks(
     service_eps: Dict[str, float],
 ) -> Tuple["asyncio.Queue[list[BatchMessage]]", List[asyncio.Task]]:
     settings = get_simulator_settings()
-    queue_config = get_queue_config(settings)
+    queue_config = get_queue_config()
 
     publish_queue: "asyncio.Queue[list[BatchMessage]]" = asyncio.Queue(
         maxsize=settings.queue_size
@@ -60,7 +60,7 @@ def create_service_tasks_only(
 ) -> List[asyncio.Task]:
     """기존 publish_queue를 재사용해 service_tasks만 새로 생성한다. EPS 실시간 변경용."""
     settings = get_simulator_settings()
-    queue_config = get_queue_config(settings)
+    queue_config = get_queue_config()
 
     available_services = list(simulators.keys())
     service_count = max(len(available_services), 1)

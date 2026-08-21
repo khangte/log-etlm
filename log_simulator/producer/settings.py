@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Dict, Mapping, Optional
 
 from common.get_env import get_env_bool, get_env_int, get_env_str
@@ -93,12 +94,7 @@ def load_producer_settings(env: Mapping[str, str] | None = None) -> ProducerSett
     )
 
 
-_settings_cache: ProducerSettings | None = None
-
-
+@lru_cache(maxsize=1)
 def get_producer_settings() -> ProducerSettings:
     """캐시된 프로듀서 설정을 반환한다."""
-    global _settings_cache
-    if _settings_cache is None:
-        _settings_cache = load_producer_settings()
-    return _settings_cache
+    return load_producer_settings()
