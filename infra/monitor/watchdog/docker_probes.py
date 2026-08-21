@@ -9,9 +9,7 @@ from .alert import send_alert
 from .config import TARGET_CONTAINERS, HEALTH_INTERVAL_SEC
 
 
-async def stream_lines(
-    cmd: Iterable[str],
-) -> tuple[asyncio.subprocess.Process, asyncio.StreamReader]:
+async def stream_lines(cmd: Iterable[str]) -> asyncio.StreamReader:
     """지정 명령을 실행하고 stdout을 라인 단위로 읽을 수 있는 스트림을 반환한다."""
     proc = await asyncio.create_subprocess_exec(
         *cmd,
@@ -20,7 +18,7 @@ async def stream_lines(
     )
     if proc.stdout is None:
         raise RuntimeError(f"stdout pipe unavailable for command: {list(cmd)}")
-    return proc, proc.stdout
+    return proc.stdout
 
 
 async def watch_events() -> None:
@@ -30,7 +28,7 @@ async def watch_events() -> None:
         "--format", "{{json .}}",
         "--filter", "type=container",
     ]
-    proc, stdout = await stream_lines(cmd)
+    stdout = await stream_lines(cmd)
     while True:
         line = await stdout.readline()
         if not line:
@@ -58,7 +56,7 @@ async def watch_events() -> None:
 async def watch_logs(container: str, patterns: list[re.Pattern[str]]) -> None:
     """docker logs -f 로 특정 키워드 감지."""
     cmd = ["docker", "logs", "-f", "--since", "1s", container]
-    proc, stdout = await stream_lines(cmd)
+    stdout = await stream_lines(cmd)
     while True:
         line = await stdout.readline()
         if not line:
