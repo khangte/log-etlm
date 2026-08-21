@@ -13,7 +13,6 @@ import hashlib
 import orjson
 import random
 import time
-import unicodedata
 import uuid
 
 
@@ -27,7 +26,6 @@ class BaseServiceSimulator:
     """
 
     service: str = "base"
-    event_id_rule_version: str = "v1"
     event_id_seed_fields: tuple[str, ...] = (
         "service",
         "event_name",
@@ -151,51 +149,22 @@ class BaseServiceSimulator:
         """generate_request_id 처리를 수행한다."""
         return "req_" + uuid.uuid4().hex
 
-    def _normalize_event_id_value(self, value: Any) -> str:
-        """event_id seed에 넣기 위한 값을 문자열로 정규화한다."""
-        if value is None:
-            return ""
-        if isinstance(value, bool):
-            return "1" if value else "0"
-        if isinstance(value, int):
-            return str(value)
-        if isinstance(value, float):
-            if value.is_integer():
-                return str(int(value))
-            return format(value, ".15g")
-        if isinstance(value, bytes):
-            return value.decode("utf-8", errors="replace")
-        if isinstance(value, str):
-            return unicodedata.normalize("NFC", value)
-        if isinstance(value, (list, tuple)):
-            return ",".join(self._normalize_event_id_value(v) for v in value)
-        if isinstance(value, dict):
-            items = []
-            for k in sorted(value.keys()):
-                key = unicodedata.normalize("NFC", str(k))
-                val = self._normalize_event_id_value(value[k])
-                items.append(f"{key}={val}")
-            return "{" + ",".join(items) + "}"
-        return unicodedata.normalize("NFC", str(value))
-
     def _seed_segment(self, name: str, value: Any) -> str:
-        normalized = self._normalize_event_id_value(value)
-        return f"{name}:{len(normalized)}:{normalized}"
+        text = "" if value is None else str(value)
+        return f"{name}:{len(text)}:{text}"
 
     def _build_event_id_seed(self, event: Dict[str, Any]) -> str:
-        """규칙 버전 + allowlist 고정 순서로 canonical seed를 구성한다."""
-        segments: list[str] = [self._seed_segment("_v", self.event_id_rule_version)]
-
-        for field in self.event_id_seed_fields:
-            segments.append(self._seed_segment(field, event.get(field)))
-
+        """allowlist 고정 순서로 canonical seed를 구성한다."""
+        segments: list[str] = [
+            self._seed_segment(field, event.get(field)) for field in self.event_id_seed_fields
+        ]
         return "|".join(segments)
 
     def generate_stable_event_id(self, event: Dict[str, Any]) -> str:
         """규칙 고정 canonical seed 기반으로 안정 event_id를 생성한다."""
         seed = self._build_event_id_seed(event)
         digest = hashlib.blake2b(seed.encode("utf-8"), digest_size=16).hexdigest()
-        return f"evt_{self.event_id_rule_version}_{digest}"
+        return f"evt_{digest}"
 
     def generate_user_id(self) -> int:
         """유저 풀에서 정수 user_id를 선택한다."""
