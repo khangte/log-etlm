@@ -2,20 +2,7 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 
-
-ENV_PATH = Path(__file__).parents[1] / "watchdog.env"
-if ENV_PATH.exists():
-    for _line in ENV_PATH.read_text().splitlines():
-        _line = _line.strip()
-        if not _line or _line.startswith("#") or "=" not in _line:
-            continue
-        _key, _value = _line.split("=", 1)
-        _key = _key.strip()
-        _value = _value.strip().strip('"').strip("'")
-        if _key and _key not in os.environ:
-            os.environ[_key] = _value
 
 TARGET_CONTAINERS: list[str] = ["kafka", "spark-driver", "clickhouse", "grafana"]
 
@@ -55,18 +42,10 @@ CH_PASSWORD = os.getenv("CH_PASSWORD", os.getenv("CLICKHOUSE_PASSWORD", ""))
 CH_TIMEOUT_SEC = int(os.getenv("CH_TIMEOUT_SEC", "5"))
 CH_QUERY_INTERVAL_SEC = int(os.getenv("CH_QUERY_INTERVAL_SEC", "600"))
 
-P95_PRODUCER_TO_KAFKA_MS_MAX = int(
-    os.getenv("P95_PRODUCER_TO_KAFKA_MS_MAX", os.getenv("P95_QUEUE_MS_MAX", "60000"))
-)
-P95_KAFKA_TO_SPARK_INGEST_MS_MAX = int(
-    os.getenv(
-        "P95_KAFKA_TO_SPARK_INGEST_MS_MAX", os.getenv("P95_PUBLISH_MS_MAX", "60000")
-    )
-)
+P95_PRODUCER_TO_KAFKA_MS_MAX = int(os.getenv("P95_PRODUCER_TO_KAFKA_MS_MAX", "60000"))
+P95_KAFKA_TO_SPARK_INGEST_MS_MAX = int(os.getenv("P95_KAFKA_TO_SPARK_INGEST_MS_MAX", "60000"))
 P95_SPARK_PROCESSING_MS_MAX = int(os.getenv("P95_SPARK_PROCESSING_MS_MAX", "60000"))
-P95_SPARK_TO_STORED_MS_MAX = int(
-    os.getenv("P95_SPARK_TO_STORED_MS_MAX", os.getenv("P95_SINK_MS_MAX", "60000"))
-)
+P95_SPARK_TO_STORED_MS_MAX = int(os.getenv("P95_SPARK_TO_STORED_MS_MAX", "60000"))
 P95_E2E_MS_MAX = int(os.getenv("P95_E2E_MS_MAX", "60000"))
 FRESHNESS_MS_MAX = int(os.getenv("FRESHNESS_MS_MAX", "120000"))
 EPS_MIN = float(os.getenv("EPS_MIN", "1"))
