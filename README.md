@@ -119,12 +119,6 @@ docker compose up -d simulator
 
 # 6. (선택) CLI 모니터링
 python infra/monitor/main.py
-
-# 7. (선택) Spark 프로파일 자동 전환 크론 등록
-#   - ClickHouse 지연 p95 기반 Spark 프로파일 주기 조정
-#   - 로그 저장 위치: logs/autoswitch.log
-crontab -e
-*/10 * * * * /home/kang/log-etlm/scripts/autoswitch_spark_env.sh >> /home/kang/log-etlm/logs/autoswitch.log 2>&1
 ```
 
 
@@ -168,7 +162,6 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 ### Spark 스트리밍
 
-- 환경 프로파일 값은 `config/env/{low,mid,high}.env` 참고(적용은 `docker-compose.yml`)
 - 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
   - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `true` — 재시작마다 latest 오프셋부터 소비)
@@ -192,7 +185,6 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 실시간(10s) 집계가 과부하를 유발하면 10s MV를 DETACH해 운영(1m) 지표 중심으로 관찰한다.
 
 ### 유틸 스크립트 목록
-- Spark 프로파일: `scripts/apply_spark_env.sh`, `scripts/current_spark_env.sh`, `scripts/autoswitch_spark_env.sh`
 - Kafka/Spark 지연: `scripts/kafka_spark_lag.py`
 - ClickHouse 진단: `scripts/clickhouse_diagnostics.sh`, `scripts/diag_partition_and_partlog.sh`
 - 스파이크 분석: `scripts/publish_spike_diag.sh`
