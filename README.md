@@ -164,7 +164,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 
 - 스트림 분리/동작: `docker-compose.yml`
   - `SPARK_FACT_TOPICS`, `SPARK_DLQ_TOPIC`, `SPARK_ENABLE_DLQ_STREAM`, `SPARK_STARTING_OFFSETS`, `SPARK_STORE_RAW_JSON`
-  - `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `true` — 재시작마다 latest 오프셋부터 소비)
+  - `SPARK_FACT_TRIGGER_INTERVAL_SEC`, `SPARK_RESET_CHECKPOINT_ON_START` (기본 `true` — 재시작마다 latest 오프셋부터 소비)
   - `SPARK_STREAM_SHUFFLE_PARTITIONS`, `SPARK_SKIP_EMPTY_BATCH`
   - `SPARK_BATCH_TIMING_LOG_PATH`
   - 스트리밍 progress 조회(eventLog 기반): `grep QueryProgressEvent /data/log-etlm/spark-events/<app-id> | jq .progress`
@@ -182,7 +182,7 @@ docker exec -it kafka kafka-topics --bootstrap-server kafka:9092 --describe --to
 - 보관/메모리: `KAFKA_HEAP_OPTS`, `KAFKA_LOG_RETENTION_HOURS`, `KAFKA_LOG_RETENTION_BYTES`, `KAFKA_LOG_SEGMENT_BYTES`, `KAFKA_NUM_PARTITIONS`
 
 ### near-real-time 운용 팁(단일 VM 기준)
-- CPU 포화 시 `SPARK_FACT_TRIGGER_INTERVAL`과 `SPARK_MAX_OFFSETS_PER_TRIGGER`를 조정해 지연(SLA)을 안정적으로 맞추는 것을 우선한다.
+- CPU 포화 시 `SPARK_FACT_TRIGGER_INTERVAL_SEC`과 `SPARK_MAX_OFFSETS_PER_TRIGGER`를 조정해 지연(SLA)을 안정적으로 맞추는 것을 우선한다.
 - 실시간(10s) 집계가 과부하를 유발하면 10s MV를 DETACH해 운영(1m) 지표 중심으로 관찰한다.
 
 ### 유틸 스크립트 목록

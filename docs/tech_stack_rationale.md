@@ -93,7 +93,7 @@ Spark는 **분산 데이터 처리 엔진**이다. Structured Streaming은 Kafka
 ### 장점
 
 - 선언적 스트리밍 API로 파싱 → 검증 → 정규화 → 적재 파이프라인을 단계별로 명확히 분리
-- `SPARK_FACT_TRIGGER_INTERVAL`, `SPARK_MAX_OFFSETS_PER_TRIGGER` 등 환경변수로 부하에 맞게 동적 튜닝 가능
+- `SPARK_FACT_TRIGGER_INTERVAL_SEC`, `SPARK_MAX_OFFSETS_PER_TRIGGER` 등 환경변수로 부하에 맞게 동적 튜닝 가능
 - Python 생태계(PySpark)를 그대로 활용 가능해 시뮬레이터·공통 모듈과 언어 통일
 
 ### 단점

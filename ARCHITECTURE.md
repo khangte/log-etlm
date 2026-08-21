@@ -234,7 +234,7 @@ bad_df
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `SPARK_FACT_TRIGGER_INTERVAL` | `4 seconds` | 스트리밍 트리거 주기 |
+| `SPARK_FACT_TRIGGER_INTERVAL_SEC` | `4` | 스트리밍 트리거 주기(초) |
 | `SPARK_MAX_OFFSETS_PER_TRIGGER` | 자동 계산 | 배치당 최대 오프셋. 미설정 시 `target_eps × trigger_sec × safety`로 계산 |
 | `SPARK_MAX_OFFSETS_CAP` | 30000 | maxOffsets 하드 상한 |
 | `SPARK_FACT_DEDUP_KEYS` | `(없음)` | dedup 기준 컬럼. 비어 있으면 Spark dedup 비활성화 — ReplacingMergeTree와 BATCH_GUARD에 위임 |
