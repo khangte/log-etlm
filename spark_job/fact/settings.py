@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 import os
 from typing import Mapping
 
@@ -47,12 +48,7 @@ def load_fact_stream_settings(
     )
 
 
-_settings_cache: FactStreamSettings | None = None
-
-
+@lru_cache(maxsize=1)
 def get_fact_stream_settings() -> FactStreamSettings:
     """캐시된 팩트 스트림 설정을 반환한다."""
-    global _settings_cache
-    if _settings_cache is None:
-        _settings_cache = load_fact_stream_settings()
-    return _settings_cache
+    return load_fact_stream_settings()
