@@ -39,7 +39,7 @@ def load_stream_ingest_settings(
     return StreamIngestSettings(
         kafka_bootstrap=kafka_bootstrap,
         fact_topics=fact_topics,
-        starting_offsets=get_env_optional_str(source, "SPARK_STARTING_OFFSETS"),
+        starting_offsets=get_env_str(source, "SPARK_STARTING_OFFSETS"),
         max_offsets_per_trigger=get_env_str(source, "SPARK_MAX_OFFSETS_PER_TRIGGER"),
         max_offsets_cap=get_env_int(source, "SPARK_MAX_OFFSETS_CAP"),
         target_eps=get_env_int(source, "SPARK_TARGET_EPS"),
