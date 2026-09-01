@@ -13,11 +13,6 @@ from ..models.messages import BatchMessage
 from .settings import SimulatorSettings
 
 
-def adjust_eps_for_event_mode(eps: float) -> float:
-    """EPS 하한(0.01)을 보장한다."""
-    return max(eps, 0.01)
-
-
 def _is_error_event(ev: dict) -> bool:
     """is_error_event 처리를 수행한다."""
     r = ev.get("result")

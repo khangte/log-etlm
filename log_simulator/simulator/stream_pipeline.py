@@ -15,7 +15,6 @@ from typing import Any
 from .settings import get_simulator_settings
 from ..models.messages import BatchMessage
 from .stream_helpers import (
-    adjust_eps_for_event_mode,
     apply_queue_backpressure,
     build_batch_messages_from_simulator,
     log_behind,
@@ -51,7 +50,7 @@ async def run_simulator_loop(
         dt_actual = max(0.0, now_ts - prev_ts)
         prev_ts = now_ts
 
-        effective_eps = adjust_eps_for_event_mode(target_eps)
+        effective_eps = max(target_eps, 0.01)
         scaled_eps = max(effective_eps * throttle_scale, 0.01)
 
         # 실제 경과시간 기반 토큰 버킷으로 평균 EPS를 맞춘다.
