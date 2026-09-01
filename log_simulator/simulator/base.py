@@ -90,12 +90,8 @@ class BaseServiceSimulator:
         # self.funnel = profile.get("funnel", {}) or {}
         # self.entity_pool = profile.get("entity_pool", {}) or {}
 
-        # RNG(테스트 재현성 필요하면 seed 넣기)
-        seed = profile.get("seed")
-        self._rng = random.Random(seed) if seed is not None else random.Random()
-
-        pool_size = int(profile.get("user_pool_size", 10000))
-        self._user_pool = list(range(1, pool_size + 1))
+        self._rng = random.Random()
+        self._user_pool = list(range(1, 10001))
 
         # -------- routes 전처리(핵심 최적화) --------
         # 1) methods 대문자화(매번 upper 하지 않게)
