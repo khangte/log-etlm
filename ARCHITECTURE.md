@@ -150,7 +150,6 @@ assemble_pipeline()
 | `logs.payment` | 결제 서비스 이벤트 |
 | `logs.error` | 에러 이벤트 (replicate_error 복제본) |
 | `logs.dlq` | Spark DLQ 우회 메시지 |
-| `logs.unknown` | 미분류 이벤트 |
 
 **주요 설정**
 

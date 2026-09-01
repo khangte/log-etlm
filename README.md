@@ -28,7 +28,7 @@
    - `log_simulator/engine.py`가 `log_simulator/config/profiles.yml`, `log_simulator/config/routes.yml`을 읽어 서비스별 시뮬레이터/퍼블리셔 파이프라인을 구성.
    - FastAPI 앱(`log_simulator/main.py`)의 lifespan에서 엔진을 시작/중지하며 로그를 생성.
 2. **로그 브로커/버퍼링**
-   - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.dlq`, `logs.error`, `logs.unknown` 토픽에서 생산자와 소비자 사이 메시지 버퍼 역할 수행.
+   - Kafka 단일 노드가 `logs.auth`, `logs.order`, `logs.payment`, `logs.dlq`, `logs.error` 토픽에서 생산자와 소비자 사이 메시지 버퍼 역할 수행.
    - Kafka UI를 통한 토픽/파티션 상태와 소비량 확인, 필요 시 수동 토픽 관리(생성/삭제) 수행.
 3. **로그 실시간 처리**
    - Spark Structured Streaming이 fact/DLQ 스트림을 분리 구독해 정규화·중복 제거 후 적재.
@@ -135,7 +135,6 @@ python infra/monitor/main.py
 | `logs.payment` | 1 | 20% 트래픽 |
 | `logs.error` | 1 | 극소량 |
 | `logs.dlq` | 1 | DLQ |
-| `logs.unknown` | 1 | 미분류 |
 
 토픽 생성은 `kafka-init` 컨테이너가 `docker compose up` 시 자동으로 처리한다(`--if-not-exists`).
 파티션 증설이 필요한 경우 아래 명령을 사용한다(감소는 불가하므로 필요 시 토픽 삭제 후 재생성).
