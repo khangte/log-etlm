@@ -176,22 +176,11 @@ class BaseServiceSimulator:
 
     # ---------- route/method 선택 ----------
 
-    def pick_route(self, routes: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
-        """
-        최적화: 기본은 self.routes + prefix sums로 선택.
-        레거시 호환: routes가 self.routes가 아니면 느린 방식으로 처리.
-        """
-        if routes is None or routes is self.routes:
-            # 1..total
-            x = self._rng.randrange(1, self._route_total_weight + 1)
-            idx = bisect.bisect_left(self._route_prefix_sums, x)
-            return self.routes[idx]
-
-        # (드문 케이스) 외부 routes 리스트가 들어오면 간단 처리
-        if not routes:
-            raise ValueError("routes is empty")
-        weights = [int(r.get("weight", 1)) for r in routes]
-        return self._rng.choices(routes, weights=weights, k=1)[0]
+    def pick_route(self) -> Dict[str, Any]:
+        """self.routes + prefix sums로 가중 무작위 선택한다."""
+        x = self._rng.randrange(1, self._route_total_weight + 1)
+        idx = bisect.bisect_left(self._route_prefix_sums, x)
+        return self.routes[idx]
 
     def pick_method(self, route: Dict[str, Any]) -> str:
         """pick_method 처리를 수행한다."""
