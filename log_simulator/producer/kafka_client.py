@@ -113,19 +113,11 @@ def close_producer(timeout: float = 5.0) -> None:
 # 동기 발행 함수 (실제 Kafka I/O)
 # ---------------------------------------------------------------------------
 
-def _to_bytes(value: Optional[bytes | str]) -> Optional[bytes]:
-    """value/key를 bytes로 정규화해 producer에 바로 전달한다."""
-    if value is None:
-        return None
-    if isinstance(value, bytes):
-        return value
-    return str(value).encode("utf-8")
-
 def _deliver(
     producer: Producer,
     service: str,
-    value: bytes | str,
-    key: Optional[bytes | str] = None,
+    value: bytes,
+    key: Optional[bytes] = None,
     replicate_error: bool = False,
 ) -> None:
     """deliver 처리를 수행한다."""
@@ -141,20 +133,17 @@ def _deliver(
                 err,
             )
 
-    encoded_value = _to_bytes(value)
-    encoded_key = _to_bytes(key)
-
     producer.produce(
         topic=topic,
-        value=encoded_value,
-        key=encoded_key,
+        value=value,
+        key=key,
         callback=_delivery_report,
     )
     if replicate_error and service != "error":
         err_topic = get_topic("error")
         producer.produce(
             topic=err_topic,
-            value=encoded_value,
-            key=encoded_key,
+            value=value,
+            key=key,
             callback=_delivery_report,
         )
