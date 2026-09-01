@@ -7,17 +7,9 @@
 태그: `delete`(죽은 코드·불필요한 유연성) / `stdlib`(표준 라이브러리 대체) / `native`(플랫폼 기능 대체) /
 `yagni`(구현체 1개 추상화·미사용 설정·호출자 1개 레이어) / `shrink`(같은 로직 더 짧게)
 
-## 미처리 우선순위 (1~18번 처리완료, 이하 원본 삭제량 정렬 유지)
+## 미처리 우선순위 (1~27번 처리완료)
 
-19. `shrink` `get_env_optional_str()` — `get_env_str()`과 완전 중복, 호출부 5곳 치환. (L41)
-20. `native` `spark_job/__init__.py`의 `_ensure_project_root()` — Dockerfile `PYTHONPATH`로 이미 해결됨. (L43)
-21. `yagni` `_to_bytes()` — `BatchMessage.value`/`key`가 이미 `bytes | None` 고정 타입. (L46)
-22. `yagni` `get_topic()` 폴백 2개 — 서비스 목록이 REGISTRY로 닫혀 있어 미도달 경로. (L47)
-23. `yagni` `QUEUE_LOW_WATERMARK_RATIO`/`QUEUE_LOW_SLEEP_SCALE` — 기본값이 무연산(`*= 1.0`). (L49)
-24. `yagni` `adjust_eps_for_event_mode(eps)` — `max(eps, 0.01)` 한 줄, 호출부 인라인. (L50)
-25. `yagni` `pick_route(routes=...)` 외부 routes 폴백 — 세 서비스 모두 인자 없이 호출, 주석도 "레거시 호환". (L52)
-26. `yagni` `profile.get("seed")`/`profile.get("user_pool_size")` — `profiles.yml`에 두 키 모두 없어 항상 기본값. (L53)
-27. `yagni` `SPARK_TARGET_EPS`/`SPARK_TARGET_EPS_PROFILE_PATH` — 어디에도 설정 안 됨, 항상 하드코딩 경로 폴백. (L54)
+(전 항목 처리완료 — 아래 상세 목록의 `[처리완료]` 표시 참조)
 
 ---
 
@@ -50,17 +42,17 @@
 - [처리완료] delete 레거시 스키마 필드 `timestamp_ms`·`level`·`path`·`product_id`와 `normalize_event`의 대응 coalesce 폴백. 현재 시뮬레이터는 v2 필드만 발행하므로 항상 null → 기본값이다. ClickHouse `event_log`의 해당 컬럼도 같이 정리 대상. [spark_job/fact/schema.py:30-34, spark_job/fact/transforms/normalize_event.py:14-70, infra/clickhouse/sql/10_fact.sql]
 - [처리완료] delete `raw_json` 저장 경로 — `SPARK_STORE_RAW_JSON=false`로 고정이라 `F.lit("")`가 매 행 적재된다. `store_raw_json` 파라미터 체인(`parse_event.need_raw_json` → `parse_event_log_with_errors` → `normalize_event`)과 컬럼을 함께 제거. [spark_job/fact/transforms/parse_event.py:8-30, spark_job/fact/parsers/event_log.py, spark_job/fact/transforms/normalize_event.py:79]
 - [처리완료] shrink `_apply_partitioning`의 `allow_repartition` 업스케일 분기. architect 재검토로 정정: "세 프로파일 고정"은 `config/env` 시절 표현이며, 지금은 compose `${...:-false}` 하나라 `.env`로 덮으면 문법상 도달 가능한 경로였다. 그래도 제거 — 업스케일이 성립하려면 write_partitions를 4 이상으로 올려야 하는데 이는 JDBC 동시 커넥션 수를 직접 늘리는 방향이라 튜닝 이력이 반대하고, repartition 자체가 dedup 제거(17번)와 같은 종류의 셔플 비용이다. [spark_job/clickhouse/sink.py, spark_job/clickhouse/settings.py, docker-compose.yml, README.md]
-- shrink `common/get_env.py`의 `get_env_optional_str()`. `get_env_str(env, key)`가 이미 빈 문자열을 default(None)로 정규화하므로 완전한 중복이다. 호출부 5곳을 `get_env_str`로 치환. [common/get_env.py:19-25]
+- [처리완료] shrink `common/get_env.py`의 `get_env_optional_str()`. `get_env_str(env, key)`가 이미 빈 문자열을 default(None)로 정규화하므로 완전한 중복이다. 실제 호출부는 2곳(감사 서술의 "5곳"은 낡은 수치, 나머지 3곳은 이전 라운드에서 이미 삭제됨) — `get_env_str`로 치환. [common/get_env.py:19-25]
 - [처리완료] delete `ClickHouseSettings.build_native_options()` + `build_catalog_configs()`(35줄). 프로덕션 호출자 0, 테스트만 검증한다(spark-clickhouse-connector 미사용, JDBC 경로만 사용). 함께 `jdbc_fetchsize`/`SPARK_CLICKHOUSE_JDBC_FETCHSIZE`도 쓰기 전용 경로라 무의미. [spark_job/clickhouse/settings.py:59-97,108, README.md:182]
-- native `spark_job/__init__.py`의 `_ensure_project_root()` sys.path 삽입. Dockerfile이 이미 `ENV PYTHONPATH="/app:..."`를 설정한다. 테스트도 pytest `rootdir` 설정으로 해결. [spark_job/__init__.py, spark_job/Dockerfile:27]
+- [처리완료] native `spark_job/__init__.py`의 `_ensure_project_root()` sys.path 삽입. Dockerfile이 이미 `ENV PYTHONPATH="/app:..."`를 설정한다. 테스트도 pytest `rootdir` 설정으로 해결. [spark_job/__init__.py, spark_job/Dockerfile:27]
 - [처리완료] delete `tests/simulator/test_render_bytes.py` 114줄 — `json.dumps` vs `orjson` 출력 동일성·속도 비교. 이미 orjson으로 결정·적용된 뒤라 회귀 검증 가치가 없고 벤치마크 코드만 남았다. [tests/simulator/test_render_bytes.py]
 - [처리완료] shrink 진단 스크립트 3종(`clickhouse_diagnostics.sh` 66, `publish_spike_diag.sh` 88, `diag_partition_and_partlog.sh` 24)이 동일한 `docker exec clickhouse clickhouse-client` 접속 상용구와 겹치는 지표 쿼리를 각자 갖는다. 하나로 합치고 섹션을 인자로 고른다. [scripts/]
-- yagni `_to_bytes()` — `BatchMessage.value`/`key`는 이미 `bytes | None`으로 타입이 고정되어 있다. str 분기 불필요. [log_simulator/producer/kafka_client.py:133-139]
-- yagni `get_topic()`의 폴백 2개(`logs.unknown`, `f"logs.{service}"`). 서비스는 REGISTRY 3종 + error/dlq로 닫혀 있고, `logs.unknown` 토픽은 compose에서 생성이 주석 처리되어 있다. dict 조회 실패는 예외로 드러낸다. [log_simulator/producer/topic.py:14-18]
+- [처리완료] yagni `_to_bytes()` — `BatchMessage.value`/`key`는 이미 `bytes | None`으로 타입이 고정되어 있다. str 분기 불필요. [log_simulator/producer/kafka_client.py:133-139]
+- [처리완료] yagni `get_topic()`의 폴백 2개(`logs.unknown`, `f"logs.{service}"`). 서비스는 REGISTRY 3종 + error/dlq로 닫혀 있고, `logs.unknown` 토픽은 compose에서 생성이 주석 처리되어 있다. dict 조회 실패는 예외로 드러낸다. 문서(ARCHITECTURE.md·README.md·docker-compose.yml)에 남아있던 `logs.unknown` 폴백 서술도 함께 정리. [log_simulator/producer/topic.py:14-18]
 - [처리완료] delete `stream_lines()`가 반환하는 `proc` — 두 호출자 모두 stdout만 쓰고 프로세스 핸들을 버린다. 반환값을 스트림 하나로 축소. [infra/monitor/watchdog/docker_probes.py:12-23,33,61]
-- yagni `QUEUE_LOW_WATERMARK_RATIO`/`QUEUE_LOW_SLEEP_SCALE` 노브. `low_sleep_scale=1.0`이 기본이자 compose 설정값이라 `sleep_time *= 1.0` 무연산이다. 백프레셔 노브는 hard throttle + soft scale 두 축(9개)으로 충분하다. [log_simulator/simulator/stream_helpers.py:189-190, docker-compose.yml, log_simulator/simulator/settings.py]
-- yagni `adjust_eps_for_event_mode(eps)` — 이름과 달리 event_mode를 보지 않고 `max(eps, 0.01)` 한 줄이다. 호출부에 인라인. [log_simulator/simulator/stream_helpers.py:16-18]
+- [처리완료] yagni `QUEUE_LOW_WATERMARK_RATIO`/`QUEUE_LOW_SLEEP_SCALE` 노브. `low_sleep_scale=1.0`이 기본이자 compose 설정값이라 `sleep_time *= 1.0` 무연산이다. 백프레셔 노브는 hard throttle + soft scale 두 축(9개)으로 충분하다. e2e_pipeline_flow.md의 backpressure 3단계 서술도 2단계로 정정. [log_simulator/simulator/stream_helpers.py:189-190, docker-compose.yml, log_simulator/simulator/settings.py]
+- [처리완료] yagni `adjust_eps_for_event_mode(eps)` — 이름과 달리 event_mode를 보지 않고 `max(eps, 0.01)` 한 줄이다. 호출부에 인라인. [log_simulator/simulator/stream_helpers.py:16-18]
 - [처리완료] delete `infra/clickhouse/migrations/01_drop_redundant_mvs.sql` — 2026-05-20 일회성 DROP VIEW 마이그레이션. 대상 MV는 이미 `21_materialized_views.sql`에 없다(적용 완료). [infra/clickhouse/migrations/]
-- yagni `BaseServiceSimulator.pick_route(routes=...)`의 외부 routes 폴백 분기. 세 서비스 모두 인자 없이 호출하며, 주석도 "레거시 호환"이라 적고 있다. [log_simulator/simulator/base.py:218-233]
-- yagni `profile.get("seed")` / `profile.get("user_pool_size")` — `profiles.yml`에 두 키 모두 없어 항상 기본값이다. RNG 시드 분기와 10000개 리스트 생성(`list(range(1, 10001))`)을 상수로 고정. [log_simulator/simulator/base.py:97-102]
-- yagni `SPARK_TARGET_EPS` / `SPARK_TARGET_EPS_PROFILE_PATH` — 어디에도 설정되지 않고, `_resolve_target_eps_profile_path()`가 하드코딩 기본 경로로 폴백해 항상 `profiles.yml`을 읽는다. env 두 개와 우선순위 분기를 제거. [spark_job/stream_settings.py:48,50-52, spark_job/stream_kafka.py:136-152]
+- [처리완료] yagni `BaseServiceSimulator.pick_route(routes=...)`의 외부 routes 폴백 분기. 세 서비스 모두 인자 없이 호출하며, 주석도 "레거시 호환"이라 적고 있다(감사 라인참조는 낡음, 실제 base.py:183). [log_simulator/simulator/base.py:218-233]
+- [처리완료] yagni `profile.get("seed")` / `profile.get("user_pool_size")` — `profiles.yml`에 두 키 모두 없어 항상 기본값이다. RNG 시드 분기와 10000개 리스트 생성(`list(range(1, 10001))`)을 상수로 고정(감사 라인참조는 낡음, 실제 base.py:94-98). [log_simulator/simulator/base.py:97-102]
+- [처리완료] yagni `SPARK_TARGET_EPS` / `SPARK_TARGET_EPS_PROFILE_PATH` — 어디에도 설정되지 않고, `_resolve_target_eps_profile_path()`가 하드코딩 기본 경로로 폴백해 항상 `profiles.yml`을 읽는다. env 두 개와 우선순위 분기를 제거, 마지막 호출부였던 `get_env_optional_str()`도 함께 삭제(감사 라인참조는 낡음). [spark_job/stream_settings.py:48,50-52, spark_job/stream_kafka.py:136-152]
