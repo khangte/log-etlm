@@ -151,7 +151,6 @@ services:
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.payment --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.error   --partitions 1 --replication-factor 1
         # kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.dlq     --partitions 1 --replication-factor 1  # DLQ 스트림 비활성화 시 불필요
-        # kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic logs.unknown --partitions 1 --replication-factor 1  # service 누락 시 폴백, 정상 운영에서 미사용
         echo "[kafka-init] 토픽 생성 완료"
         kafka-topics --bootstrap-server kafka:9092 --list
 
