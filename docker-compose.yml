@@ -21,8 +21,6 @@ services:
       # --- Simulator queue (백프레셔/스로틀) ---
       - QUEUE_SIZE=4000
       - SIM_QUEUE_WARN_RATIO=0.8
-      - QUEUE_LOW_WATERMARK_RATIO=0.2
-      - QUEUE_LOW_SLEEP_SCALE=1.0
       - QUEUE_THROTTLE_RATIO=0.9
       - QUEUE_THROTTLE_SLEEP=0.05
       - QUEUE_RESUME_RATIO=0.75
