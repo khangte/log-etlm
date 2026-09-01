@@ -12,7 +12,5 @@ TOPICS: Dict[str, str] = {
 }
 
 def get_topic(service: str) -> str:
-    """get_topic 처리를 수행한다."""
-    if not service:
-        return "logs.unknown"
-    return TOPICS.get(service, f"logs.{service}")
+    """서비스명을 토픽명으로 매핑한다. 미등록 서비스는 KeyError."""
+    return TOPICS[service]
