@@ -84,19 +84,8 @@ class KafkaStreamBuilder:
         return str(max(1, current))
 
     def _resolve_target_eps(self) -> int | None:
-        """target_eps를 환경/프로파일에서 우선순위로 결정한다."""
-        if self.settings.target_eps:
-            return self.settings.target_eps
-        profile_path = self._resolve_target_eps_profile_path()
-        if not profile_path:
-            return None
-        return read_eps_from_profile(profile_path)
-
-    def _resolve_target_eps_profile_path(self) -> str | None:
-        """profiles.yml 경로를 결정한다."""
-        if self.settings.target_eps_profile_path:
-            return self.settings.target_eps_profile_path
+        """profiles.yml에서 target_eps를 읽는다."""
         default_path = "/app/log_simulator/config/profiles.yml"
-        if os.path.exists(default_path):
-            return default_path
-        return None
+        if not os.path.exists(default_path):
+            return None
+        return read_eps_from_profile(default_path)
