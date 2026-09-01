@@ -22,8 +22,6 @@ class SimulatorSettings:
     queue_size: int
     loops_per_service: int
     queue_warn_ratio: float
-    queue_low_watermark_ratio: float
-    queue_low_sleep_scale: float
     queue_throttle_ratio: float
     queue_resume_ratio: float
     queue_throttle_sleep: float
@@ -43,8 +41,6 @@ _DEFAULT_TARGET_INTERVAL_SEC = 0.22
 _DEFAULT_QUEUE_SIZE = 4000
 _DEFAULT_LOOPS_PER_SERVICE = 4
 _DEFAULT_QUEUE_WARN_RATIO = 0.8
-_DEFAULT_QUEUE_LOW_WATERMARK_RATIO = 0.2
-_DEFAULT_QUEUE_LOW_SLEEP_SCALE = 1.0
 _DEFAULT_QUEUE_THROTTLE_RATIO = 0.9
 _DEFAULT_QUEUE_RESUME_RATIO = 0.75
 _DEFAULT_QUEUE_THROTTLE_SLEEP = 0.05
@@ -102,16 +98,6 @@ def load_simulator_settings(env: Mapping[str, str] | None = None) -> SimulatorSe
             source,
             "SIM_QUEUE_WARN_RATIO",
             _DEFAULT_QUEUE_WARN_RATIO,
-        ),
-        queue_low_watermark_ratio=get_env_float(
-            source,
-            "QUEUE_LOW_WATERMARK_RATIO",
-            _DEFAULT_QUEUE_LOW_WATERMARK_RATIO,
-        ),
-        queue_low_sleep_scale=get_env_float(
-            source,
-            "QUEUE_LOW_SLEEP_SCALE",
-            _DEFAULT_QUEUE_LOW_SLEEP_SCALE,
         ),
         queue_throttle_ratio=get_env_float(
             source,

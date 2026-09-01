@@ -170,8 +170,6 @@ async def apply_queue_backpressure(
                 fill_ratio * 100,
             )
 
-    if sleep_time > 0 and fill_ratio <= settings.queue_low_watermark_ratio:
-        sleep_time *= settings.queue_low_sleep_scale
     if fill_ratio >= settings.queue_warn_ratio:
         logger.info(
             "[simulator] queue backlog service=%s queue=%d/%d (%.0f%%)",
