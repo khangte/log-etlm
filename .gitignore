@@ -216,12 +216,17 @@ data/*
 logs/*
 .tmp
 
+CLAUDE.md
 .claudeignore
 .claude/
+
+AGENTS.md
+
+team/
+.team/
 
 .serena/
 
 # ClickHouse 엔트리포인트가 CLICKHOUSE_USER 설정 시 자동 생성 (평문 비밀번호 포함)
 infra/clickhouse/users.d/default-user.xml
 
-.team/
