@@ -14,45 +14,87 @@
 ---
 
 - [처리완료] delete DLQ 파이프라인 전체(`dlq/` 패키지 315줄 + `stream_ingest` 분기 + `sink.py` DLQ 우회 90줄 + `event_log_dlq`·`event_log_dlq_agg_1m` 테이블/MV + watchdog `_check_dlq_metric`). `SPARK_ENABLE_DLQ_STREAM=false`, `SPARK_CLICKHOUSE_DLQ_ON_FINAL_FAILURE=false`, `logs.dlq` 토픽 생성도 주석 처리 상태라 어느 경로로도 실행되지 않는다. 파싱 실패 건은 `parse_event_log_with_errors`의 `build_bad_df=False` 경로처럼 드롭 카운트만 남긴다. [spark_job/dlq/, spark_job/clickhouse/sink.py:41-131, spark_job/stream_ingest.py:47-57, infra/clickhouse/sql/10_fact.sql:47-68, infra/clickhouse/sql/21_materialized_views.sql:91-106, infra/monitor/watchdog/clickhouse_probe.py:221-227]
+
 - [처리완료] stdlib spark 테스트 3종의 수제 harness(`check()`/`PASS`/`FAIL`/`main()` 집계, 실측 360줄 → 전환 후 155줄; 감사 최초 추정 ~493줄은 architect 재검토로 정정). 이미 의존성에 있는 pytest의 `assert` + `parametrize`로 바꾸면 파일당 절반 이하가 된다. 같은 저장소의 `tests/simulator/test_api_simulator.py`는 이미 pytest 방식이다. [tests/spark_job/test_clickhouse_settings.py, tests/spark_job/test_fact_settings.py, tests/spark_job/test_timestamp_columns.py]
+
 - [처리완료] delete `scripts/capacity_calc.py` 371줄. docker-compose.yml과 `config/env/*.env`를 재파싱해 용량을 역산하는 정적 계산기인데, `_parse_eps_max()`는 env 파일 **주석 첫 줄**(`# HIGH: 8~10k EPS`)을 정규식으로 긁어 상한을 추정한다. 실측은 `docs/spark_tuning_log.md`와 Grafana에 이미 있다. [scripts/capacity_calc.py]
+
 - [처리완료] delete 배치 가드(`stream_batch_guard` 조회/기록 110줄 + 테이블 + 미존재 경고 전역 플래그). `SPARK_CLICKHOUSE_BATCH_GUARD_ENABLED=false`이고, foreachBatch 멱등성은 이미 `ReplacingMergeTree(event_id)`가 담당한다. [spark_job/clickhouse/sink.py:134-216,232-295, spark_job/clickhouse/settings.py:35-36, infra/clickhouse/sql/10_fact.sql:71-80]
+
 - [처리완료] delete 시간대 가중치(timeband) 계층 92줄 + `ProfileContext.bands` + `pick_multiplier`/`current_hour_kst` 루프 호출. `profiles.yml`의 `time_weights`가 전부 주석 처리되어 `bands=[]`, multiplier는 항상 1.0이다. 루프 매 회전마다 KST 시각을 계산하는 비용만 남는다. [log_simulator/config/timeband.py, log_simulator/config/profile_context.py:20, log_simulator/simulator/stream_pipeline.py:70-72]
+
 - [처리완료] yagni Spark env 자동전환 계층(`autoswitch_spark_env.sh` 123 + `apply_spark_env.sh` 22 + `current_spark_env.sh` 37 + `config/env/{low,mid,high}.env`). PoC는 단일 프로파일로 고정 운용 중이고 세 스크립트 모두 존재하지 않는 경로 `/home/kang/log-etlm`을 하드코딩하고 있어 현재 실행 자체가 불가능하다. 값은 docker-compose 기본값으로 흡수한다. [scripts/autoswitch_spark_env.sh, scripts/apply_spark_env.sh, scripts/current_spark_env.sh, config/env/]
+
 - [처리완료] delete `scripts/check_backlog.sh`(210줄, bash 안에 python 임베드)와 `scripts/kafka_spark_lag.py`(118줄)는 "Kafka 최신 오프셋 vs Spark 체크포인트" 동일 계산을 한다. 하나만 남긴다(파이썬 쪽 권장). [scripts/check_backlog.sh, scripts/kafka_spark_lag.py]
+
 - [처리완료] native `JsonProgressListener` 60줄 — StreamingQueryProgress를 직접 JSON lines로 파일에 기록. `spark.eventLog.enabled=true`로 이미 같은 progress 이벤트가 `/data/log-etlm/spark-events`에 남는다(architect 재검토: `batch_timing.log`는 측정 지점이 달라 중복 아님, 실제로는 2중 기록). [spark_job/main.py:19-81]
+
 - [처리완료] shrink `_normalize_event_id_value` 재귀 정규화 40줄(dict 정렬·list 평탄화·bytes 디코드·float 포맷·NFC). event_id seed에 들어가는 값은 str·int·float·None뿐이라 `_seed_segment`에 인라인 축약. `event_id_rule_version` 필드는 제거(`evt_v1_<hex>` → `evt_<hex>`, 재계산 로직이 없어 멱등성 영향 없음)했으나, 길이 프리픽스(`f"{name}:{len(text)}:{text}"`)는 서로 다른 필드조합이 같은 event_id로 충돌하는 걸 막는 안전장치라 architect 재검토로 유지 결정. 고정 입력 회귀 테스트 추가. [log_simulator/simulator/base.py]
+
 - [처리완료] shrink 설정 캐시 싱글턴 보일러플레이트(`_settings_cache` 전역 + `global` + `if None`). `dlq/settings.py`는 이미 삭제된 spark DLQ 파이프라인 소속이라 감사 원안의 7벌에서 제외, 실제 처리 시 `get_queue_config()`도 같은 패턴으로 추가 발견돼 6개 파일 8개 지점을 `@functools.lru_cache(maxsize=1)`로 전환. `get_queue_config()`는 인자 없는 함수라 캐시 무효화 API가 사라져 호출부 3곳(task_builder.py×2, stream_pipeline.py×1)을 재호출 방식으로 갱신. 리소스·커넥션 보유 싱글턴(`get_client()`, `get_dlq_publisher()`)은 대상에서 제외. [spark_job/stream_settings.py, spark_job/fact/settings.py, spark_job/clickhouse/settings.py, log_simulator/simulator/settings.py, log_simulator/publisher/settings.py, log_simulator/producer/settings.py]
+
 - [처리완료] yagni `assemble_pipeline()`의 주입 파라미터 9개(`simulator_settings`, `queue_config`, `publisher_settings`, `producer`, `dlq_publisher`, `worker_count`, `log_batch_size`, `queue_size`, `loops_per_service`; 실제 처리 시 `create_service_tasks_only()`의 settings·queue_config 2개도 같은 패턴으로 추가 발견돼 총 11개 정리). 유일 호출자 `engine.start()`는 전부 생략해 None으로 넘기고, 각 하위 함수가 다시 `or get_*()`로 되돌린다. 파라미터를 없애고 하위에서 설정을 직접 읽는다. [log_simulator/pipeline_builder.py:30-45, log_simulator/simulator/task_builder.py:26-34, log_simulator/publisher/worker_pipeline.py:89-101]
+
 - [처리완료] shrink `create_simulator_tasks`와 `create_service_tasks_only`가 큐 생성 여부만 빼고 동일한 루프를 두 번 갖는다(각 40여 줄). `publish_queue`를 인자로 받는 `create_service_tasks()` 하나로 합치고 큐 생성은 `assemble_pipeline()` 호출부로 올림. [log_simulator/simulator/task_builder.py, log_simulator/pipeline_builder.py, log_simulator/engine.py]
+
 - [처리완료] yagni `QueueThrottleConfig` + `build_queue_config()` + `get_queue_config()`(캐시 포함 ~40줄). 11개 필드가 `SimulatorSettings`의 동일 필드를 그대로 복사한 부분집합이다. `SimulatorSettings`를 그대로 넘기도록 전환, 겸사겸사 `run_simulator_loop`에 남아있던 주입 파라미터 3개(`log_batch_size`/`settings`/`queue_config`)도 같은 패턴이라 함께 제거(호출부가 task_builder 한 곳뿐). [log_simulator/simulator/settings.py, log_simulator/simulator/stream_helpers.py]
+
 - [처리완료] shrink watchdog `_check_ingest_metrics`/`_check_latency_metrics`/`_check_freshness_metric` 3벌(`_check_dlq_metric`은 DLQ 파이프라인 삭제 시 이미 제거되어 감사 원안의 4벌에서 제외, 실측 47줄)이 `breached → breach_ready → should_alert → send_alert` 동일 패턴을 반복. 단일 테이블 방식은 architect 재검토로 반려(메시지 형식이 넷 다 달라 7열+방향플래그가 되어 오히려 복잡해짐) — 대신 반복 꼬리만 `_check_threshold(key, now, value, threshold, template, *, below=False, **fields)`로 추출, 47→38줄. [infra/monitor/watchdog/clickhouse_probe.py]
+
 - [처리완료] yagni `_fetch_kafka_partition_count()` — py4j로 JVM에 들어가 `AdminClient.describeTopics`를 호출하고 iterator를 수동 순회하는 35줄. architect 재검토: 이 경로는 현재 아무 값도 바꾸지 않는다(`SPARK_KAFKA_MIN_PARTITIONS` 미설정 + MULTIPLIER=1 + 토픽 파티션 합 7 → minPartitions=7=Spark 기본값과 동일), 기동마다 py4j 블로킹 호출만 낭비. `_fetch_kafka_partition_count`+`_resolve_min_partitions`+`_partition_count_cache` 전부 삭제, `settings.kafka_min_partitions` 직접 지정으로 대체. MULTIPLIER 필드·로더·compose도 문서 참조 없어 함께 삭제. [spark_job/stream_kafka.py, spark_job/stream_settings.py, docker-compose.yml]
+
 - [처리완료] shrink `parse_duration_seconds`의 16개 단위 맵 + 정규식 + 공백분리 폴백(44줄). `FactStreamSettings.trigger_interval: str|None` → `trigger_interval_sec: int|None`, env는 `SPARK_FACT_TRIGGER_INTERVAL_SEC`(정수)로 전환. Spark trigger(processingTime=)용 문자열은 소비처 `fact_writer.py`에서 `f"{sec} seconds"`로 그 자리에 생성(공용 writer_base 파라미터 타입은 불변). `parse_duration_seconds`+`import re` 제거, `read_eps_from_profile`은 유지. [spark_job/stream_utils.py, spark_job/fact/writers/fact_writer.py, spark_job/fact/settings.py, docker-compose.yml]
+
 - [처리완료] delete `_log_runtime_env()`/`_load_env_keys_from_profile()`/`_mask_env_value()` 45줄 — env 파일을 다시 파싱해 키 목록을 만들고 자기 환경변수를 로그로 되뱉는다. `docker compose config`/`docker exec env`로 확인 가능. [spark_job/main.py:84-123]
+
 - [처리완료] native `infra/monitor/watchdog/config.py`의 `watchdog.env` 수동 파서 11줄. architect 재검토로 정정: 이 파일은 존재한 적이 없다(config.py가 찾는 `watchdog.env`와 README가 안내하는 `infra/monitor/.env`가 이름부터 다름) — 대체가 아니라 한 번도 실행된 적 없는 죽은 코드. compose `env_file`은 적용 불가(watchdog은 compose 서비스가 아니라 호스트 python3/systemd 기동), `python-dotenv` 추가도 반려(infra/monitor에 requirements.txt 자체가 없어 죽은 기능 되살리자고 첫 외부 의존성을 들일 이유 없음). 파서+`pathlib` import 삭제, 구버전 폴백 3개도 삭제(기본값 3개 모두 60000이라 값 불변). `CH_USER`/`CH_PASSWORD`의 `CLICKHOUSE_*` 폴백은 실사용 경로라 유지. README의 존재하지 않는 경로·DLQ 잔재 문구도 함께 정리. [infra/monitor/watchdog/config.py, infra/monitor/README.md]
+
 - [처리완료] shrink `spark_rest_probe()`와 `grafana_health_probe()`가 URL·메시지 문자열만 다른 동일 본문(각 19줄). `async def http_probe(name, url)` 하나로 합쳤다. architect 재검토: 예외 튜플 5종(URLError·ConnectionResetError·RemoteDisconnected·TimeoutError 등)이 전부 OSError 하위라 `except OSError`로 축약, `http.client`/`urllib.error` import도 제거. 51→22줄. [infra/monitor/watchdog/service_probes.py, infra/monitor/main.py]
+
 - [처리완료] yagni `ClickHouseFactWriter`/`ClickHouseDlqWriter` 클래스. architect 재검토로 정정: `spark_job/dlq/`는 DLQ 파이프라인 삭제(우선순위 1번)로 이미 존재하지 않아 `ClickHouseDlqWriter` 부분은 무효, `ClickHouseFactWriter`만 대상. 메서드 1개·호출자 1곳·상태는 settings 하나뿐이라 `write_event_log_stream(df)` 모듈 함수로 강등, 내부에서 `get_fact_stream_settings()` 호출. [spark_job/fact/writers/fact_writer.py]
+
 - [처리완료] delete `sink.py` 재시도 루프(`for attempt in range(...)` + `data_written` 상태 + attempt 로깅). `SPARK_CLICKHOUSE_RETRY_MAX=1`이며 주석대로 sleep 없는 즉시 재시도라 실효가 없다. 예외를 올려 Spark 체크포인트 재처리에 맡긴다. [spark_job/clickhouse/sink.py:269-345]
+
 - [처리완료] delete 미사용 공개 API 6종: `publish_batch_direct`, `get_producer`, `build_producer_config`(+ `producer/__init__.py` 재export), `publish_dlq_batch`, `build_batch_messages`, `BaseServiceSimulator.generate_events(count)`. 호출자 0. [log_simulator/producer/kafka_client.py:22-25,113-117,180-191, log_simulator/producer/__init__.py, log_simulator/publisher/dlq.py:83-85, log_simulator/simulator/stream_helpers.py:32-51, log_simulator/simulator/base.py:405-410]
+
 - [처리완료] delete `run_simulator()` + `SimulatorEngine.wait()` — FastAPI lifespan이 `start()`/`stop()`만 쓰고 `run_simulator`를 참조하는 곳이 없다. `self._tasks`도 이 둘만 쓰므로 함께 정리. [log_simulator/engine.py:116-120,158-164]
+
 - [처리완료] delete 계산만 하고 아무도 읽지 않는 필드 `domain_event_rate`/`http_event_rate`와 그 산출 메서드 `_estimate_domain_event_rate()`(27줄)·`_estimate_http_event_rate()`. `__slots__` 항목도 함께. [log_simulator/simulator/base.py:57-58,137-138,274-304]
+
 - [처리완료] yagni `SPARK_STREAM_SHUFFLE_PARTITIONS`. architect 재검토로 정정: `config/env/*.env`는 우선순위 6번(env 자동전환 계층 삭제)으로 이미 사라졌고, 남은 건 compose 하드코딩 값 하나뿐. 이중으로 죽어 있었다 — 게이트가 `SPARK_FACT_DEDUP_KEYS` 비어있지 않을 때만 읽는데, 그 값 자체가 compose에 `SPARK_FACT_DEDUP_KEYS=`로 (`${VAR:-}` 형태가 아니라) 하드코딩돼 있어 env로 덮을 수조차 없었다. 게이트·인자·`_build_spark_session`의 파라미터·적용부를 모두 삭제. [spark_job/spark.py, docker-compose.yml]
+
 - [처리완료] yagni dedup 3중 경로 — `dropDuplicatesWithinWatermark`(watermark) / `foreachBatch dropDuplicates`(배치) / `ReplacingMergeTree`(스토리지). 앞의 둘은 `SPARK_FACT_DEDUP_KEYS=` 빈 값이라 죽은 분기, ReplacingMergeTree만 실제 동작. 조건부 승인 — 잊힌 코드가 아니라 계측 후 되돌린 설정(`pipeline_issue_log`: watermark는 상태저장소 부담, dropDuplicates는 셔플로 인한 JDBC 커넥션 급증·executor 메모리 압박)이라, `stability_config_rationale.md` 롤백 표 해당 행은 삭제 대신 "Spark dedup 경로 제거됨 — 재도입 시 writer_base에 dropDuplicates 재삽입"으로 개정. 관련 예외 검사(`missing dedup columns`, `event_timestamp required`)도 함께 제거. [spark_job/fact/writers/fact_writer.py, spark_job/clickhouse/writer_base.py, spark_job/fact/settings.py, docker-compose.yml, docs/stability_config_rationale.md]
+
 - [처리완료] delete 레거시 스키마 필드 `timestamp_ms`·`level`·`path`·`product_id`와 `normalize_event`의 대응 coalesce 폴백. 현재 시뮬레이터는 v2 필드만 발행하므로 항상 null → 기본값이다. ClickHouse `event_log`의 해당 컬럼도 같이 정리 대상. [spark_job/fact/schema.py:30-34, spark_job/fact/transforms/normalize_event.py:14-70, infra/clickhouse/sql/10_fact.sql]
+
 - [처리완료] delete `raw_json` 저장 경로 — `SPARK_STORE_RAW_JSON=false`로 고정이라 `F.lit("")`가 매 행 적재된다. `store_raw_json` 파라미터 체인(`parse_event.need_raw_json` → `parse_event_log_with_errors` → `normalize_event`)과 컬럼을 함께 제거. [spark_job/fact/transforms/parse_event.py:8-30, spark_job/fact/parsers/event_log.py, spark_job/fact/transforms/normalize_event.py:79]
+
 - [처리완료] shrink `_apply_partitioning`의 `allow_repartition` 업스케일 분기. architect 재검토로 정정: "세 프로파일 고정"은 `config/env` 시절 표현이며, 지금은 compose `${...:-false}` 하나라 `.env`로 덮으면 문법상 도달 가능한 경로였다. 그래도 제거 — 업스케일이 성립하려면 write_partitions를 4 이상으로 올려야 하는데 이는 JDBC 동시 커넥션 수를 직접 늘리는 방향이라 튜닝 이력이 반대하고, repartition 자체가 dedup 제거(17번)와 같은 종류의 셔플 비용이다. [spark_job/clickhouse/sink.py, spark_job/clickhouse/settings.py, docker-compose.yml, README.md]
+
 - [처리완료] shrink `common/get_env.py`의 `get_env_optional_str()`. `get_env_str(env, key)`가 이미 빈 문자열을 default(None)로 정규화하므로 완전한 중복이다. 실제 호출부는 2곳(감사 서술의 "5곳"은 낡은 수치, 나머지 3곳은 이전 라운드에서 이미 삭제됨) — `get_env_str`로 치환. [common/get_env.py:19-25]
+
 - [처리완료] delete `ClickHouseSettings.build_native_options()` + `build_catalog_configs()`(35줄). 프로덕션 호출자 0, 테스트만 검증한다(spark-clickhouse-connector 미사용, JDBC 경로만 사용). 함께 `jdbc_fetchsize`/`SPARK_CLICKHOUSE_JDBC_FETCHSIZE`도 쓰기 전용 경로라 무의미. [spark_job/clickhouse/settings.py:59-97,108, README.md:182]
+
 - [처리완료] native `spark_job/__init__.py`의 `_ensure_project_root()` sys.path 삽입. Dockerfile이 이미 `ENV PYTHONPATH="/app:..."`를 설정한다. 테스트도 pytest `rootdir` 설정으로 해결. [spark_job/__init__.py, spark_job/Dockerfile:27]
+
 - [처리완료] delete `tests/simulator/test_render_bytes.py` 114줄 — `json.dumps` vs `orjson` 출력 동일성·속도 비교. 이미 orjson으로 결정·적용된 뒤라 회귀 검증 가치가 없고 벤치마크 코드만 남았다. [tests/simulator/test_render_bytes.py]
+
 - [처리완료] shrink 진단 스크립트 3종(`clickhouse_diagnostics.sh` 66, `publish_spike_diag.sh` 88, `diag_partition_and_partlog.sh` 24)이 동일한 `docker exec clickhouse clickhouse-client` 접속 상용구와 겹치는 지표 쿼리를 각자 갖는다. 하나로 합치고 섹션을 인자로 고른다. [scripts/]
+
 - [처리완료] yagni `_to_bytes()` — `BatchMessage.value`/`key`는 이미 `bytes | None`으로 타입이 고정되어 있다. str 분기 불필요. [log_simulator/producer/kafka_client.py:133-139]
+
 - [처리완료] yagni `get_topic()`의 폴백 2개(`logs.unknown`, `f"logs.{service}"`). 서비스는 REGISTRY 3종 + error/dlq로 닫혀 있고, `logs.unknown` 토픽은 compose에서 생성이 주석 처리되어 있다. dict 조회 실패는 예외로 드러낸다. 문서(ARCHITECTURE.md·README.md·docker-compose.yml)에 남아있던 `logs.unknown` 폴백 서술도 함께 정리. [log_simulator/producer/topic.py:14-18]
+
 - [처리완료] delete `stream_lines()`가 반환하는 `proc` — 두 호출자 모두 stdout만 쓰고 프로세스 핸들을 버린다. 반환값을 스트림 하나로 축소. [infra/monitor/watchdog/docker_probes.py:12-23,33,61]
+
 - [처리완료] yagni `QUEUE_LOW_WATERMARK_RATIO`/`QUEUE_LOW_SLEEP_SCALE` 노브. `low_sleep_scale=1.0`이 기본이자 compose 설정값이라 `sleep_time *= 1.0` 무연산이다. 백프레셔 노브는 hard throttle + soft scale 두 축(9개)으로 충분하다. e2e_pipeline_flow.md의 backpressure 3단계 서술도 2단계로 정정. [log_simulator/simulator/stream_helpers.py:189-190, docker-compose.yml, log_simulator/simulator/settings.py]
+
 - [처리완료] yagni `adjust_eps_for_event_mode(eps)` — 이름과 달리 event_mode를 보지 않고 `max(eps, 0.01)` 한 줄이다. 호출부에 인라인. [log_simulator/simulator/stream_helpers.py:16-18]
+
 - [처리완료] delete `infra/clickhouse/migrations/01_drop_redundant_mvs.sql` — 2026-05-20 일회성 DROP VIEW 마이그레이션. 대상 MV는 이미 `21_materialized_views.sql`에 없다(적용 완료). [infra/clickhouse/migrations/]
+
 - [처리완료] yagni `BaseServiceSimulator.pick_route(routes=...)`의 외부 routes 폴백 분기. 세 서비스 모두 인자 없이 호출하며, 주석도 "레거시 호환"이라 적고 있다(감사 라인참조는 낡음, 실제 base.py:183). [log_simulator/simulator/base.py:218-233]
+
 - [처리완료] yagni `profile.get("seed")` / `profile.get("user_pool_size")` — `profiles.yml`에 두 키 모두 없어 항상 기본값이다. RNG 시드 분기와 10000개 리스트 생성(`list(range(1, 10001))`)을 상수로 고정(감사 라인참조는 낡음, 실제 base.py:94-98). [log_simulator/simulator/base.py:97-102]
+
 - [처리완료] yagni `SPARK_TARGET_EPS` / `SPARK_TARGET_EPS_PROFILE_PATH` — 어디에도 설정되지 않고, `_resolve_target_eps_profile_path()`가 하드코딩 기본 경로로 폴백해 항상 `profiles.yml`을 읽는다. env 두 개와 우선순위 분기를 제거, 마지막 호출부였던 `get_env_optional_str()`도 함께 삭제(감사 라인참조는 낡음). [spark_job/stream_settings.py:48,50-52, spark_job/stream_kafka.py:136-152]
