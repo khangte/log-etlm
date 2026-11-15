@@ -423,8 +423,8 @@ services:
       - GF_USERS_ALLOW_SIGN_UP=false
       # --- ClickHouse datasource 패스워드 (provisioning YAML에서 ${} 치환용) ---
       - CLICKHOUSE_GRAFANA_PASSWORD=${CLICKHOUSE_GRAFANA_PASSWORD}
-      # --- Plugins (optional) ---
-      # - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      # --- Plugins (datasource 필수, 이미 설치돼 있으면 건너뜀) ---
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/etc/grafana/dashboards:ro
