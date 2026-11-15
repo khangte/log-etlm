@@ -1,2 +1,4 @@
 # spark_job 요구사항 목록
 # pyspark는 베이스 이미지(spark:4.0.1-python3)에 포함되어 있어 별도 설치 불필요
+# PyYAML: read_eps_from_profile 에서 profiles.yml 로딩
+PyYAML>=6.0.1,<7.0
